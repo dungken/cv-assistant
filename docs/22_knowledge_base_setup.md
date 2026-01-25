@@ -39,40 +39,12 @@ Knowledge Base Architecture:
 
 ### 2.1 O*NET Database
 
-**Source**: O*NET OnLine (https://www.onetonline.org/)
-**Format**: JSON/CSV exports
+**Source**: O*NET Resource Center (https://www.onetcenter.org/database.html)
+**Format**: Text/Excel Database (db_28_1_text.zip)
 **Content**:
-
-```yaml
-O*NET Data:
-  occupations:
-    - code: "15-1252.00"
-      title: "Software Developers"
-      description: "Research, design, and develop..."
-      skills:
-        - name: "Programming"
-          importance: 95
-        - name: "Critical Thinking"
-          importance: 85
-      knowledge:
-        - name: "Computers and Electronics"
-          importance: 92
-      work_activities:
-        - "Working with Computers"
-        - "Updating and Using Relevant Knowledge"
-
-  skills_taxonomy:
-    - id: "2.A.1.a"
-      name: "Reading Comprehension"
-      category: "Basic Skills"
-      description: "Understanding written sentences..."
-
-  career_pathways:
-    - from_occupation: "15-1252.00"
-      to_occupation: "11-3021.00"
-      pathway_type: "advancement"
-      typical_years: 5
-```
+- `Occupation Data.txt`: Job titles, descriptions.
+- `Skills.txt`: Skills linked to occupations.
+- `Knowledge.txt`: Knowledge domains.
 
 ### 2.2 CV Writing Guides
 
@@ -226,40 +198,37 @@ class ONetIngester:
     def __init__(self, collection):
         self.collection = collection
 
-    def ingest_occupations(self, occupations_file: str):
-        """Ingest O*NET occupations data"""
-        with open(occupations_file, 'r') as f:
-            occupations = json.load(f)
+    def ingest_occupations(self, onet_dir: str):
+        """Ingest O*NET occupations from Text Database"""
+        import pandas as pd
+        from pathlib import Path
+        
+        # Load Occupation Data.txt
+        occ_file = Path(onet_dir) / "Occupation Data.txt"
+        df = pd.read_csv(occ_file, sep="\t")
 
         documents = []
         metadatas = []
         ids = []
 
-        for occ in occupations:
+        for _, row in df.iterrows():
             # Create document text
             doc = f"""
-            Occupation: {occ['title']}
-            Code: {occ['code']}
-            Description: {occ['description']}
-            Key Skills: {', '.join([s['name'] for s in occ['skills'][:5]])}
+            Occupation: {row['Title']}
+            Code: {row['O*NET-SOC Code']}
+            Description: {row['Description']}
             """
 
             documents.append(doc.strip())
             metadatas.append({
                 "type": "occupation",
-                "code": occ['code'],
-                "title": occ['title']
+                "code": row['O*NET-SOC Code'],
+                "title": row['Title']
             })
-            ids.append(f"occ_{occ['code']}")
+            ids.append(f"occ_{row['O*NET-SOC Code']}")
 
-        # Add to collection in batches
-        batch_size = 100
-        for i in range(0, len(documents), batch_size):
-            self.collection.add(
-                documents=documents[i:i+batch_size],
-                metadatas=metadatas[i:i+batch_size],
-                ids=ids[i:i+batch_size]
-            )
+        # Add to collection (batch logic...)
+
 
     def ingest_skills(self, skills_file: str):
         """Ingest O*NET skills taxonomy"""

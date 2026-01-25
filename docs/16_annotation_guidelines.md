@@ -1,8 +1,8 @@
 # 16. Annotation Guidelines
 
-> **Document Version**: 1.0
-> **Last Updated**: 2026-01-23
-> **Status**: Approved
+> **Document Version**: 1.1
+> **Last Updated**: 2026-01-25
+> **Status**: Final Draft
 > **Product Name**: CV Assistant
 > **Related Documents**: [15_entity_types_specification.md](./15_entity_types_specification.md)
 
@@ -27,6 +27,8 @@ This document provides comprehensive guidelines for annotating CV documents for 
 |--------|-------|
 | **Raw CVs** | 3,099 PDFs from UEH |
 | **Target Annotation** | 200+ CVs |
+| **Entity Types** | **10 Types** (PER, ORG, DATE, LOC, SKILL, DEGREE, MAJOR, JOB_TITLE, PROJECT, CERT) |
+| **BIO Labels** | **21 Tags** (10 B-tags + 10 I-tags + 1 O-tag) |
 | **Sampling** | Stratified by field (IT, Business, etc.) |
 | **Language** | English only |
 | **Anonymization** | Required before annotation |
@@ -101,8 +103,25 @@ Rule 5: I- tag must follow same entity type
 | **Include** | Compound names | `[Ho Chi Minh City]` |
 | **Separate** | List items | `[Python]B-SKILL, [Java]B-SKILL` |
 
-### 3.3 Overlapping Entities
+### 3.3 Decision Tree for Edge Cases
 
+Use this decision logic when you are unsure about an entity type:
+
+**Scenario A: Skill vs. Tool vs. Project**
+1. Is it a specific software/technology name? (e.g., "JIRA", "Python") → **SKILL**
+2. Is it a platform/infrastructure? (e.g., "AWS", "Azure") → **SKILL**
+3. Is it a named initiative or product built by the candidate? (e.g., "E-commerce App") → **PROJECT**
+
+**Scenario B: Organization vs. Location**
+1. Is it a physical building/office? (e.g., "Building A") → **LOC**
+2. Is it a legal entity employing people? (e.g., "Google Vietnam") → **ORG**
+3. Is it a city/country? → **LOC**
+
+**Scenario C: Job Title vs. Role in Project**
+1. Is it the official employment title? (e.g., "Senior Developer") → **JOB_TITLE**
+2. Is it a role described within a specific project description? (e.g., "Acted as Scrum Master") → Annotate "Scrum Master" as **JOB_TITLE** only if it capitalizes/stands out, otherwise treat as description (O).
+
+**Scenario D: Overlapping Entities**
 **Rule**: No overlapping entities allowed. Choose the most specific type.
 
 ```

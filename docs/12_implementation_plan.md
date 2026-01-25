@@ -404,40 +404,13 @@ def ingest_onet_jobs(client):
     """Ingest O*NET occupation data"""
     collection = create_collection(client, "onet_jobs")
 
-    # Load O*NET data (download from onetonline.org)
-    with open("knowledge_base/onet/occupations.json") as f:
-        occupations = json.load(f)
+    # Load O*NET data (Real Text Database)
+    # Using 'Occupation Data.txt' from db_28_1_text.zip
+    # ... Implementation details in scripts/setup_knowledge_base.py ...
 
-    documents = []
-    metadatas = []
-    ids = []
+    # Documents created from Title + Description
+    # ...
 
-    for occ in occupations:
-        doc = f"""
-        Job Title: {occ['title']}
-        Description: {occ['description']}
-        Key Skills: {', '.join(occ.get('skills', [])[:10])}
-        Education: {occ.get('education', 'N/A')}
-        """
-        documents.append(doc.strip())
-        metadatas.append({
-            "type": "occupation",
-            "code": occ['code'],
-            "title": occ['title']
-        })
-        ids.append(f"occ_{occ['code']}")
-
-    # Batch insert
-    batch_size = 100
-    for i in range(0, len(documents), batch_size):
-        collection.add(
-            documents=documents[i:i+batch_size],
-            metadatas=metadatas[i:i+batch_size],
-            ids=ids[i:i+batch_size]
-        )
-
-    print(f"Ingested {len(documents)} occupations")
-    return collection
 
 def test_retrieval(client):
     """Test knowledge base retrieval"""

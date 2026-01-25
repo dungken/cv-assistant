@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent-primary: #6366f1;
+  --color-accent-secondary: #8b5cf6;
+  --color-accent-dark: #4f46e5;
+
+  /* Semantic Variables Mapped to Tailwind Classes */
+  --color-canvas: var(--bg-primary);
+  --color-secondary: var(--bg-secondary);
+  --color-surface: var(--bg-surface);
+  --color-surface-hover: var(--bg-surface-hover);
+
+  /* Dual Mapping for transition safety */
+  --color-text-primary: var(--text-primary);
+  --color-text-main: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-secondary);
+
+  --color-border-main: var(--border-main);
+  --color-border-subtle: var(--border-subtle);
+  --color-overlay: var(--bg-overlay);
+
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2.25rem;
+}
+
+:root {
+  --bg-primary: #212121;
+  /* Content area - lighter */
+  --bg-secondary: #181818;
+  /* Sidebar - darker */
+  --bg-surface: #2a2a2a;
+  /* Elevated elements */
+  --bg-surface-hover: #333333;
+  --bg-overlay: rgba(255, 255, 255, 0.04);
+  --text-primary: #f8f8f8;
+  --text-secondary: #9ca3af;
+  --border-main: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --accent-primary: #6366f1;
+  --accent-secondary: #8b5cf6;
+}
+
+:root.light {
+  --bg-primary: #ffffff;
+  /* Content area - white */
+  --bg-secondary: #f3f4f6;
+  /* Sidebar - light gray */
+  --bg-surface: #f9fafb;
+  --bg-surface-hover: #f1f5f9;
+  --bg-overlay: rgba(0, 0, 0, 0.03);
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --border-main: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --accent-primary: #4f46e5;
+  --accent-secondary: #7c3aed;
+}
+
+body {
+  margin: 0;
+  /* Specific System Font Stack as requested */
+  font-family: ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, "sans-serif", "Segoe UI Emoji", "Segoe UI Symbol";
+  background-color: var(--bg-primary);
+  /* Modern Gradient Background */
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.03) 0, transparent 50%);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.light body {
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0, transparent 40%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.05) 0, transparent 40%);
+}
+
+/* Modern Chips v2 - Premium Depth */
+.action-chip {
+  @apply flex items-center gap-2.5 px-6 py-3 rounded-2xl border border-border-main text-xs font-bold text-text-secondary hover:text-text-primary hover:border-accent-primary/30 transition-all duration-300 cursor-pointer active:scale-95;
+  background-color: var(--bg-surface);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.action-chip:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar Active State Indicator */
+.sidebar-active-indicator {
+  @apply absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-accent-primary rounded-r-full;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+
+/* Glassmorphism v2 - Improved Hierarchy */
+.glass-panel {
+  @apply backdrop-blur-3xl border border-border-main;
+  background-color: rgba(23, 23, 23, 0.7);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.light .glass-panel {
+  background-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+}
+
+/* Premium Sidebar Transitions */
+.sidebar-transition {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shimmer Effect for Pro Badges */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-bg::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  animation: shimmer 3s infinite;
+}
+
+/* Custom Scrollbar - Minimalist */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Prompt Input Glow */
+.pill-input-focus {
+  @apply ring-4 ring-accent-primary/5 border-accent-primary/20;
+  background-color: var(--bg-surface);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Sidebar Specific */
+.sidebar-section {
+  @apply space-y-1 mb-12;
+}
+
+.sidebar-label {
+  @apply px-4 text-[10px] font-black text-text-secondary/20 uppercase tracking-[0.4em] mb-4;
+}
+
+/* Chat Stream Container */
+.chat-stream-width {
+  @apply max-w-[840px] mx-auto w-full;
+}
