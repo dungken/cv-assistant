@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -24,29 +23,43 @@ MANIFEST
 
 # Virtual Environment
 cv_assistant_env/
+label_studio_env/
 venv/
 env/
 ENV/
 
+# Java (Maven/Gradle)
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# IDE
+# IDE & OS
 .vscode/
 .idea/
+*.swp
+*.bak
+.DS_Store
+Thumbs.db
 
-# Project Data (Sensitive or Large)
-data/raw/*
-!data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
-data/annotated/*
-!data/annotated/.gitkeep
-models/*
-!models/.gitkeep
+# Project Data & Environment
+data/
+docs/
+models/
 knowledge_base/chroma_db/
-
-# Environment Variables
 .env
 .env.local
 .env.*.local

@@ -55,7 +55,25 @@ cv-assistant/
    pip install -r requirements.txt
    ```
 
-## Development
+## Running the Project
 
-- **Label Studio**: Run `label-studio start` to access the annotation interface at http://localhost:8080.
-- **Notebooks**: Launch `jupyter notebook` to explore data processing and training steps.
+The easiest way to manage the microservices is using the interactive **Service Manager**:
+
+1. Run the manager:
+   ```bash
+   ./manage.sh
+   ```
+2. Follow the on-screen menu to:
+   - Start Infrastructure (PostgreSQL, ChromaDB).
+   - Start individual services or API Gateway.
+   - View real-time logs.
+   - Perform Docker cleanup.
+
+### Accessing Services
+- **Frontend**: http://localhost:5173
+- **API Gateway Docs**: http://localhost:8081/swagger-ui.html
+- **Chatbot Docs**: http://localhost:5004/docs
+- **Skill Docs**: http://localhost:5002/docs
+
+## Development
+...

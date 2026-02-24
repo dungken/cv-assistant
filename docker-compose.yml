@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cv_assistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${DATA_PATH:-.}/data/postgres_data:/var/lib/postgresql/data
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${DATA_PATH:-.}/knowledge_base/chroma_db:/chroma/chroma
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cv_assistant
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      - postgres
+
+  skill_service:
+    build:
+      context: .
+      dockerfile: services/skill_service/Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+    depends_on:
+      - chromadb
+
+  chatbot_service:
+    build:
+      context: .
+      dockerfile: services/chatbot_service/Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      OLLAMA_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ner_service:
+    build:
+      context: .
+      dockerfile: services/ner_service/Dockerfile
+    ports:
+      - "5005:5001"
+
+  career_service:
+    build:
+      context: .
+      dockerfile: services/career_service/Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      CHROMA_HOST: chromadb
+    depends_on:
+      - chromadb
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api_gateway
+
+volumes:
+  postgres_data:

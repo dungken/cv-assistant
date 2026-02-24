@@ -1,0 +1,37 @@
+# Virtual Environments
+*_env/
+venv/
+.venv/
+.env
+
+# Data and Databases
+knowledge_base/
+data/
+*.db
+*.sqlite3
+
+# Node dependencies
+node_modules/
+frontend/node_modules/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
