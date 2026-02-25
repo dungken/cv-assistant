@@ -7,6 +7,16 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def is_english(text):
+    """Simple heuristic to check if text is predominantly English"""
+    if not text: return False
+    # Check for common English stop words or headings
+    english_keywords = ["education", "experience", "skills", "summary", "university", "project", "language", "github", "stack", "technologies", "certifications", "contact", "profile"]
+    text_lower = text.lower()
+    score = sum(1 for kw in english_keywords if kw in text_lower)
+    # If at least 3 headings or keywords found, consider it likely English-scope
+    return score >= 3
+
 def parse_pdf(pdf_path: str) -> str:
     """Extract text from PDF file"""
     text = ""
@@ -23,51 +33,44 @@ def parse_pdf(pdf_path: str) -> str:
     return clean_text(text)
 
 def clean_text(text: str) -> str:
-    """Clean extracted text"""
+    """Clean extracted text and remove non-printable characters"""
     if not text:
         return ""
-    # Remove multiple spaces
+    # Filter out non-printable characters (fix binary file grep issue)
+    text = "".join(c for c in text if c.isprintable() or c in "\n\t")
     text = ' '.join(text.split())
-    # Remove multiple newlines (optional, depending on downstream tasks)
-    # text = '\n'.join(line.strip() for line in text.split('\n') if line.strip())
     return text
 
-def batch_parse(input_dir: str, output_dir: str):
-    """Parse all PDFs in directory"""
-    input_path = Path(input_dir)
-    output_path = Path(output_dir)
+def batch_parse_recursive(input_root: str, output_root: str):
+    """Parse all PDFs in all batch subdirectories"""
+    input_path = Path(input_root)
+    output_path = Path(output_root)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    results = {"success": 0, "failed": 0, "failed_files": []}
-
-    pdf_files = list(input_path.glob("*.pdf"))
-    logger.info(f"Found {len(pdf_files)} PDF files in {input_dir}")
-
-    for pdf_file in pdf_files:
-        logger.info(f"Processing: {pdf_file.name}")
-        text = parse_pdf(str(pdf_file))
-        if text:
-            output_file = output_path / f"{pdf_file.stem}.txt"
-            output_file.write_text(text, encoding='utf-8')
-            results["success"] += 1
-            logger.info(f"Saved to: {output_file}")
-        else:
-            results["failed"] += 1
-            results["failed_files"].append(pdf_file.name)
-            logger.warning(f"Failed to extract text from: {pdf_file.name}")
-
-    return results
+    batch_folders = [f for f in input_path.iterdir() if f.is_dir()]
+    
+    for batch in batch_folders:
+        logger.info(f"--- Parsing Batch: {batch.name} ---")
+        dest_batch = output_path / batch.name
+        dest_batch.mkdir(parents=True, exist_ok=True)
+        
+        pdf_files = list(batch.glob("*.pdf"))
+        success = 0
+        skipped_non_english = 0
+        
+        for pdf_file in pdf_files:
+            text = parse_pdf(str(pdf_file))
+            if text:
+                if is_english(text):
+                    output_file = dest_batch / f"{pdf_file.stem}.txt"
+                    output_file.write_text(text, encoding='utf-8')
+                    success += 1
+                else:
+                    skipped_non_english += 1
+            
+        logger.info(f"Batch {batch.name}: {success} English CVs parsed, {skipped_non_english} skipped (not English).")
 
 if __name__ == "__main__":
-    # Default paths
-    INPUT_DIR = "data/raw"
-    OUTPUT_DIR = "data/processed"
-    
-    # Create test dummy if needed
-    if not os.path.exists(INPUT_DIR):
-        os.makedirs(INPUT_DIR)
-        
-    results = batch_parse(INPUT_DIR, OUTPUT_DIR)
-    logger.info(f"Parsed: {results['success']}, Failed: {results['failed']}")
-    if results["failed_files"]:
-        logger.info(f"Failed files: {results['failed_files']}")
+    INPUT_DIR = "data/3_raw_pdfs"
+    OUTPUT_DIR = "data/4_processed/raw_extracted"
+    batch_parse_recursive(INPUT_DIR, OUTPUT_DIR)
