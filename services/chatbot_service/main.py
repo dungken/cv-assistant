@@ -43,9 +43,11 @@ def get_chat_service() -> ChatService:
             }
             _chat_service = ChatService(
                 ollama_url=settings.ollama_url,
+                ner_url=settings.ner_url,
                 model_name=settings.model_name,
                 collections=collections
             )
+
         except Exception as e:
             logger.error(f"Init Error: {e}")
             raise HTTPException(status_code=500, detail="KB not available")

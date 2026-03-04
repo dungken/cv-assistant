@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     chroma_path: str = "./knowledge_base/chroma_db"
     
     max_history: int = 10
+    ner_url: str = "http://localhost:5001"
+
     
     class Config:
         env_prefix = "CHAT_"

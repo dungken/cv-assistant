@@ -10,6 +10,8 @@ from shared.models.base_models import Source as SharedSource
 
 logger = logging.getLogger(__name__)
 
+from services.chatbot_service.services.normalizer import SkillNormalizer
+
 class ChatService:
     """Orchestrates RAG, conversation history, and LLM generation."""
     
@@ -35,11 +37,19 @@ Conversation history:
 {history}
 """
 
-    def __init__(self, ollama_url: str, model_name: str, collections: Dict[str, chromadb.Collection]):
+    
+    def __init__(self, ollama_url: str, ner_url: str, model_name: str, collections: Dict[str, chromadb.Collection]):
         self.ollama_url = ollama_url
+        self.ner_url = ner_url
         self.model_name = model_name
         self.collections = collections
-        self.history: Dict[str, List[Dict]] = {}
+        self.history: List[Dict[str, str]] = {}
+        
+        # Initialize Normalizer
+        skill_coll = collections.get("onet_skills")
+        self.normalizer = SkillNormalizer(skill_coll) if skill_coll else None
+
+
 
     def get_history_str(self, session_id: str, max_msgs: int = 10) -> str:
         """Format history for prompt."""
@@ -64,22 +74,59 @@ Conversation history:
         })
 
     def retrieve_context(self, query: str) -> Tuple[str, List[SharedSource]]:
-        """Query ChromaDB for relevant info."""
+        """Query ChromaDB for relevant info, enriched by NER."""
         parts = []
         sources = []
         
-        # Job search
+        # 1. Extract Entities from Query
+        entities = []
+        try:
+            r = requests.post(f"{self.ner_url}/extract", json={"text": query, "cv_id": "user-query"}, timeout=5)
+            if r.status_code == 200:
+                entities = r.json().get("entities", [])
+                logger.info(f"Extracted entities from query: {entities}")
+        except Exception as e:
+            logger.warning(f"NER Service unavailable for query enrichment: {e}")
+
+        # 2. Query Job Collection
         coll_jobs = self.collections.get("onet_jobs")
         if coll_jobs:
-            res = coll_jobs.query(query_texts=[query], n_results=2)
+            # Enriched query if skills are found
+            search_query = query
+            skills = [e['text'] for e in entities if e['label'] == 'SKILL']
+            
+            if skills and self.normalizer:
+                normalized_skills = self.normalizer.normalize_list(skills)
+                canonical_names = [n['canonical'] for n in normalized_skills]
+                if canonical_names:
+                    search_query += " " + " ".join(canonical_names)
+                logger.info(f"Enriched search query (normalized): {search_query}")
+            elif skills:
+                search_query += " " + " ".join(skills)
+                logger.info(f"Enriched search query (raw): {search_query}")
+
+
+            res = coll_jobs.query(query_texts=[search_query], n_results=2)
             if res["documents"] and res["documents"][0]:
-                parts.append("## Jobs Found:")
+                parts.append("## Relevant Occupations & Skills:")
                 for i, doc in enumerate(res["documents"][0]):
                     title = res["metadatas"][0][i].get("title", "Unknown")
-                    parts.append(f"- {title}: {doc[:200]}...")
+                    parts.append(f"- {title}: {doc[:300]}...")
                     sources.append(SharedSource(title=title, type="job", relevance=0.8))
         
-        return "\n".join(parts) if parts else "[No info found]", sources
+        # 3. Query Advice Collection
+        coll_advice = self.collections.get("cv_guides")
+
+        if coll_advice:
+            res = coll_advice.query(query_texts=[query], n_results=1)
+            if res["documents"] and res["documents"][0]:
+                parts.append("\n## Writing Advice:")
+                parts.append(res["documents"][0][0][:400] + "...")
+                title = res["metadatas"][0][0].get("title", "Advice")
+                sources.append(SharedSource(title=title, type="guide", relevance=0.7))
+
+        return "\n".join(parts) if parts else "[No specific info found in KB, using general knowledge]", sources
+
 
     def generate_response(self, message: str, context: str, history: str) -> str:
         """Call Ollama for completion."""

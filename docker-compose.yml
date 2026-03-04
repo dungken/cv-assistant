@@ -6,14 +6,14 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: cv_assistant
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ${DATA_PATH:-.}/data/postgres_data:/var/lib/postgresql/data
 
   chromadb:
     image: chromadb/chroma:latest
     ports:
-      - "8000:8000"
+      - "8002:8000"
     volumes:
       - ${DATA_PATH:-.}/knowledge_base/chroma_db:/chroma/chroma
 
@@ -24,9 +24,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cv_assistant
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=cv_assistant;Username=postgres;Password=postgres"
     depends_on:
       - postgres
 
