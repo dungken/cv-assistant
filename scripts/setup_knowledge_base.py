@@ -9,10 +9,14 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+from shared.db.chroma_client import get_chroma_client
+
 def setup_chromadb():
     """Initialize ChromaDB with persistent storage"""
-    client = chromadb.PersistentClient(path="./knowledge_base/chroma_db")
-    return client
+    return get_chroma_client()
 
 def create_collection(client, name: str):
     """Create or get collection"""

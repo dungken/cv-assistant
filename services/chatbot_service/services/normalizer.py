@@ -45,10 +45,34 @@ class SkillNormalizer:
             return None
 
     def normalize_list(self, raw_skills: List[str]) -> List[Dict[str, Any]]:
-        """Normalize a list of skills, filtering out those below threshold."""
-        normalized = []
-        for skill in raw_skills:
-            norm = self.normalize(skill)
-            if norm:
-                normalized.append(norm)
-        return normalized
+        """Normalize a list of skills using a single batch query."""
+        if not raw_skills:
+            return []
+            
+        try:
+            results = self.collection.query(
+                query_texts=raw_skills,
+                n_results=1
+            )
+            
+            normalized = []
+            for i, raw_skill in enumerate(raw_skills):
+                if not results["documents"][i]:
+                    continue
+                
+                distance = results["distances"][i][0]
+                similarity = 1 - distance
+                
+                if similarity >= self.threshold:
+                    normalized.append({
+                        "raw": raw_skill,
+                        "canonical": results["documents"][i][0],
+                        "id": results["ids"][i][0],
+                        "metadata": results["metadatas"][i][0],
+                        "confidence": float(similarity)
+                    })
+            return normalized
+            
+        except Exception as e:
+            logger.error(f"Error batch normalizing skills: {e}")
+            return []

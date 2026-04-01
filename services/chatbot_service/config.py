@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     
     ollama_url: str = "http://localhost:11434"
-    model_name: str = "llama3.2:3b"
+    model_name: str = "llama3.2:1b"
     chroma_path: str = "./knowledge_base/chroma_db"
     
     max_history: int = 10

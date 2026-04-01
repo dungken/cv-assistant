@@ -75,6 +75,11 @@ Conversation history:
 
     def retrieve_context(self, query: str) -> Tuple[str, List[SharedSource]]:
         """Query ChromaDB for relevant info, enriched by NER."""
+        # 0. Fast path for greetings
+        greetings = ["hi", "hello", "xin chào", "chào", "hey", "greetings"]
+        if any(g in query.lower() for g in greetings) and len(query.split()) < 4:
+            return "[Greeting detected, no context needed]", []
+
         parts = []
         sources = []
         
@@ -88,31 +93,44 @@ Conversation history:
         except Exception as e:
             logger.warning(f"NER Service unavailable for query enrichment: {e}")
 
-        # 2. Query Job Collection
+            # 2. Query Job Collection
         coll_jobs = self.collections.get("onet_jobs")
         if coll_jobs:
-            # Enriched query if skills are found
+            # Enriched query if skills or job titles are found
             search_query = query
-            skills = [e['text'] for e in entities if e['label'] == 'SKILL']
+            skills = [e.get('text') for e in entities if e.get('type') == 'SKILL']
+            job_titles = [e.get('text') for e in entities if e.get('type') == 'JOB_TITLE']
             
+            # Prioritize JOB_TITLE in searching
+            if job_titles:
+                search_query = " ".join(job_titles) + " " + query
+                logger.info(f"Enriched search query (job titles): {search_query}")
+                
             if skills and self.normalizer:
                 normalized_skills = self.normalizer.normalize_list(skills)
                 canonical_names = [n['canonical'] for n in normalized_skills]
                 if canonical_names:
                     search_query += " " + " ".join(canonical_names)
-                logger.info(f"Enriched search query (normalized): {search_query}")
+                logger.info(f"Enriched search query (normalized skills): {search_query}")
             elif skills:
                 search_query += " " + " ".join(skills)
-                logger.info(f"Enriched search query (raw): {search_query}")
-
+                logger.info(f"Enriched search query (raw skills): {search_query}")
 
             res = coll_jobs.query(query_texts=[search_query], n_results=2)
             if res["documents"] and res["documents"][0]:
-                parts.append("## Relevant Occupations & Skills:")
+                relevant_found = False
                 for i, doc in enumerate(res["documents"][0]):
-                    title = res["metadatas"][0][i].get("title", "Unknown")
-                    parts.append(f"- {title}: {doc[:300]}...")
-                    sources.append(SharedSource(title=title, type="job", relevance=0.8))
+                    distance = res["distances"][0][i]
+                    # Simple similarity score: higher is better
+                    similarity = 1 - distance 
+                    
+                    if similarity > 0.3: # Threshold for job relevance
+                        if not relevant_found:
+                            parts.append("## Relevant Occupations & Skills:")
+                            relevant_found = True
+                        title = res["metadatas"][0][i].get("title", "Unknown")
+                        parts.append(f"- {title}: {doc[:300]}...")
+                        sources.append(SharedSource(title=title, type="job", relevance=float(similarity)))
         
         # 3. Query Advice Collection
         coll_advice = self.collections.get("cv_guides")
@@ -120,16 +138,24 @@ Conversation history:
         if coll_advice:
             res = coll_advice.query(query_texts=[query], n_results=1)
             if res["documents"] and res["documents"][0]:
-                parts.append("\n## Writing Advice:")
-                parts.append(res["documents"][0][0][:400] + "...")
-                title = res["metadatas"][0][0].get("title", "Advice")
-                sources.append(SharedSource(title=title, type="guide", relevance=0.7))
+                distance = res["distances"][0][0]
+                similarity = 1 - distance
+                
+                if similarity > 0.3: # Threshold for advice relevance
+                    parts.append("\n## Writing Advice:")
+                    parts.append(res["documents"][0][0][:400] + "...")
+                    title = res["metadatas"][0][0].get("title", "Advice")
+                    sources.append(SharedSource(title=title, type="guide", relevance=float(similarity)))
 
         return "\n".join(parts) if parts else "[No specific info found in KB, using general knowledge]", sources
 
 
     def generate_response(self, message: str, context: str, history: str) -> str:
         """Call Ollama for completion."""
+        # 0. Basic Greeting Detection for Mock Mode
+        greetings = ["hi", "hello", "xin chào", "chào", "hey", "greetings"]
+        is_greeting = any(g in message.lower() for g in greetings) and len(message.split()) < 4
+
         system = self.SYSTEM_PROMPT.format(context=context, history=history)
         try:
             payload = {
@@ -143,4 +169,8 @@ Conversation history:
             return r.json().get("response", "")
         except Exception as e:
             logger.error(f"LLM Error: {e}")
-            raise HTTPException(status_code=500, detail="AI Service Error")
+            if is_greeting:
+                return "Chào bạn! Tôi là CV Assistant. Tôi có thể giúp gì cho bạn về định hướng nghề nghiệp hoặc chỉnh sửa CV hôm nay?"
+            
+            fallback_response = f"[Chatbot running in mock mode. LLM currently unavailable.]\n\nI found the following contexts in my Knowledge Base based on your query:\n\n{context}"
+            return fallback_response

@@ -96,4 +96,42 @@ export const careerApi = {
         }),
 };
 
+export interface Entity {
+    text: string;
+    type: string;
+    start: number;
+    end: number;
+    confidence: number;
+}
+
+export interface ExperienceItem {
+    anchor: string;
+    entities: Entity[];
+    description: string;
+}
+
+export interface ParseResult {
+    filename: string;
+    summary: string;
+    experience: ExperienceItem[];
+    projects: ExperienceItem[];
+    education: ExperienceItem[];
+    certifications: ExperienceItem[];
+    skills: Record<string, string[]>;
+    status: string;
+    // Compatibility for legacy frontends if needed
+    grouped_entities?: Record<string, string[]>;
+    char_count?: number;
+    entity_count?: number;
+    raw_text_preview?: string;
+}
+
+export const nerApi = {
+    parseCv: (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        return api.post<ParseResult>('http://localhost:5005/parse-cv', form);
+    },
+};
+
 export default api;

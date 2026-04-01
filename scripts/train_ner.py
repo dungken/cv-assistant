@@ -2,6 +2,10 @@ import os
 import json
 import numpy as np
 import torch
+
+# Limit threads to prevent high memory usage during CPU training
+torch.set_num_threads(4)
+
 from datasets import load_dataset, Dataset, DatasetDict
 from transformers import (
     AutoTokenizer,
@@ -13,9 +17,9 @@ from transformers import (
 from seqeval.metrics import classification_report, f1_score, precision_score, recall_score
 
 # Configuration
-MODEL_NAME = "roberta-base"
-INPUT_DATA = "data/processed/annotated_hf/finance_hieu.jsonl"
-OUTPUT_DIR = "models/ner_roberta/checkpoint"
+MODEL_NAME = "bert-base-multilingual-cased"
+INPUT_DATA = "data/processed/annotated_hf"
+OUTPUT_DIR = "models/ner/checkpoint"
 LABEL_LIST = [
     "O", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-DATE", "I-DATE",
     "B-LOC", "I-LOC", "B-SKILL", "I-SKILL", "B-DEGREE", "I-DEGREE",
@@ -84,9 +88,38 @@ def compute_metrics(p):
 
 def train():
     # Load dataset
-    print(f"Loading actual data from {INPUT_DATA}...")
-    dataset = load_dataset('json', data_files=INPUT_DATA, split='train')
+    print(f"Searching for data in {INPUT_DATA}...")
     
+    data_files = []
+    if os.path.isdir(INPUT_DATA):
+        data_files = [os.path.join(INPUT_DATA, f) for f in os.listdir(INPUT_DATA) if f.endswith(".jsonl")]
+    elif os.path.isfile(INPUT_DATA):
+        data_files = [INPUT_DATA]
+    else:
+        # Check if it's a glob pattern or if we should just assume it's a directory
+        import glob
+        data_files = glob.glob(INPUT_DATA)
+
+    if not data_files:
+        print(f"Error: No data files found at {INPUT_DATA}")
+        return
+
+    print(f"Loading datasets from: {data_files}")
+    dataset_real = load_dataset('json', data_files=data_files, split='train')
+    print(f"Real dataset size: {len(dataset_real)}")
+    
+    # Load synthetic data
+    SYNTHETIC_DATA = "data/processed/annotated_hf/synthetic_ueh.jsonl"
+    if os.path.exists(SYNTHETIC_DATA) and SYNTHETIC_DATA not in data_files:
+        print(f"Loading synthetic data from {SYNTHETIC_DATA}...")
+        dataset_syn = load_dataset('json', data_files=SYNTHETIC_DATA, split='train')
+        
+        from datasets import concatenate_datasets
+        dataset = concatenate_datasets([dataset_real, dataset_syn])
+        print(f"Combined dataset size: {len(dataset)}")
+    else:
+        dataset = dataset_real
+
     # Split dataset
     dataset = dataset.train_test_split(test_size=0.2)
     ds = DatasetDict({
@@ -129,10 +162,12 @@ def train():
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         per_device_eval_batch_size=2,
+        eval_accumulation_steps=1, # Very important to prevent RAM OOM during evaluation
         num_train_epochs=20,
 
         weight_decay=0.01,
         save_strategy="epoch",
+        save_total_limit=3,
         load_best_model_at_end=True,
         push_to_hub=False,
         report_to="none" # Disable wandb/tensorboard for now

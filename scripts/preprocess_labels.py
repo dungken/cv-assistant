@@ -94,10 +94,8 @@ def save_as_jsonl(dataset: List[Dict[str, Any]], output_path: str):
         for entry in dataset:
             f.write(json.dumps(entry, ensure_ascii=False) + '\n')
 
-def main():
-    input_file = "data/annotated/Finance_Finished/Finance_Full_Hieu.json"
-    output_file = "data/processed/annotated_hf/finance_hieu.jsonl"
-    
+def process_file(input_file: str, output_file: str):
+    """Process a single Label Studio JSON file and save as Hugging Face JSONL."""
     if not os.path.exists(input_file):
         print(f"Error: {input_file} not found.")
         return
@@ -106,15 +104,53 @@ def main():
     with open(input_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
         
-    print(f"Converting {len(data)} items...")
+    print(f"  Converting {len(data)} items...")
     hf_dataset = label_studio_to_bio(data)
     
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
-    print(f"Saving {len(hf_dataset)} processed samples to {output_file}...")
+    print(f"  Saving {len(hf_dataset)} processed samples to {output_file}...")
     save_as_jsonl(hf_dataset, output_file)
-    print("Done!")
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Preprocess Label Studio JSON exports to HF JSONL format.")
+    parser.add_argument("--input_dir", default="data/annotated", help="Directory containing Label Studio JSON exports")
+    parser.add_argument("--output_dir", default="data/processed/annotated_hf", help="Directory to save HF JSONL files")
+    args = parser.parse_args()
+
+    input_path = Path(args.input_dir)
+    output_path = Path(args.output_dir)
+
+    # Process all .json files in input_dir and its subdirectories
+    json_files = list(input_path.glob("**/*.json"))
+    
+    if not json_files:
+        print(f"No .json files found in {args.input_dir}")
+        return
+
+    print(f"Found {len(json_files)} JSON files. Starting batch processing...")
+    
+    for json_file in json_files:
+        # Avoid processing files that are actually output or metadata
+        if "gold_standard" in json_file.name.lower() or "distribution" in json_file.parts:
+            continue
+            
+        # Create a matching output filename
+        # e.g., Finance_Finished/Finance_Full_Hieu.json -> finance_full_hieu.jsonl
+        rel_path = json_file.relative_to(input_path)
+        output_file_name = rel_path.name.lower().replace(".json", ".jsonl")
+        
+        # If the file is in a subdirectory, we might want to preserve some naming
+        if len(rel_path.parts) > 1:
+             output_file_name = f"{rel_path.parent.name.lower()}_{output_file_name}"
+             
+        final_output_path = output_path / output_file_name
+        
+        process_file(str(json_file), str(final_output_path))
+    
+    print("\nAll files processed successfully!")
 
 if __name__ == "__main__":
     main()

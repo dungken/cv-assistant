@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     service_port: int = 5001
     log_level: str = "INFO"
     
-    model_path: str = "./models/ner/checkpoint"
+    model_path: str = "./models/ner/final"
     
     class Config:
         env_prefix = "NER_"

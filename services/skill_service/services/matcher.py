@@ -10,36 +10,49 @@ logger = logging.getLogger(__name__)
 class SkillMatcher:
     """Core logic for skill matching and JD extraction using O*NET taxonomy."""
     
-    def __init__(self, model: SentenceTransformer, collection: chromadb.Collection, onet_collection: chromadb.Collection = None):
+    def __init__(self, model: SentenceTransformer, collection: chromadb.Collection, onet_collection: chromadb.Collection = None, ner_url: str = None):
         self.model = model
         self.collection = collection  # Job collection for recommendations
         self.onet_collection = onet_collection  # O*NET skills collection
+        self.ner_url = ner_url
 
     def extract_skills_from_jd(self, jd_text: str) -> List[str]:
         """
-        Extract skills from JD text using O*NET taxonomy.
-        For MVP, we use semantic search to find skills mentioned in the JD.
+        Extract skills from JD text. Prefers NER service, falls back to O*NET semantic search.
         """
-        if not self.onet_collection:
-            return ["Python", "JavaScript", "SQL"] # Fallback if collection missing
-            
-        # Split JD into sentences or segments for better matching
-        segments = [s.strip() for s in jd_text.replace("\n", ". ").split(".") if len(s.strip()) > 5]
         extracted = set()
         
+        # 1. Try NER Service
+        if self.ner_url:
+            try:
+                import requests
+                logger.info(f"Calling NER service for JD extraction: {self.ner_url}")
+                resp = requests.post(self.ner_url, json={"text": jd_text}, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for ent in data.get("entities", []):
+                        if ent.get("type") == "SKILL":
+                            extracted.add(ent.get("text"))
+                    if extracted:
+                        logger.info(f"NER service extracted {len(extracted)} skills.")
+                        return list(extracted)
+            except Exception as e:
+                logger.warning(f"NER service call failed: {e}. Falling back to O*NET search.")
+
+        # 2. Fallback to O*NET Semantic Search
+        if not self.onet_collection:
+            return ["Python", "JavaScript", "SQL"] 
+            
+        segments = [s.strip() for s in jd_text.replace("\n", ". ").split(".") if len(s.strip()) > 5]
         for segment in segments:
-            # Query top 5 most similar skills for each segment
             results = self.onet_collection.query(
                 query_texts=[segment],
                 n_results=5
             )
-            
-            # Filter results by similarity score (Chroma uses L2 distance or cosine similarity depending on config)
-            # In our setup_knowledge_base it was cosine: metadata={"hnsw:space": "cosine"}
-            # Actually, distances for cosine in Chroma go from 0 (perfect match) to 1 (orthogonal)
             if results['distances'] and results['distances'][0]:
                 for i, distance in enumerate(results['distances'][0]):
-                    if distance < 0.35: # Tight threshold for extraction
+                    # Lower threshold for fallback to be more inclusive
+                    if distance < 0.45: 
                         extracted.add(results['documents'][0][i])
         
         return list(extracted)

@@ -10,22 +10,21 @@ import os
 logger = logging.getLogger(__name__)
 
 CHROMA_PATH = os.getenv("CHROMA_PATH", "./knowledge_base/chroma_db")
-
+CHROMA_HOST = os.getenv("CHROMA_HOST")
+CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
 
 @lru_cache(maxsize=1)
 def get_chroma_client() -> chromadb.ClientAPI:
     """
     Get ChromaDB client (Singleton).
-    
-    Returns:
-        chromadb.ClientAPI: Persistent ChromaDB client.
-    
-    Raises:
-        ConnectionError: If ChromaDB is unavailable.
     """
     try:
-        client = chromadb.PersistentClient(path=CHROMA_PATH)
-        logger.info(f"ChromaDB client initialized at {CHROMA_PATH}")
+        if CHROMA_HOST:
+            client = chromadb.HttpClient(host=CHROMA_HOST, port=int(CHROMA_PORT))
+            logger.info(f"ChromaDB connected via HTTP to {CHROMA_HOST}:{CHROMA_PORT}")
+        else:
+            client = chromadb.PersistentClient(path=CHROMA_PATH)
+            logger.info(f"ChromaDB client initialized locally at {CHROMA_PATH}")
         return client
     except Exception as e:
         logger.error(f"Failed to connect to ChromaDB: {e}")

@@ -1,24 +1,27 @@
 #!/bin/bash
-# manage.sh - Interactive Service Manager for CV Assistant
+# manage.sh - Interactive Service Manager for CV Assistant (Docker Mode)
 
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m' 
 BOLD='\033[1m'
 
-# Helpers
+# Ensure BuildKit is used
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 show_banner() {
     clear
     echo -e "${BLUE}${BOLD}================================================${NC}"
-    echo -e "${BLUE}${BOLD}         CV ASSISTANT - SERVICE MANAGER         ${NC}"
+    echo -e "${BLUE}${BOLD}         CV ASSISTANT - DOCKER MANAGER          ${NC}"
     echo -e "${BLUE}${BOLD}================================================${NC}"
 }
 
 show_status() {
-    echo -e "\n${BOLD}📊 Current Service Status:${NC}"
+    echo -e "\n${BOLD}📊 Current Service Status (Docker):${NC}"
     docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" | sed '1d' | while read line; do
         if echo "$line" | grep -q "Up"; then
             echo -e "  [${GREEN}RUNNING${NC}] $line"
@@ -30,7 +33,7 @@ show_status() {
 
 show_menu() {
     echo -e "\n${BOLD}🛠️  Management Options:${NC}"
-    echo -e "  ${YELLOW}1)${NC} Start Infrastructure (DB/Chroma)"
+    echo -e "  ${YELLOW}1)${NC} Start Infrastructure (Postgres/Chroma)"
     echo -e "  ${YELLOW}2)${NC} Start API Gateway"
     echo -e "  ${YELLOW}3)${NC} Start Chatbot Service"
     echo -e "  ${YELLOW}4)${NC} Start Skill Service"
@@ -41,7 +44,6 @@ show_menu() {
     echo -e "  ${YELLOW}l)${NC} View Logs (interactive)"
     echo -e "  ${YELLOW}c)${NC} Cleanup Docker (Aggressive)"
     echo -e "  ${YELLOW}d)${NC} Down (Stop all containers)"
-    echo -e "  ${YELLOW}s)${NC} Start Label Studio"
     echo -e "  ${YELLOW}q)${NC} Quit"
     echo -ne "\n${BOLD}Select an option: ${NC}"
 }
@@ -62,13 +64,13 @@ view_logs_menu() {
     read log_opt
     
     case $log_opt in
-        1) echo -e "${YELLOW}Tailing logs for postgres & chromadb...${NC}"; docker compose logs -f postgres chromadb ;;
-        2) echo -e "${YELLOW}Tailing logs for api_gateway...${NC}"; docker compose logs -f api_gateway ;;
-        3) echo -e "${YELLOW}Tailing logs for chatbot_service...${NC}"; docker compose logs -f chatbot_service ;;
-        4) echo -e "${YELLOW}Tailing logs for skill_service...${NC}"; docker compose logs -f skill_service ;;
-        5) echo -e "${YELLOW}Tailing logs for ner_service...${NC}"; docker compose logs -f ner_service ;;
-        6) echo -e "${YELLOW}Tailing logs for career_service...${NC}"; docker compose logs -f career_service ;;
-        7) echo -e "${YELLOW}Tailing logs for frontend...${NC}"; docker compose logs -f frontend ;;
+        1) docker compose logs -f postgres chromadb ;;
+        2) docker compose logs -f api_gateway ;;
+        3) docker compose logs -f chatbot_service ;;
+        4) docker compose logs -f skill_service ;;
+        5) docker compose logs -f ner_service ;;
+        6) docker compose logs -f career_service ;;
+        7) docker compose logs -f frontend ;;
         *) return ;;
     esac
 }
@@ -81,19 +83,25 @@ while true; do
     read opt
 
     case $opt in
-        1) ./scripts/run_infra.sh ;;
-        2) ./scripts/run_gateway.sh ;;
-        3) ./scripts/run_chatbot.sh ;;
-        4) ./scripts/run_skill.sh ;;
-        5) ./scripts/run_ner.sh ;;
-        6) ./scripts/run_career.sh ;;
-        7) ./scripts/run_frontend.sh ;;
-        8) ./scripts/run_project.sh ;;
+        1) docker compose up -d postgres chromadb ;;
+        2) docker compose up --build -d api_gateway ;;
+        3) docker compose up --build -d chatbot_service ;;
+        4) docker compose up --build -d skill_service ;;
+        5) docker compose up --build -d ner_service ;;
+        6) docker compose up --build -d career_service ;;
+        7) docker compose up --build -d frontend ;;
+        8) docker compose up --build -d ;;
         l) view_logs_menu ;;
-        c) ./scripts/cleanup_docker.sh ;;
-        d) echo -e "${RED}Stopping all services and cleaning orphans...${NC}" && docker compose down --remove-orphans ;;
-        s) ./scripts/run_label_studio.sh ;;
-        q) echo -e "${BLUE}Goodbye!${NC}" && exit 0 ;;
+        c) 
+            echo -e "${RED}Cleaning up unused Docker resources...${NC}"
+            docker system prune -f 
+            docker volume prune -f
+            ;;
+        d) 
+            echo -e "${RED}Stopping all services and cleaning orphans...${NC}"
+            docker compose down --remove-orphans 
+            ;;
+        q) exit 0 ;;
         *) echo -e "${RED}Invalid option!${NC}" ;;
     esac
 

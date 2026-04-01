@@ -11,9 +11,12 @@ services:
       - ${DATA_PATH:-.}/data/postgres_data:/var/lib/postgresql/data
 
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.5.5
     ports:
       - "8002:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
     volumes:
       - ${DATA_PATH:-.}/knowledge_base/chroma_db:/chroma/chroma
 
@@ -47,7 +50,11 @@ services:
     ports:
       - "5004:5004"
     environment:
-      OLLAMA_HOST: host.docker.internal
+      CHAT_OLLAMA_URL: "http://host.docker.internal:11434"
+      CHAT_NER_URL: "http://ner_service:5001"
+      CHROMA_HOST: "chromadb"
+      CHROMA_PORT: "8000"
+      CHAT_MODEL_NAME: "llama3.2:1b"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -57,6 +64,8 @@ services:
       dockerfile: services/ner_service/Dockerfile
     ports:
       - "5005:5001"
+    volumes:
+      - ./models:/app/models
 
   career_service:
     build:
@@ -66,6 +75,7 @@ services:
       - "5003:5003"
     environment:
       CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
     depends_on:
       - chromadb
 

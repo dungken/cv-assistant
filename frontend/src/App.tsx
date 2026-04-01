@@ -13,6 +13,9 @@ import SettingsModal from './components/common/SettingsModal';
 import Sidebar from './components/layout/Sidebar';
 import MessageItem from './components/chat/MessageItem';
 import PromptBar from './components/chat/PromptBar';
+import CVUpload from './components/features/CVUpload';
+import SkillMatch from './components/features/SkillMatch';
+import CareerPath from './components/features/CareerPath';
 import { cn } from './lib/utils';
 
 export default function App() {
@@ -29,6 +32,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>((localStorage.getItem('theme') as 'dark' | 'light') || 'dark');
+  const [activeTab, setActiveTab] = useState<'chat' | 'upload' | 'match' | 'career'>('chat');
 
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [tempTitle, setTempTitle] = useState('');
@@ -211,6 +215,23 @@ export default function App() {
               <ChevronDown className="w-5 h-5 opacity-10 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
+
+          <div className="hidden md:flex items-center bg-surface/80 rounded-full p-1 border border-border-main/20">
+            {['chat', 'upload', 'match', 'career'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                className={cn(
+                  "px-6 py-2 rounded-full text-sm font-bold transition-all",
+                  activeTab === tab ? "bg-accent-primary text-white shadow-md relative group" : "text-text-secondary hover:text-text-primary hover:bg-overlay"
+                )}
+              >
+                {tab === 'chat' ? 'Neural Chat' : tab === 'upload' ? 'Data Ingestion' : tab === 'match' ? 'Skill Matrix' : 'Career Paths'}
+                {activeTab === tab && <div className="absolute inset-x-0 -bottom-1 h-0.5 bg-accent-primary mx-4 rounded-full" />}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-5">
             <div className="hidden sm:flex items-center gap-3 px-5 py-2 rounded-full border border-border-main bg-surface shadow-sm hover:border-accent-primary/20 transition-all">
               <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-rose-500 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.5)]")} />
@@ -225,48 +246,59 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-          {(messages.length === 0 && !loadingMessages) ? (
-            <div className="h-full flex flex-col items-center justify-center px-10 animate-in fade-in zoom-in-95 duration-1000 max-w-5xl mx-auto">
-              <h1 className="text-6xl font-black text-center mb-16 tracking-tight leading-tight">
-                Welcome back, {userName.split(' ')[0]}. <br />
-                <span className="text-text-secondary/30 font-serif italic font-light">Optimize your career trajectory.</span>
-              </h1>
+          {activeTab === 'upload' && <CVUpload />}
+          {activeTab === 'match' && <SkillMatch />}
+          {activeTab === 'career' && <CareerPath />}
 
-              <PromptBar
-                input={input}
-                setInput={setInput}
-                isLoading={isLoading}
-                onSend={sendMessage}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                showChips={true}
-              />
-            </div>
-          ) : (
-            <div className="chat-stream-width px-6 py-12 space-y-20">
-              {loadingMessages && (
-                <div className="flex flex-col items-center justify-center py-40 opacity-15 gap-8">
-                  <Cpu className="w-20 h-20 text-accent-primary animate-pulse" />
-                  <p className="text-sm font-black uppercase tracking-[0.5em]">Syncing Expert Neural Context</p>
+          {activeTab === 'chat' && (
+            <>
+              {(messages.length === 0 && !loadingMessages) ? (
+                <div className="h-full flex flex-col items-center justify-center px-10 animate-in fade-in zoom-in-95 duration-1000 max-w-5xl mx-auto">
+                  <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent-primary/5 rounded-full blur-[120px] pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent-secondary/5 rounded-full blur-[120px] pointer-events-none" />
+                  
+                  <h1 className="text-6xl font-black text-center mb-16 tracking-tight leading-tight z-10">
+                    Welcome back, {userName.split(' ')[0]}. <br />
+                    <span className="text-text-secondary/30 font-serif italic font-light">Optimize your career trajectory.</span>
+                  </h1>
+
+                  <PromptBar
+                    input={input}
+                    setInput={setInput}
+                    isLoading={isLoading}
+                    onSend={sendMessage}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    showChips={true}
+                  />
+                </div>
+              ) : (
+                <div className="chat-stream-width px-6 py-12 space-y-20">
+                  {loadingMessages && (
+                    <div className="flex flex-col items-center justify-center py-40 opacity-15 gap-8">
+                      <Cpu className="w-20 h-20 text-accent-primary animate-pulse" />
+                      <p className="text-sm font-black uppercase tracking-[0.5em]">Syncing Expert Neural Context</p>
+                    </div>
+                  )}
+                  {!loadingMessages && messages.map((m, i) => (
+                    <MessageItem key={i} role={m.role} content={m.content} sources={m.sources} />
+                  ))}
+                  {isLoading && (
+                    <div className="flex gap-10 animate-pulse opacity-30">
+                      <div className="w-8 h-8 rounded-full bg-overlay"></div>
+                      <div className="flex-1 space-y-5 pt-2">
+                        <div className="h-2 bg-overlay rounded-full w-[95%]"></div>
+                        <div className="h-2 bg-overlay rounded-full w-[80%]"></div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} className="h-48" />
                 </div>
               )}
-              {!loadingMessages && messages.map((m, i) => (
-                <MessageItem key={i} role={m.role} content={m.content} sources={m.sources} />
-              ))}
-              {isLoading && (
-                <div className="flex gap-10 animate-pulse opacity-30">
-                  <div className="w-8 h-8 rounded-full bg-overlay"></div>
-                  <div className="flex-1 space-y-5 pt-2">
-                    <div className="h-2 bg-overlay rounded-full w-[95%]"></div>
-                    <div className="h-2 bg-overlay rounded-full w-[80%]"></div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} className="h-48" />
-            </div>
+            </>
           )}
         </div>
 
-        {(messages.length > 0 || loadingMessages) && (
+        {activeTab === 'chat' && (messages.length > 0 || loadingMessages) && (
           <div className="px-6 py-8">
             <PromptBar
               input={input}

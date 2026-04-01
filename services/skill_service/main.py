@@ -46,7 +46,7 @@ def get_matcher() -> SkillMatcher:
             collection = get_collection(COLLECTION_JOBS)
             # Load O*NET collection for intelligent extraction/matching
             onet_collection = get_collection("onet_skills")
-            _matcher = SkillMatcher(_model, collection, onet_collection)
+            _matcher = SkillMatcher(_model, collection, onet_collection, settings.ner_service_url)
         except Exception as e:
             logger.error(f"Failed to initialize matcher: {e}")
             raise HTTPException(status_code=503, detail="Search service unavailable")

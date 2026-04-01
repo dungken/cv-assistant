@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CvAssistant.ApiGateway.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+550179fb17bf033d94008de406d82755ef31f7e5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f0fcd96da1810028911e3407925deff16a579df5")]
 [assembly: System.Reflection.AssemblyProductAttribute("CvAssistant.ApiGateway.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CvAssistant.ApiGateway.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

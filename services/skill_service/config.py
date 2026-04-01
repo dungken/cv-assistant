@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     chroma_path: str = "./knowledge_base/chroma_db"
     embedding_model: str = "all-MiniLM-L6-v2"
     similarity_threshold: float = 0.5
+    ner_service_url: str = "http://localhost:5001/extract"
     
     class Config:
         env_prefix = "SKILL_"
