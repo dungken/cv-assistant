@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/CvAssistant.ApiGateway.API.props" />
-</Project>
