@@ -36,6 +36,28 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ICVHistoryService, CVHistoryService>();
 
+// 5. HttpClient for proxying to Python microservices
+builder.Services.AddHttpClient("NerService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:NerUrl"] ?? "http://localhost:5001");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddHttpClient("SkillService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:SkillUrl"] ?? "http://localhost:5002");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient("CareerService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:CareerUrl"] ?? "http://localhost:5003");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient("ChatbotService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:ChatbotUrl"] ?? "http://localhost:5004");
+    client.Timeout = TimeSpan.FromSeconds(120);
+});
+
 builder.Services.AddControllers();
 
 // 5. JWT Authentication

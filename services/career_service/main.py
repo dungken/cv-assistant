@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from services.career_service.config import settings
-from services.career_service.models.schemas import CareerRequest, CareerRecommendation
+from services.career_service.models.schemas import CareerRequest, CareerRecommendation, RelatedRole
 from services.career_service.services.career_advisor import CareerAdvisor
 from shared.db.chroma_client import get_collection
 from shared.utils.logging_config import setup_logging
@@ -48,25 +48,39 @@ def health():
 
 @app.post("/recommend", response_model=CareerRecommendation)
 def recommend(request: CareerRequest, advisor: CareerAdvisor = Depends(get_advisor)):
-    logger.info(f"Career req: {request.current_role}")
-    
+    logger.info(f"Career req: {request.current_role} -> {request.target_role}")
+
     current_occ = advisor.find_role(request.current_role)
     if not current_occ:
-        raise HTTPException(status_code=404, detail="Role not found")
-        
+        raise HTTPException(status_code=404, detail="Current role not found in O*NET database")
+
     target_occ = advisor.find_role(request.target_role or "Senior " + request.current_role)
     if not target_occ:
         target_occ = current_occ
-        
+
     gap = advisor.calculate_gap(request.current_skills, target_occ["code"])
-    paths = advisor.generate_paths(current_occ, target_occ, gap)
-    
+    level = advisor.estimate_experience_level(request.current_skills)
+    paths = advisor.generate_paths(current_occ, target_occ, gap, request.current_skills)
+
+    # Find related roles for exploration
+    related = advisor.find_related_it_roles(current_occ["code"])
+    related_roles = [
+        RelatedRole(
+            title=r["title"],
+            code=r["code"],
+            description=r.get("description", ""),
+            timeframe=r.get("timeframe", ""),
+        )
+        for r in related
+    ]
+
     return CareerRecommendation(
         current_role=current_occ["title"],
         target_role=target_occ["title"],
+        experience_level=level,
         skill_gap=gap,
         paths=paths,
-        related_roles=[target_occ["title"]]
+        related_roles=related_roles,
     )
 
 if __name__ == "__main__":

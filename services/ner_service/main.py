@@ -6,6 +6,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import uvicorn
 import io
 import tempfile
@@ -14,6 +15,7 @@ import os
 from services.ner_service.config import settings
 from services.ner_service.models.schemas import ExtractionRequest, ExtractionResponse
 from services.ner_service.services.extractor import NERExtractor
+from services.ner_service.services.pdf_generator import generate_cv_pdf
 from shared.utils.logging_config import setup_logging
 
 # Logger
@@ -67,7 +69,7 @@ async def parse_and_extract_cv(file: UploadFile = File(...), extractor: NERExtra
             structured_data = extractor.extract_structured(tmp_path)
             
             # Add backward compatibility fields
-            all_text = " ".join([l["text"] for l in extractor.parser.get_visual_lines(tmp_path)])
+            all_text = structured_data.get("raw_text_preview", "")
             structured_data["char_count"] = len(all_text)
             
             # Simple grouped entities for old frontends
@@ -100,6 +102,28 @@ async def parse_and_extract_cv(file: UploadFile = File(...), extractor: NERExtra
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         os.unlink(tmp_path)
+
+@app.post("/generate-pdf")
+async def generate_pdf(cv_data: dict):
+    """Generate an ATS-compliant PDF from structured CV data."""
+    logger.info("Generating ATS-compliant PDF CV")
+
+    pdf_bytes = generate_cv_pdf(cv_data)
+    if pdf_bytes is None:
+        raise HTTPException(
+            status_code=500,
+            detail="PDF generation failed. Ensure fpdf2 is installed."
+        )
+
+    name = cv_data.get("name", "cv").replace(" ", "_").lower()
+    filename = f"{name}_cv.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=settings.service_port)

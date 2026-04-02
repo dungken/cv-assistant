@@ -4,9 +4,11 @@ const BASE_URL = 'http://localhost:8081/api';
 const AUTH_BASE = `${BASE_URL}/auth`;
 const CHAT_BASE = `${BASE_URL}/chats`;
 
-const CHATBOT_BASE = 'http://localhost:5004';
-const SKILL_BASE = 'http://localhost:5002';
-const CAREER_BASE = 'http://localhost:5003';
+// All services routed through API Gateway for unified auth & CORS
+const CHATBOT_BASE = `${BASE_URL}/chatbot`;
+const SKILL_BASE = `${BASE_URL}/skills`;
+const CAREER_BASE = `${BASE_URL}/career`;
+const NER_BASE = `${BASE_URL}/ner`;
 
 const api: AxiosInstance = axios.create({
     timeout: 30000,
@@ -130,8 +132,10 @@ export const nerApi = {
     parseCv: (file: File) => {
         const form = new FormData();
         form.append('file', file);
-        return api.post<ParseResult>('http://localhost:5005/parse-cv', form);
+        return api.post<ParseResult>(`${NER_BASE}/parse-cv`, form);
     },
+    generatePdf: (cvData: any) =>
+        api.post(`${NER_BASE}/generate-pdf`, cvData, { responseType: 'blob' }),
 };
 
 export default api;

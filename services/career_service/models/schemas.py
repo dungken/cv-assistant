@@ -23,10 +23,19 @@ class SkillGap(BaseModel):
     current: List[str]
     required: List[str]
     missing: List[str]
+    overlap: List[str] = []
+    readiness_score: float = 0.0
+
+class RelatedRole(BaseModel):
+    title: str
+    code: str
+    description: str = ""
+    timeframe: str = ""
 
 class CareerRecommendation(BaseModel):
     current_role: str
     target_role: str
+    experience_level: str = ""
     skill_gap: SkillGap
     paths: List[CareerPath]
-    related_roles: List[str]
+    related_roles: List[RelatedRole] = []

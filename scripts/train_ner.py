@@ -1,25 +1,34 @@
 import os
 import json
+import argparse
 import numpy as np
 import torch
 
 # Limit threads to prevent high memory usage during CPU training
 torch.set_num_threads(4)
 
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset, Dataset, DatasetDict, concatenate_datasets
 from transformers import (
     AutoTokenizer,
     AutoModelForTokenClassification,
     TrainingArguments,
     Trainer,
     DataCollatorForTokenClassification,
+    EarlyStoppingCallback,
 )
 from seqeval.metrics import classification_report, f1_score, precision_score, recall_score
 
 # Configuration
-MODEL_NAME = "bert-base-multilingual-cased"
+SUPPORTED_MODELS = {
+    "mbert": "bert-base-multilingual-cased",
+    "phobert": "vinai/phobert-base-v2",
+    "xlm-roberta": "xlm-roberta-base",
+}
+DEFAULT_MODEL = "mbert"
 INPUT_DATA = "data/processed/annotated_hf"
+SYNTHETIC_DATA = "data/processed/annotated_hf/synthetic_it.jsonl"
 OUTPUT_DIR = "models/ner/checkpoint"
+FINAL_DIR = "models/ner/final"
 LABEL_LIST = [
     "O", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-DATE", "I-DATE",
     "B-LOC", "I-LOC", "B-SKILL", "I-SKILL", "B-DEGREE", "I-DEGREE",
@@ -86,57 +95,90 @@ def compute_metrics(p):
     return results
 
 
-def train():
-    # Load dataset
-    print(f"Searching for data in {INPUT_DATA}...")
-    
-    data_files = []
-    if os.path.isdir(INPUT_DATA):
-        data_files = [os.path.join(INPUT_DATA, f) for f in os.listdir(INPUT_DATA) if f.endswith(".jsonl")]
-    elif os.path.isfile(INPUT_DATA):
-        data_files = [INPUT_DATA]
-    else:
-        # Check if it's a glob pattern or if we should just assume it's a directory
-        import glob
-        data_files = glob.glob(INPUT_DATA)
+def load_all_data(input_dir: str, synthetic_file: str) -> Dataset:
+    """Load and merge all training data: annotated + synthetic IT CVs."""
+    all_datasets = []
 
-    if not data_files:
-        print(f"Error: No data files found at {INPUT_DATA}")
-        return
-
-    print(f"Loading datasets from: {data_files}")
-    dataset_real = load_dataset('json', data_files=data_files, split='train')
-    print(f"Real dataset size: {len(dataset_real)}")
-    
-    # Load synthetic data
-    SYNTHETIC_DATA = "data/processed/annotated_hf/synthetic_ueh.jsonl"
-    if os.path.exists(SYNTHETIC_DATA) and SYNTHETIC_DATA not in data_files:
-        print(f"Loading synthetic data from {SYNTHETIC_DATA}...")
-        dataset_syn = load_dataset('json', data_files=SYNTHETIC_DATA, split='train')
+    # Load annotated data from input directory
+    if os.path.isdir(input_dir):
+        # Only load files that contain labels - avoid the main aggregate if splits exist
+        files_in_dir = os.listdir(input_dir)
+        has_splits = any("_train" in f or "_test" in f for f in files_in_dir)
         
-        from datasets import concatenate_datasets
-        dataset = concatenate_datasets([dataset_real, dataset_syn])
-        print(f"Combined dataset size: {len(dataset)}")
+        if has_splits:
+            data_files = [
+                os.path.join(input_dir, f) for f in files_in_dir
+                if f.endswith(".jsonl") and ("_train" in f or "_test" in f)
+            ]
+        else:
+            data_files = [
+                os.path.join(input_dir, f) for f in files_in_dir
+                if f.endswith(".jsonl")
+            ]
+        
+        if data_files:
+            print(f"Loading data from: {data_files}")
+            ds = load_dataset('json', data_files=data_files, split='train')
+            all_datasets.append(ds)
+            print(f"  Samples: {len(ds)}")
+
+    # Load synthetic IT data (from auto_label_cvs.py output)
+    if os.path.exists(synthetic_file):
+        # Avoid loading synthetic_file if it's already in data_files (same path)
+        synth_abs = os.path.abspath(synthetic_file)
+        data_files_abs = [os.path.abspath(f) for f in data_files]
+        
+        if synth_abs not in data_files_abs:
+            ds_syn = load_dataset('json', data_files=synthetic_file, split='train')
+            all_datasets.append(ds_syn)
+            print(f"  Added synthetic file: {synthetic_file} ({len(ds_syn)} samples)")
+        else:
+            print(f"  Skipping {synthetic_file} - already loaded from input_dir.")
+
+    if not all_datasets:
+        raise ValueError(f"No training data found in {input_dir} or {synthetic_file}")
+
+    if len(all_datasets) > 1:
+        combined = concatenate_datasets(all_datasets)
     else:
-        dataset = dataset_real
+        combined = all_datasets[0]
+
+    print(f"  Total combined samples: {len(combined)}")
+    return combined
+
+
+def train(args):
+    # Resolve model name
+    model_name = SUPPORTED_MODELS.get(args.model, args.model)
+    output_dir = args.output_dir or OUTPUT_DIR
+    final_dir = args.final_dir or FINAL_DIR
+
+    print(f"Model: {model_name}")
+    print(f"Checkpoint dir: {output_dir}")
+    print(f"Final model dir: {final_dir}")
+
+    # Load dataset
+    print(f"\nLoading training data...")
+    dataset = load_all_data(args.input_data or INPUT_DATA, args.synthetic_data or SYNTHETIC_DATA)
 
     # Split dataset
-    dataset = dataset.train_test_split(test_size=0.2)
+    split = dataset.train_test_split(test_size=0.2, seed=42)
     ds = DatasetDict({
-        'train': dataset['train'],
-        'validation': dataset['test']
+        'train': split['train'],
+        'validation': split['test']
     })
+    print(f"  Train: {len(ds['train'])}, Validation: {len(ds['validation'])}")
 
-    # We need to explicitly initialize the tokenizer if it requires specific flags
-    # RoBERTa requires add_prefix_space=True when using is_split_into_words
-    if "roberta" in MODEL_NAME:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, add_prefix_space=True)
+    # Initialize tokenizer (RoBERTa/PhoBERT need add_prefix_space)
+    is_roberta = any(k in model_name.lower() for k in ["roberta", "phobert"])
+    if is_roberta:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, add_prefix_space=True)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+
     def tokenize_function(examples):
         return tokenize_and_align_labels(examples, tokenizer)
-    
+
     # Preprocess
     print("Preprocessing data...")
     tokenized_ds = ds.map(
@@ -146,9 +188,9 @@ def train():
     )
 
     # Load model
-    print(f"Loading model {MODEL_NAME}...")
+    print(f"Loading model {model_name}...")
     model = AutoModelForTokenClassification.from_pretrained(
-        MODEL_NAME,
+        model_name,
         num_labels=len(LABEL_LIST),
         id2label=ID_TO_LABEL,
         label2id=LABEL_TO_ID
@@ -156,54 +198,84 @@ def train():
 
     # Training arguments
     training_args = TrainingArguments(
-        output_dir=OUTPUT_DIR,
-        evaluation_strategy="epoch",
-        learning_rate=2e-5,
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=4,
-        per_device_eval_batch_size=2,
-        eval_accumulation_steps=1, # Very important to prevent RAM OOM during evaluation
-        num_train_epochs=20,
-
+        output_dir=output_dir,
+        eval_strategy="epoch",
+        learning_rate=args.lr,
+        per_device_train_batch_size=args.batch_size,
+        gradient_accumulation_steps=args.grad_accum,
+        per_device_eval_batch_size=args.batch_size,
+        eval_accumulation_steps=1,
+        num_train_epochs=args.epochs,
         weight_decay=0.01,
+        warmup_steps=int(0.1 * (len(tokenized_ds["train"]) // args.batch_size) * args.epochs),
         save_strategy="epoch",
         save_total_limit=3,
         load_best_model_at_end=True,
+        metric_for_best_model="f1",
+        greater_is_better=True,
         push_to_hub=False,
-        report_to="none" # Disable wandb/tensorboard for now
+        report_to="none",
+        logging_steps=50,
+        fp16=torch.cuda.is_available(),
     )
 
-    # Initialize Trainer
+    # Initialize Trainer with early stopping
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=tokenized_ds["train"],
         eval_dataset=tokenized_ds["validation"],
-        tokenizer=tokenizer,
         data_collator=DataCollatorForTokenClassification(tokenizer),
         compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
-    # Train
+    # Train (resume from checkpoint if available)
     print("Starting training...")
-    
-    # Simple logic to resume from the last stable checkpoint if it exists
     last_checkpoint = None
-    if os.path.isdir(OUTPUT_DIR):
-        checkpoints = [os.path.join(OUTPUT_DIR, d) for d in os.listdir(OUTPUT_DIR) if d.startswith("checkpoint-")]
+    if os.path.isdir(output_dir):
+        checkpoints = [
+            os.path.join(output_dir, d) for d in os.listdir(output_dir)
+            if d.startswith("checkpoint-")
+        ]
         if checkpoints:
             last_checkpoint = max(checkpoints, key=os.path.getmtime)
             print(f"Resuming from checkpoint: {last_checkpoint}")
 
     trainer.train(resume_from_checkpoint=last_checkpoint)
 
-    
-    # Save the model
-    print(f"Saving final model to {OUTPUT_DIR}...")
-    trainer.save_model(OUTPUT_DIR)
-    print("Training complete!")
+    # Save final model
+    os.makedirs(final_dir, exist_ok=True)
+    print(f"\nSaving final model to {final_dir}...")
+    trainer.save_model(final_dir)
+    tokenizer.save_pretrained(final_dir)
+
+    # Run final evaluation and print detailed report
+    print("\n" + "=" * 60)
+    print("Final Evaluation Report")
+    print("=" * 60)
+    eval_results = trainer.evaluate()
+    for key, value in eval_results.items():
+        print(f"  {key}: {value:.4f}")
+
+    print(f"\nTraining complete! Model saved to {final_dir}")
 
 if __name__ == "__main__":
     os.environ["TORCH_COMPILE"] = "0"
-    train()
+
+    parser = argparse.ArgumentParser(description="Train NER model for IT CVs")
+    parser.add_argument("--model", type=str, default=DEFAULT_MODEL,
+                        choices=list(SUPPORTED_MODELS.keys()),
+                        help=f"Model to use: {list(SUPPORTED_MODELS.keys())}")
+    parser.add_argument("--input-data", type=str, default=None, help="Input data directory")
+    parser.add_argument("--synthetic-data", type=str, default=None, help="Synthetic IT data JSONL file")
+    parser.add_argument("--output-dir", type=str, default=None, help="Checkpoint output directory")
+    parser.add_argument("--final-dir", type=str, default=None, help="Final model output directory")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=2, help="Per-device batch size")
+    parser.add_argument("--grad-accum", type=int, default=4, help="Gradient accumulation steps")
+    parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
+
+    args = parser.parse_args()
+    train(args)
 

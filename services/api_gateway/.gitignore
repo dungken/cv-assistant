@@ -1,0 +1,47 @@
+# .NET
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider/IntelliJ
+.idea/
+
+# User-specific files
+*.user
+*.userprefs
+
+# VS Code
+.vscode/
+
+# Build results
+[Aa]rtifacts/
+[Pp]ublish/
+[Rr]elease/
+
+# NuGet
+packages/
+*.nupkg
+# NuGet Restore Lock File
+project.lock.json
+project.assets.json
+
+# Environment variables
+.env
+appsettings.Development.json
+appsettings.Local.json
+
+# Docker
+.dockerignore
+Dockerfile.user
+
+# OS
+.DS_Store
+Thumbs.db

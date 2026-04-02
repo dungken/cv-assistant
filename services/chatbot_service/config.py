@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     
     max_history: int = 10
     ner_url: str = "http://localhost:5001"
+    skill_service_url: str = "http://localhost:5002"
+    career_service_url: str = "http://localhost:5003"
 
     
     class Config:

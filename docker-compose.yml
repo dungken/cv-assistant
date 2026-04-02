@@ -1,4 +1,6 @@
 services:
+  # ─── Infrastructure ────────────────────────────────────────────────
+
   postgres:
     image: postgres:15
     environment:
@@ -9,6 +11,12 @@ services:
       - "5433:5432"
     volumes:
       - ${DATA_PATH:-.}/data/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   chromadb:
     image: chromadb/chroma:0.5.5
@@ -19,17 +27,32 @@ services:
       - PERSIST_DIRECTORY=/chroma/chroma
     volumes:
       - ${DATA_PATH:-.}/knowledge_base/chroma_db:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-  api_gateway:
+  # ─── Python Microservices ──────────────────────────────────────────
+
+  ner_service:
     build:
       context: .
-      dockerfile: services/api_gateway/Dockerfile
+      dockerfile: services/ner_service/Dockerfile
     ports:
-      - "8081:8081"
+      - "5005:5001"
+    volumes:
+      - ./models:/app/models
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Database=cv_assistant;Username=postgres;Password=postgres"
-    depends_on:
-      - postgres
+      SERVICE_PORT: "5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
 
   skill_service:
     build:
@@ -39,9 +62,38 @@ services:
       - "5002:5002"
     environment:
       CHROMA_HOST: chromadb
-      CHROMA_PORT: 8000
+      CHROMA_PORT: "8000"
+      NER_SERVICE_URL: "http://ner_service:5001"
     depends_on:
-      - chromadb
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  career_service:
+    build:
+      context: .
+      dockerfile: services/career_service/Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
 
   chatbot_service:
     build:
@@ -52,32 +104,60 @@ services:
     environment:
       CHAT_OLLAMA_URL: "http://host.docker.internal:11434"
       CHAT_NER_URL: "http://ner_service:5001"
+      CHAT_SKILL_SERVICE_URL: "http://skill_service:5002"
+      CHAT_CAREER_SERVICE_URL: "http://career_service:5003"
+      CHAT_MODEL_NAME: "llama3.2:1b"
       CHROMA_HOST: "chromadb"
       CHROMA_PORT: "8000"
-      CHAT_MODEL_NAME: "llama3.2:1b"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  ner_service:
-    build:
-      context: .
-      dockerfile: services/ner_service/Dockerfile
-    ports:
-      - "5005:5001"
-    volumes:
-      - ./models:/app/models
-
-  career_service:
-    build:
-      context: .
-      dockerfile: services/career_service/Dockerfile
-    ports:
-      - "5003:5003"
-    environment:
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: 8000
     depends_on:
-      - chromadb
+      chromadb:
+        condition: service_healthy
+      ner_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ─── API Gateway (.NET) ────────────────────────────────────────────
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=cv_assistant;Username=postgres;Password=postgres"
+      Services__NerUrl: "http://ner_service:5001"
+      Services__SkillUrl: "http://skill_service:5002"
+      Services__CareerUrl: "http://career_service:5003"
+      Services__ChatbotUrl: "http://chatbot_service:5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ner_service:
+        condition: service_healthy
+      skill_service:
+        condition: service_healthy
+      career_service:
+        condition: service_healthy
+      chatbot_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ─── Frontend ──────────────────────────────────────────────────────
 
   frontend:
     build:
@@ -86,7 +166,9 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - api_gateway
+      api_gateway:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

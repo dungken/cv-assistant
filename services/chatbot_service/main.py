@@ -45,7 +45,9 @@ def get_chat_service() -> ChatService:
                 ollama_url=settings.ollama_url,
                 ner_url=settings.ner_url,
                 model_name=settings.model_name,
-                collections=collections
+                collections=collections,
+                skill_service_url=settings.skill_service_url,
+                career_service_url=settings.career_service_url,
             )
 
         except Exception as e:
@@ -59,24 +61,40 @@ def health():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, service: ChatService = Depends(get_chat_service)):
-    """API for chat interaction."""
+    """API for chat interaction with skill/career-aware context."""
     logger.info(f"Chat req: {request.session_id}")
-    
+
     # 1. Update history
     service.add_msg(request.session_id, "user", request.message)
-    
-    # 2. RAG
+
+    # 2. RAG context retrieval
     context, sources = service.retrieve_context(request.message)
-    
-    # 3. Prompt context
+
+    # 3. Enrich with skill/career service intelligence
+    # Extract entities for enrichment (reuse NER if available)
+    entities = []
+    try:
+        import requests as req
+        r = req.post(f"{settings.ner_url}/extract",
+                     json={"text": request.message, "cv_id": "chat-query"}, timeout=5)
+        if r.status_code == 200:
+            entities = r.json().get("entities", [])
+    except Exception:
+        pass
+
+    service_context = service.enrich_with_services(request.message, entities)
+    if service_context:
+        context = context + "\n" + service_context
+
+    # 4. Build history context
     hist_str = service.get_history_str(request.session_id)
-    
-    # 4. LLM
+
+    # 5. LLM generation
     response = service.generate_response(request.message, context, hist_str)
-    
-    # 5. Save assistant reply
+
+    # 6. Save assistant reply
     service.add_msg(request.session_id, "assistant", response)
-    
+
     return ChatResponse(
         response=response,
         sources=sources,

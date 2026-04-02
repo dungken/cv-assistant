@@ -13,22 +13,27 @@ logger = logging.getLogger(__name__)
 from services.chatbot_service.services.normalizer import SkillNormalizer
 
 class ChatService:
-    """Orchestrates RAG, conversation history, and LLM generation."""
-    
-    SYSTEM_PROMPT = """You are CV Assistant, an AI-powered career guidance chatbot.
+    """Orchestrates RAG, conversation history, and LLM generation.
+    Enhanced with skill matching and career path context integration."""
+
+    SYSTEM_PROMPT = """You are CV Assistant, an AI-powered career guidance chatbot for IT professionals.
 
 Your capabilities:
 1. Answer questions about CV writing, job applications, and career development
-2. Provide advice based on O*NET occupational data
-3. Help users understand skill requirements for different jobs
-4. Give actionable tips for improving CVs
+2. Provide advice based on O*NET occupational data and IT industry knowledge
+3. Help users understand skill requirements for different IT jobs
+4. Analyze skill gaps and suggest learning paths
+5. Recommend career trajectories based on current skills
+6. Give actionable tips for improving CVs for ATS (Applicant Tracking Systems)
 
 Guidelines:
 - Be concise and helpful
 - Use bullet points for lists
 - If you don't know something, admit it
 - Always be encouraging and professional
-- When referencing job data, mention the source
+- When referencing job data, mention it comes from O*NET
+- For skill-related questions, explain relationships between technologies
+- For career path questions, consider both ambitious and conservative options
 
 Current context from knowledge base:
 {context}
@@ -37,14 +42,17 @@ Conversation history:
 {history}
 """
 
-    
-    def __init__(self, ollama_url: str, ner_url: str, model_name: str, collections: Dict[str, chromadb.Collection]):
+    def __init__(self, ollama_url: str, ner_url: str, model_name: str,
+                 collections: Dict[str, chromadb.Collection],
+                 skill_service_url: str = None, career_service_url: str = None):
         self.ollama_url = ollama_url
         self.ner_url = ner_url
         self.model_name = model_name
         self.collections = collections
-        self.history: List[Dict[str, str]] = {}
-        
+        self.skill_service_url = skill_service_url
+        self.career_service_url = career_service_url
+        self.history: Dict[str, List[Dict[str, str]]] = {}
+
         # Initialize Normalizer
         skill_coll = collections.get("onet_skills")
         self.normalizer = SkillNormalizer(skill_coll) if skill_coll else None
@@ -149,6 +157,75 @@ Conversation history:
 
         return "\n".join(parts) if parts else "[No specific info found in KB, using general knowledge]", sources
 
+
+    def enrich_with_services(self, query: str, entities: list) -> str:
+        """Call skill/career services to enrich context for skill or career questions."""
+        enrichments = []
+
+        # Detect if query is about skills/matching
+        skills = [e.get("text") for e in entities if e.get("type") == "SKILL"]
+        job_titles = [e.get("text") for e in entities if e.get("type") == "JOB_TITLE"]
+
+        skill_keywords = ["skill", "match", "require", "need", "learn", "gap", "kỹ năng"]
+        career_keywords = ["career", "path", "transition", "grow", "promotion", "lộ trình", "nghề"]
+
+        query_lower = query.lower()
+        is_skill_query = any(k in query_lower for k in skill_keywords)
+        is_career_query = any(k in query_lower for k in career_keywords)
+
+        # Call Skill Service for skill-related queries
+        if is_skill_query and skills and self.skill_service_url:
+            try:
+                resp = requests.post(
+                    f"{self.skill_service_url}/match",
+                    json={"cv_skills": skills, "jd_text": query},
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    score = data.get("overall_score", 0)
+                    missing = data.get("missing_skills", [])
+                    gap_info = data.get("skill_gap_explanation", {})
+
+                    enrichments.append(f"\n## Skill Analysis (from Matcher):")
+                    enrichments.append(f"- Match score: {score}%")
+                    if missing:
+                        enrichments.append(f"- Missing skills: {', '.join(missing[:5])}")
+                    if gap_info.get("summary"):
+                        enrichments.append(f"- {gap_info['summary']}")
+            except Exception as e:
+                logger.warning(f"Skill service unavailable: {e}")
+
+        # Call Career Service for career-related queries
+        if is_career_query and (job_titles or skills) and self.career_service_url:
+            try:
+                current_role = job_titles[0] if job_titles else "Software Developer"
+                resp = requests.post(
+                    f"{self.career_service_url}/recommend",
+                    json={
+                        "current_role": current_role,
+                        "target_role": None,
+                        "current_skills": skills[:10]
+                    },
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    target = data.get("target_role", "")
+                    level = data.get("experience_level", "")
+                    gap = data.get("skill_gap", {})
+
+                    enrichments.append(f"\n## Career Intelligence:")
+                    enrichments.append(f"- Current level: {level}")
+                    enrichments.append(f"- Suggested target: {target}")
+                    if gap.get("missing"):
+                        enrichments.append(f"- Skills to develop: {', '.join(gap['missing'][:5])}")
+                    if gap.get("readiness_score"):
+                        enrichments.append(f"- Readiness: {gap['readiness_score']}%")
+            except Exception as e:
+                logger.warning(f"Career service unavailable: {e}")
+
+        return "\n".join(enrichments) if enrichments else ""
 
     def generate_response(self, message: str, context: str, history: str) -> str:
         """Call Ollama for completion."""

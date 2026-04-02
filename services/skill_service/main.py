@@ -11,8 +11,10 @@ import uvicorn
 from sentence_transformers import SentenceTransformer
 
 from services.skill_service.config import settings
-from services.skill_service.models.schemas import SkillMatchRequest, SkillMatchResponse
+from services.skill_service.models.schemas import SkillMatchRequest, SkillMatchResponse, SkillGapExplanation
 from services.skill_service.services.matcher import SkillMatcher
+from services.skill_service.services.explainer import SkillGapExplainer
+from services.skill_service.services.ontology import SkillOntology
 from shared.db.chroma_client import get_collection
 from shared.utils.logging_config import setup_logging
 from shared.constants import COLLECTION_JOBS
@@ -59,24 +61,37 @@ def health_check():
 
 @app.post("/match", response_model=SkillMatchResponse)
 def match_skills(request: SkillMatchRequest, matcher: SkillMatcher = Depends(get_matcher)):
-    """API endpoint to match skills."""
+    """API endpoint to match skills with ontology-enhanced matching and explainable gap analysis."""
     logger.info(f"Processing match request for {len(request.cv_skills)} skills")
-    
+
     # Extract jd skills
     jd_skills = matcher.extract_skills_from_jd(request.jd_text)
-    
-    # Match
+
+    # Match (3-tier: exact + ontology + semantic)
     results = matcher.match(request.cv_skills, jd_skills)
-    
+
+    # Explainable skill gap analysis
+    explainer = SkillGapExplainer(matcher.ontology)
+    gap_explanation = explainer.analyze_gap(
+        cv_skills=request.cv_skills,
+        jd_skills=jd_skills,
+        missing_skills=results.get("missing_skills", []),
+        match_score=results["overall_score"],
+    )
+
     # Recommend
     recs = matcher.get_recommendations(request.cv_skills)
-    
+
     return SkillMatchResponse(
         jd_skills_extracted=jd_skills,
         exact_matches=results["exact_matches"],
+        ontology_matches=results.get("ontology_matches", []),
         semantic_matches=results["semantic_matches"],
+        missing_skills=results.get("missing_skills", []),
         overall_score=results["overall_score"],
-        recommendations=recs
+        cv_profile=results.get("cv_profile", {}),
+        recommendations=recs,
+        skill_gap_explanation=SkillGapExplanation(**gap_explanation),
     )
 
 if __name__ == "__main__":
