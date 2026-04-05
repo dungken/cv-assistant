@@ -1,9 +1,12 @@
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import chromadb
-from services.skill_service.models.schemas import SemanticMatch, OntologyMatch
+from services.skill_service.models.schemas import (
+    SemanticMatch, OntologyMatch, MatchedSkill, MissingSkill, 
+    ExtraSkill, ExperienceMatch, EducationMatch
+)
 from services.skill_service.services.ontology import SkillOntology
 
 logger = logging.getLogger(__name__)
@@ -146,17 +149,136 @@ class SkillMatcher:
         # --- Identify missing skills (gap) ---
         missing_skills = [s for s in jd_skills_lower if s not in matched_jd]
 
-        # Categorize CV skills
-        cv_skill_profile = self.ontology.categorize_skills(cv_skills)
-
         return {
             "exact_matches": exact_matches,
             "ontology_matches": ontology_matches,
             "semantic_matches": semantic_matches,
             "missing_skills": missing_skills,
             "overall_score": score,
-            "cv_profile": cv_skill_profile,
         }
+
+    def match_comprehensive(self, 
+                          cv_skills: List[str], 
+                          jd_required: List[str], 
+                          jd_preferred: List[str],
+                          cv_exp: float = 0,
+                          jd_min_exp: float = 0,
+                          jd_max_exp: Optional[float] = None,
+                          cv_edu: Optional[str] = None,
+                          jd_edu: Optional[str] = None) -> Dict:
+        """
+        Deep matching for US-11.
+        Weighted score: Skills (60%), Experience (30%), Education (10%).
+        """
+        # 1. Match Required Skills
+        req_res = self.match(cv_skills, jd_required)
+        
+        # 2. Match Preferred Skills
+        pref_res = self.match(cv_skills, jd_preferred)
+        
+        # Calculate skill score (Required weight 1.0, Preferred weight 0.5)
+        total_req = len(jd_required)
+        total_pref = len(jd_preferred)
+        
+        req_match_val = (len(req_res["exact_matches"]) * 1.0 + 
+                        len(req_res["ontology_matches"]) * 0.85 + 
+                        len(req_res["semantic_matches"]) * 0.7)
+        
+        pref_match_val = (len(pref_res["exact_matches"]) * 1.0 + 
+                         len(pref_res["ontology_matches"]) * 0.85 + 
+                         len(pref_res["semantic_matches"]) * 0.7)
+        
+        skill_score = 0
+        if total_req > 0 or total_pref > 0:
+            skill_score = (req_match_val + 0.5 * pref_match_val) / (total_req + 0.5 * total_pref) * 100
+        skill_score = min(100, round(skill_score, 1))
+
+        # Identify Matched, Missing, Extra
+        matched = []
+        for s in req_res["exact_matches"]: matched.append(MatchedSkill(skill=s, match_type="exact", cv_mention=s, jd_requirement="required"))
+        for m in req_res["ontology_matches"]: matched.append(MatchedSkill(skill=m.jd_skill, match_type="ontology", cv_mention=m.cv_skill, jd_requirement="required"))
+        for m in req_res["semantic_matches"]: matched.append(MatchedSkill(skill=m.jd_skill, match_type="semantic", cv_mention=m.cv_skill, jd_requirement="required"))
+        
+        for s in pref_res["exact_matches"]: matched.append(MatchedSkill(skill=s, match_type="exact", cv_mention=s, jd_requirement="preferred"))
+        for m in pref_res["ontology_matches"]: matched.append(MatchedSkill(skill=m.jd_skill, match_type="ontology", cv_mention=m.cv_skill, jd_requirement="preferred"))
+        for m in pref_res["semantic_matches"]: matched.append(MatchedSkill(skill=m.jd_skill, match_type="semantic", cv_mention=m.cv_skill, jd_requirement="preferred"))
+
+        missing = []
+        for s in req_res["missing_skills"]: missing.append(MissingSkill(skill=s, jd_requirement="required", priority="high", suggestion=f"Key requirement for this role."))
+        for s in pref_res["missing_skills"]: missing.append(MissingSkill(skill=s, jd_requirement="preferred", priority="medium", suggestion=f"Would be a strong plus."))
+
+        # Identify Extra Skills (CV skills not in matched)
+        matched_cv_skills = {m.cv_mention.lower() for m in matched}
+        extra = []
+        for s in cv_skills:
+            if s.lower() not in matched_cv_skills:
+                # Highlight if it's high demand in ontology
+                cat = self.ontology.get_category(s)
+                extra.append(ExtraSkill(skill=s, relevance="high" if cat else "medium", suggestion=f"Relevant skill in {cat or 'General Engineering'}."))
+
+        # 3. Match Experience
+        exp_match = self.match_experience(cv_exp, jd_min_exp, jd_max_exp)
+        
+        # 4. Match Education
+        edu_match = self.match_education(cv_edu, jd_edu)
+        
+        # Overall Score
+        overall_score = round(skill_score * 0.6 + exp_match.score * 0.3 + edu_match.score * 0.1, 1)
+
+        return {
+            "overall_score": overall_score,
+            "breakdown": {
+                "skills": skill_score,
+                "experience": exp_match.score,
+                "education": edu_match.score
+            },
+            "skills": {
+                "matched": matched,
+                "missing": missing,
+                "extra": extra
+            },
+            "experience": exp_match,
+            "education": edu_match
+        }
+
+    def match_experience(self, current: float, required_min: float, required_max: Optional[float] = None) -> ExperienceMatch:
+        status = "match"
+        score = 100
+        
+        if current < required_min:
+            gap = required_min - current
+            if gap <= 1:
+                status = "partial"
+                score = 70
+            else:
+                status = "gap"
+                score = max(0, 50 - (gap * 10))
+        elif required_max and current > required_max + 5:
+            status = "overqualified"
+            score = 90
+            
+        return ExperienceMatch(
+            current=current,
+            required_min=required_min,
+            required_max=required_max,
+            status=status,
+            score=score
+        )
+
+    def match_education(self, current: Optional[str], required: Optional[str]) -> EducationMatch:
+        if not required or required.lower() == "none" or required.lower() == "n/a":
+            return EducationMatch(current=current, required=required, status="match", score=100)
+            
+        edu_levels = {"none": 0, "bachelor": 1, "master": 2, "phd": 3}
+        current_lvl = edu_levels.get((current or "none").lower(), 0)
+        req_lvl = edu_levels.get((required or "none").lower(), 1)
+        
+        if current_lvl >= req_lvl:
+            return EducationMatch(current=current, required=required, status="match", score=100)
+        elif current_lvl > 0:
+            return EducationMatch(current=current, required=required, status="partial", score=60)
+        else:
+            return EducationMatch(current=current, required=required, status="gap", score=20)
 
     def get_recommendations(self, cv_skills: List[str]) -> List[str]:
         """Get relevant jobs based on cv skills."""

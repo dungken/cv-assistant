@@ -1,5 +1,5 @@
 #!/bin/bash
-# manage.sh - Interactive Service Manager for CV Assistant (Docker Mode)
+# manage.sh - Interactive Service Manager for Resume Assistant (Docker Mode)
 
 # Colors
 GREEN='\033[0;32m'
@@ -16,7 +16,7 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 show_banner() {
     clear
     echo -e "${BLUE}${BOLD}================================================${NC}"
-    echo -e "${BLUE}${BOLD}         CV ASSISTANT - DOCKER MANAGER          ${NC}"
+    echo -e "${BLUE}${BOLD}         Resume Assistant - DOCKER MANAGER          ${NC}"
     echo -e "${BLUE}${BOLD}================================================${NC}"
 }
 

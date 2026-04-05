@@ -1,7 +1,7 @@
 services:
-  # ─── Infrastructure ────────────────────────────────────────────────
+  # ─── Core Infrastructure ──────────────────────────────────────────
 
-  postgres:
+  postgres_main:
     image: postgres:15
     environment:
       POSTGRES_USER: postgres
@@ -10,7 +10,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ${DATA_PATH:-.}/data/postgres_data:/var/lib/postgresql/data
+      - ${DATA_PATH:-.}/data/postgres_main:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -18,20 +18,59 @@ services:
       retries: 5
     restart: unless-stopped
 
-  chromadb:
+  # ─── Skill Service Dedicated Infra ────────────────────────────────
+
+  skill_postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: skill_user
+      POSTGRES_PASSWORD: skill_password
+      POSTGRES_DB: skill_data
+    ports:
+      - "5434:5432"
+    volumes:
+      - ${DATA_PATH:-.}/data/skill_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+    restart: unless-stopped
+
+  skill_chromadb:
     image: chromadb/chroma:0.5.5
     ports:
-      - "8002:8000"
+      - "8003:8000"
     environment:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/chroma/chroma
     volumes:
-      - ${DATA_PATH:-.}/knowledge_base/chroma_db:/chroma/chroma
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ${DATA_PATH:-.}/knowledge_base/skill_chroma:/chroma/chroma
+    restart: unless-stopped
+
+  # ─── Career Service Dedicated Infra ───────────────────────────────
+
+  career_chromadb:
+    image: chromadb/chroma:0.5.5
+    ports:
+      - "8004:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+    volumes:
+      - ${DATA_PATH:-.}/knowledge_base/career_chroma:/chroma/chroma
+    restart: unless-stopped
+
+  # ─── Chatbot Service Dedicated Infra ──────────────────────────────
+
+  chatbot_chromadb:
+    image: chromadb/chroma:0.5.5
+    ports:
+      - "8005:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+    volumes:
+      - ${DATA_PATH:-.}/knowledge_base/chatbot_chroma:/chroma/chroma
     restart: unless-stopped
 
   # ─── Python Microservices ──────────────────────────────────────────
@@ -46,12 +85,6 @@ services:
       - ./models:/app/models
     environment:
       SERVICE_PORT: "5001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     restart: unless-stopped
 
   skill_service:
@@ -61,18 +94,15 @@ services:
     ports:
       - "5002:5002"
     environment:
-      CHROMA_HOST: chromadb
+      CHROMA_HOST: skill_chromadb
       CHROMA_PORT: "8000"
+      DATABASE_URL: "postgresql://skill_user:skill_password@skill_postgres:5432/skill_data"
       NER_SERVICE_URL: "http://ner_service:5001"
     depends_on:
-      chromadb:
+      skill_chromadb:
+        condition: service_started
+      skill_postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     restart: unless-stopped
 
   career_service:
@@ -82,17 +112,11 @@ services:
     ports:
       - "5003:5003"
     environment:
-      CHROMA_HOST: chromadb
+      CHROMA_HOST: career_chromadb
       CHROMA_PORT: "8000"
     depends_on:
-      chromadb:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      career_chromadb:
+        condition: service_started
     restart: unless-stopped
 
   chatbot_service:
@@ -106,22 +130,13 @@ services:
       CHAT_NER_URL: "http://ner_service:5001"
       CHAT_SKILL_SERVICE_URL: "http://skill_service:5002"
       CHAT_CAREER_SERVICE_URL: "http://career_service:5003"
-      CHAT_MODEL_NAME: "llama3.2:1b"
-      CHROMA_HOST: "chromadb"
+      CHROMA_HOST: "chatbot_chromadb"
       CHROMA_PORT: "8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      chromadb:
-        condition: service_healthy
-      ner_service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      chatbot_chromadb:
+        condition: service_started
     restart: unless-stopped
 
   # ─── API Gateway (.NET) ────────────────────────────────────────────
@@ -133,28 +148,14 @@ services:
     ports:
       - "8081:8081"
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Database=cv_assistant;Username=postgres;Password=postgres"
+      ConnectionStrings__DefaultConnection: "Host=postgres_main;Database=cv_assistant;Username=postgres;Password=postgres"
       Services__NerUrl: "http://ner_service:5001"
       Services__SkillUrl: "http://skill_service:5002"
       Services__CareerUrl: "http://career_service:5003"
       Services__ChatbotUrl: "http://chatbot_service:5004"
     depends_on:
-      postgres:
+      postgres_main:
         condition: service_healthy
-      ner_service:
-        condition: service_healthy
-      skill_service:
-        condition: service_healthy
-      career_service:
-        condition: service_healthy
-      chatbot_service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/api/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
     restart: unless-stopped
 
   # ─── Frontend ──────────────────────────────────────────────────────
@@ -171,4 +172,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres_main:
+  skill_postgres:

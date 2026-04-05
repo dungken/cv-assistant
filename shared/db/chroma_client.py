@@ -13,15 +13,22 @@ CHROMA_PATH = os.getenv("CHROMA_PATH", "./knowledge_base/chroma_db")
 CHROMA_HOST = os.getenv("CHROMA_HOST")
 CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
 
-@lru_cache(maxsize=1)
-def get_chroma_client() -> chromadb.ClientAPI:
+@lru_cache(maxsize=10)
+def get_chroma_client(host: str = None, port: int = None) -> chromadb.ClientAPI:
     """
-    Get ChromaDB client (Singleton).
+    Get ChromaDB client.
+    Args:
+        host: Optional host override.
+        port: Optional port override.
     """
+    # Use provided args, then env vars, then defaults
+    h = host or CHROMA_HOST
+    p = port or int(CHROMA_PORT)
+    
     try:
-        if CHROMA_HOST:
-            client = chromadb.HttpClient(host=CHROMA_HOST, port=int(CHROMA_PORT))
-            logger.info(f"ChromaDB connected via HTTP to {CHROMA_HOST}:{CHROMA_PORT}")
+        if h:
+            client = chromadb.HttpClient(host=h, port=p)
+            logger.info(f"ChromaDB connected via HTTP to {h}:{p}")
         else:
             client = chromadb.PersistentClient(path=CHROMA_PATH)
             logger.info(f"ChromaDB client initialized locally at {CHROMA_PATH}")

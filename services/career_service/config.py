@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+import os
 
 class Settings(BaseSettings):
     """Career Service Settings"""
@@ -6,7 +7,8 @@ class Settings(BaseSettings):
     service_port: int = 5003
     log_level: str = "INFO"
     
-    chroma_path: str = "./knowledge_base/chroma_db"
+    chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
+    chroma_port: int = int(os.getenv("CHROMA_PORT", 8000))
     onet_path: str = "./knowledge_base/onet/db_28_1_text"
     
     class Config:

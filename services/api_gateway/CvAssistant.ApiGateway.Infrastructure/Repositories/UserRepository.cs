@@ -24,6 +24,27 @@ public class UserRepository : IUserRepository
         return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
     }
 
+    public async Task<User?> GetByEmailIncludeDeletedAsync(string email)
+    {
+        return await _context.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == email);
+    }
+
+    public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+    }
+
+    public async Task<User?> GetByEmailVerificationTokenAsync(string token)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.EmailVerificationToken == token);
+    }
+
+    public async Task<User?> GetByPasswordResetTokenAsync(string email, string token)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.PasswordResetToken == token);
+    }
+
     public async Task<bool> ExistsByEmailAsync(string email)
     {
         return await _context.Users.AnyAsync(u => u.Email == email);
@@ -33,6 +54,11 @@ public class UserRepository : IUserRepository
     {
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<User>> GetAllAsync()
+    {
+        return await _context.Users.ToListAsync();
     }
 
     public async Task UpdateAsync(User user)

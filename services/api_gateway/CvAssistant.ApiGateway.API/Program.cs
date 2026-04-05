@@ -7,6 +7,7 @@ using CvAssistant.ApiGateway.Application.Services;
 using CvAssistant.ApiGateway.Infrastructure.Data;
 using CvAssistant.ApiGateway.Infrastructure.Repositories;
 using CvAssistant.ApiGateway.Infrastructure.Security;
+using CvAssistant.ApiGateway.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,16 +26,28 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IChatSessionRepository, ChatSessionRepository>();
 builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
 builder.Services.AddScoped<ICVHistoryRepository, CVHistoryRepository>();
+builder.Services.AddScoped<ICollectorRepository, CollectorRepository>();
+builder.Services.AddScoped<IJDHistoryRepository, JDHistoryRepository>();
+builder.Services.AddScoped<ICvDocumentRepository, CvDocumentRepository>();
+builder.Services.AddScoped<ICvVersionRepository, CvVersionRepository>();
+builder.Services.AddScoped<ICvTemplateRepository, CvTemplateRepository>();
+builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 
 // 3. Security
 builder.Services.AddSingleton<IJwtUtils, JwtUtils>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
+builder.Services.AddSingleton<IEmailService, EmailService>();
 
 // 4. Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ICVHistoryService, CVHistoryService>();
+builder.Services.AddScoped<ICollectorService, CollectorService>();
+builder.Services.AddScoped<IJDHistoryService, JDHistoryService>();
+builder.Services.AddScoped<ICvDocumentService, CvDocumentService>();
+builder.Services.AddScoped<ICvTemplateService, CvTemplateService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 
 // 5. HttpClient for proxying to Python microservices
 builder.Services.AddHttpClient("NerService", client =>
@@ -130,6 +143,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseMiddleware<RateLimitingMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseCors("AllowAll");
@@ -140,6 +154,7 @@ app.MapGet("/swagger-ui.html", () => Results.Redirect("/swagger/index.html"));
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStaticFiles();
 
 app.MapControllers();
 

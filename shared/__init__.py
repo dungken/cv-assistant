@@ -1,3 +1,3 @@
 """
-Shared utilities and modules for CV Assistant services.
+Shared utilities and modules for Resume Assistant services.
 """

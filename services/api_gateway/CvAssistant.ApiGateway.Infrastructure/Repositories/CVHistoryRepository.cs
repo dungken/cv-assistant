@@ -22,6 +22,11 @@ public class CVHistoryRepository : ICVHistoryRepository
             .ToListAsync();
     }
 
+    public async Task<int> CountByUserIdAsync(long userId)
+    {
+        return await _context.CVHistories.CountAsync(h => h.UserId == userId);
+    }
+
     public async Task AddAsync(CVHistory history)
     {
         _context.CVHistories.Add(history);

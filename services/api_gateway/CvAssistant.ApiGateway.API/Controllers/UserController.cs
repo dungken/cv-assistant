@@ -33,4 +33,33 @@ public class UserController : ControllerBase
         var response = await _userService.UpdateProfileAsync(GetEmail(), request);
         return Ok(response);
     }
+
+    [HttpPost("avatar")]
+    public async Task<ActionResult<UserProfileResponse>> UploadAvatar(IFormFile file)
+    {
+        if (file.Length == 0 || file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { error = "File must be between 1 byte and 5MB" });
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType))
+            return BadRequest(new { error = "Only JPEG, PNG, and WebP images are allowed" });
+
+        using var stream = file.OpenReadStream();
+        var response = await _userService.UploadAvatarAsync(GetEmail(), stream, file.FileName);
+        return Ok(response);
+    }
+
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        await _userService.ChangePasswordAsync(GetEmail(), request);
+        return Ok(new { message = "Password changed successfully" });
+    }
+
+    [HttpDelete("account")]
+    public async Task<IActionResult> DeleteAccount(DeleteAccountRequest request)
+    {
+        await _userService.DeleteAccountAsync(GetEmail(), request);
+        return Ok(new { message = "Account deleted successfully" });
+    }
 }

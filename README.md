@@ -1,6 +1,6 @@
-# CV Assistant
+# Resume Assistant
 
-CV Assistant is an AI-powered tool designed to help users optimize their Curriculum Vitae (CV) based on job descriptions and industry standards using O*NET data.
+Resume Assistant is an AI-powered tool designed to help users optimize their Curriculum Vitae (CV) based on job descriptions and industry standards using O*NET data.
 
 ## Project Structure
 

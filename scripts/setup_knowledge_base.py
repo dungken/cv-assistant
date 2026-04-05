@@ -131,7 +131,14 @@ def test_retrieval(client):
         logger.warning("No results found.")
 
 if __name__ == "__main__":
-    client = setup_chromadb()
+    import argparse
+    parser = argparse.ArgumentParser(description="Setup ChromaDB knowledge base")
+    parser.add_argument("--host", type=str, default="localhost", help="ChromaDB host")
+    parser.add_argument("--port", type=int, default=8000, help="ChromaDB port")
+    args = parser.parse_args()
+
+    # Pass specific host/port to get_chroma_client
+    client = get_chroma_client(host=args.host, port=args.port)
     
     try:
         ingest_onet_jobs(client, "knowledge_base/onet")

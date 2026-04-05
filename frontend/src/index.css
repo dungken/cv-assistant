@@ -1,65 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-primary: #212121;
-  /* Content area - lighter */
-  --bg-secondary: #181818;
-  /* Sidebar - darker */
-  --bg-surface: #2a2a2a;
-  /* Elevated elements */
-  --bg-surface-hover: #333333;
-  --bg-overlay: rgba(255, 255, 255, 0.04);
-  --text-primary: 248 248 248; /* #f8f8f8 */
-  --text-secondary: 156 163 175; /* #9ca3af */
-  --border-main: rgba(255, 255, 255, 0.08); /* Keep rgba for direct use */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --accent-primary: 99 102 241; /* #6366f1 */
-  --accent-secondary: 139 92 246; /* #8b5cf6 */
+  /* DARK THEME - Deep Abyss */
+  --bg-primary: 33 33 33; /* #212121 */
+  --bg-secondary: 42 42 42; /* #2a2a2a */
+  --bg-surface: 51 51 51; /* #333333 */
+  --bg-surface-hover: 39 39 42; /* #27272a */
+  --bg-overlay: 255 255 255; 
+
+  --text-primary: 250 250 250; /* #fafafa */
+  --text-secondary: 161 161 170; /* #a1a1aa */
+  --text-muted: 113 113 122; /* #71717a */
+
+  /* TRANSPARENT BORDERS - Transitioning to Shadow/Contrast design */
+  --border-primary: 255 255 255 / 0.12;
+  --border-secondary: 255 255 255 / 0.08;
+  --border-modal: 255 255 255 / 0.15;
+  --bg-modal-sidebar: 0 0 0 / 0.2;
+
+  --accent-primary: 99 102 241; /* Indigo */
+  --accent-secondary: 139 92 246; /* Purple */
 }
 
 :root.light {
-  --bg-primary: #ffffff;
-  /* Content area - white */
-  --bg-secondary: #f3f4f6;
-  /* Sidebar - light gray */
-  --bg-surface: #f9fafb;
-  --bg-surface-hover: #f1f5f9;
-  --bg-overlay: rgba(0, 0, 0, 0.03);
-  --text-primary: 17 24 39; /* #111827 */
-  --text-secondary: 75 85 99; /* #4b5563 */
-  --border-main: rgba(0, 0, 0, 0.08);
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --accent-primary: 79 70 229; /* #4f46e5 */
-  --accent-secondary: 124 58 237; /* #7c3aed */
+  /* LIGHT THEME - Modern Slate & Paper */
+  --bg-primary: 233 237 246; /* #e9edf6 */
+  --bg-secondary: 211 216 227; /* #d3d8e3 */
+  --bg-surface: 255 255 255; /* #ffffff */
+  --bg-surface-hover: 241 245 249; /* #f1f5f9 */
+  --bg-overlay: 0 0 0;
+
+  --text-primary: 15 23 42; /* #0f172a */
+  --text-secondary: 71 85 105; /* #475569 */
+  --text-muted: 148 163 184; /* #94a3b8 */
+
+  --border-primary: 0 0 0 / 0.1;
+  --border-secondary: 0 0 0 / 0.05;
+  --border-modal: 15 23 42 / 0.15;
+  --bg-modal-sidebar: 211 216 227 / 0.3;
+
+  --accent-primary: 79 70 229; /* Indigo */
+  --accent-secondary: 124 58 237; /* Purple */
+}
+@keyframes ai-thinking {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.animate-ai-thinking {
+  animation: ai-thinking 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 body {
   margin: 0;
-  /* Specific System Font Stack as requested */
-  font-family:
-    ui-sans-serif,
-    -apple-system,
-    "system-ui",
-    "Segoe UI",
-    Helvetica,
-    "Apple Color Emoji",
-    Arial,
-    "sans-serif",
-    "Segoe UI Emoji",
-    "Segoe UI Symbol";
-  background-color: var(--bg-primary);
-  /* Modern Gradient Background */
-  background-image:
-    radial-gradient(at 0% 0%, rgba(var(--accent-primary), 0.03) 0, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(var(--accent-secondary), 0.03) 0, transparent 50%);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: rgb(var(--bg-primary));
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(var(--accent-primary), 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(var(--accent-secondary), 0.05) 0px, transparent 50%);
   color: rgb(var(--text-primary));
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
+}
+
+h1, h2, h3, h4, .font-outfit {
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .light body {
@@ -68,63 +80,182 @@ body {
     radial-gradient(at 100% 100%, rgba(var(--accent-secondary), 0.05) 0, transparent 40%);
 }
 
-/* Modern Chips v2 - Premium Depth */
+/* Modern Chips v2 - Borderless Floating */
 .action-chip {
-  @apply flex items-center gap-2.5 px-6 py-3 rounded-2xl border border-border-main text-xs font-bold text-text-secondary transition-all duration-300 cursor-pointer active:scale-95;
-  color: rgb(var(--text-secondary));
+  @apply flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-all duration-300 active:scale-95 whitespace-nowrap bg-surface/50;
+  box-shadow: 
+    0 2px 4px -1px rgba(0, 0, 0, 0.04),
+    0 0 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .action-chip:hover {
-  color: rgb(var(--text-primary));
-  border-color: rgba(var(--accent-primary), 0.3);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  @apply -translate-y-0.5;
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.08),
+    0 4px 6px -2px rgba(0, 0, 0, 0.03);
 }
 
-.action-chip:hover {
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+.light .action-chip {
+  background-color: white;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.06),
+    0 2px 4px -1px rgba(0, 0, 0, 0.04),
+    0 0 1px 0 rgba(0, 0, 0, 0.12);
 }
 
-/* Sidebar Active State Indicator */
-.sidebar-active-indicator {
-  @apply absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-accent-primary rounded-r-full;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+.light .action-chip:hover {
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.08),
+    0 10px 10px -5px rgba(0, 0, 0, 0.03);
 }
 
-/* Glassmorphism v2 - Improved Hierarchy */
+/* Prompt Textarea Scrollbar - inherit from global but keep thin */
+.prompt-textarea {
+  overflow-y: auto;
+}
+
+/* Prompt Input Container */
+.prompt-wrapper {
+  position: relative;
+  padding: 2px;
+  border-radius: 1.5rem;
+  background: transparent;
+}
+
+.prompt-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 1.5rem;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    #6366f1 0deg,
+    #8b5cf6 45deg,
+    #ec4899 90deg,
+    #ef4444 135deg,
+    #f97316 180deg,
+    #eab308 225deg,
+    #22c55e 270deg,
+    #06b6d4 315deg,
+    #6366f1 360deg
+  );
+  opacity: 0.25;
+  transition: opacity 0.4s ease;
+  animation: rainbow-rotate 4s linear infinite;
+  z-index: -1;
+  filter: blur(6px);
+}
+
+.prompt-wrapper:focus-within::before {
+  opacity: 0.7;
+}
+
+.prompt-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1.5rem;
+  background: rgb(var(--bg-surface));
+  z-index: -1;
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rainbow-rotate {
+  to { --angle: 360deg; }
+}
+
+.prompt-container {
+  background-color: rgb(var(--bg-surface));
+  border: none;
+  /* box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3); */
+  position: relative;
+  z-index: 1;
+}
+
+.prompt-container:focus-within {
+  border-color: transparent;
+}
+
+.light .prompt-container {
+  background-color: rgb(255, 255, 255);
+  border-color: rgba(0, 0, 0, 0.05);
+  /* box-shadow: 
+    0 10px 25px -5px rgba(0, 0, 0, 0.08),
+    0 4px 10px -3px rgba(0, 0, 0, 0.04),
+    0 0 1px 0 rgba(0, 0, 0, 0.1); */
+}
+
+/* Glassmorphism v3 - Shadow/Elevation focused */
 .glass-panel {
-  @apply backdrop-blur-3xl border border-border-main;
-  background-color: rgba(23, 23, 23, 0.7);
+  @apply backdrop-blur-3xl;
+  background-color: rgba(var(--text-primary), 0.02);
   box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.15),
-    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    0 20px 40px -10px rgba(0, 0, 0, 0.2),
+    0 8px 10px -6px rgba(0, 0, 0, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.light .glass-panel {
-  background-color: rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.05),
-    0 8px 10px -6px rgba(0, 0, 0, 0.02);
+.glass-pill {
+  @apply backdrop-blur-3xl rounded-[2.5rem] shadow-2xl;
+  background-color: rgba(var(--bg-surface), 0.9);
+  box-shadow: 
+    0 25px 60px -15px rgba(0, 0, 0, 0.4),
+    0 10px 25px -5px rgba(0, 0, 0, 0.2);
 }
 
-/* Premium Sidebar Transitions */
+.light .glass-pill {
+  background-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 
+    0 20px 50px -12px rgba(0, 0, 0, 0.08),
+    0 10px 20px -5px rgba(0, 0, 0, 0.04);
+}
+
+.light .glass-panel {
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10px 30px -5px rgba(0, 0, 0, 0.03),
+    0 8px 15px -6px rgba(0, 0, 0, 0.01);
+}
+
+/* Sidebar Specific - Contrast Based */
 .sidebar-transition {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.sidebar-content-slide {
+  transition: 
+    max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sidebar-content-slide.open {
+  max-width: 500px;
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.1s;
+}
+
+.sidebar-content-slide.closed {
+  opacity: 0;
+  pointer-events: none;
+  max-width: 0;
+  transition: 
+    max-width 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Shimmer Effect for Pro Badges */
 @keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .shimmer-bg {
@@ -148,43 +279,274 @@ body {
   animation: shimmer 3s infinite;
 }
 
-/* Custom Scrollbar - Minimalist */
+* {
+  box-sizing: border-box;
+}
+
+/* Prevent page body from scrolling — only internal containers scroll */
+html, body {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Universal Premium Scrollbar System 
+   Corrected for absolute track transparency.
+   ───────────────────────────────────────────────────────── */
+
+/* 1. Global scrollbar properties — track must use real color, not transparent */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent #212121;
+}
+
+/* 2. Global Webkit Customization - dark mode default (#212121 = bg-primary) */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px !important;
+  height: 6px !important;
+  background-color: #212121 !important;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* 3. Hide scrollbar buttons (arrows) */
+::-webkit-scrollbar-button {
+  display: none !important;
 }
 
+/* 4. Track should be transparent to allow floating thumb effect */
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+/* Sidebar track matches bg-secondary (#2a2a2a) */
+.sidebar-scroll-area::-webkit-scrollbar,
+.sidebar-scroll-area::-webkit-scrollbar-track,
+.sidebar-scroll-area::-webkit-scrollbar-track-piece {
+  background-color: #2a2a2a !important;
+}
+
+/* Light theme track */
+:root.light ::-webkit-scrollbar,
+:root.light ::-webkit-scrollbar-track,
+:root.light ::-webkit-scrollbar-track-piece {
+  background-color: #e9edf6 !important;
+}
+
+:root.light .sidebar-scroll-area::-webkit-scrollbar,
+:root.light .sidebar-scroll-area::-webkit-scrollbar-track,
+:root.light .sidebar-scroll-area::-webkit-scrollbar-track-piece {
+  background-color: #d3d8e3 !important;
+}
+
+/* 5. Minimalist Thumb Styling */
 ::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 10px;
+  background-color: transparent !important;
+  border-radius: 10px !important;
+  border: 1px solid transparent !important;
+  background-clip: content-box !important;
 }
 
+/* 6. Hover Reveal Logic */
+*:hover::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--text-secondary));
+  background-color: rgba(var(--bg-overlay), 0.4) !important;
+}
+
+/* 7. Light Theme Specifics */
+:root.light *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 8. Floating Scrollbar Utility - adds padding to avoid edge collision */
+.floating-scrollbar {
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+
+.floating-scrollbar::-webkit-scrollbar {
+  width: 5px !important;
+}
+
+/* 9. Specialized Hiding */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+
+/* Hover reveal — track keeps matching background */
+*:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.3) #212121;
+}
+
+.sidebar-scroll-area {
+  scrollbar-color: transparent #2a2a2a;
+}
+
+.sidebar-scroll-area:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.3) #2a2a2a;
+}
+
+/* Light theme */
+:root.light * {
+  scrollbar-color: transparent #e9edf6;
+}
+
+:root.light *:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.2) #e9edf6;
+}
+
+:root.light .sidebar-scroll-area {
+  scrollbar-color: transparent #d3d8e3;
+}
+
+:root.light .sidebar-scroll-area:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.2) #d3d8e3;
+}
+
+/* Specific Hide Utility — must override global rule */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Chat scroll — inherits global slim style, uses wider gutter + border gap
+   so the thumb floats 2px away from the container edge */
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  margin-block: 8px;
 }
 
 /* Prompt Input Glow */
 .pill-input-focus {
-  @apply ring-4 ring-accent-primary/5 border-accent-primary/20;
-  background-color: var(--bg-surface);
+  @apply ring-8 ring-accent-primary/5;
+  background-color: rgb(var(--bg-surface));
   box-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    0 30px 45px -5px rgba(0, 0, 0, 0.2),
+    0 15px 20px -5px rgba(0, 0, 0, 0.1);
 }
 
-/* Sidebar Specific */
-.sidebar-section {
-  @apply space-y-1 mb-12;
+.light .pill-input-focus {
+  box-shadow:
+    0 25px 40px -10px rgba(0, 0, 0, 0.12),
+    0 10px 15px -5px rgba(0, 0, 0, 0.06);
 }
 
-.sidebar-label {
-  @apply px-4 text-[10px] font-black text-text-secondary/20 uppercase tracking-[0.4em] mb-4;
-}
-
-/* Chat Stream Container */
+/* Chat Stream Container - strictly cented at 840px */
 .chat-stream-width {
-  @apply max-w-[840px] mx-auto w-full;
+  @apply max-w-[840px] px-6 sm:px-12 mx-auto w-full transition-all duration-700;
+}
+
+/* Premium Markdown Styles - Simplified */
+.markdown-content {
+  @apply leading-[1.65] text-[15px] tracking-normal;
+}
+
+.markdown-content > * {
+  /* margin-top: 1rem !important;
+  margin-bottom: 1rem !important; */
+}
+
+.markdown-content > * + * {
+  @apply mt-2.5; 
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  @apply font-bold tracking-tight text-text-primary mb-0 font-outfit;
+}
+
+.markdown-content > h1, .markdown-content > h2, .markdown-content > h3 {
+  @apply mt-2;
+}
+
+/* Tight connection for content following a header */
+.markdown-content h1 + *, .markdown-content h2 + *, .markdown-content h3 + * {
+  @apply mt-1 !important;
+}
+
+.markdown-content > h1:first-child, .markdown-content > h2:first-child, .markdown-content > h3:first-child {
+  @apply mt-0;
+}
+
+.markdown-content h1 { @apply text-2xl; }
+.markdown-content h2 { @apply text-xl; }
+.markdown-content h3 { @apply text-lg; }
+
+.markdown-content strong {
+  @apply font-semibold text-text-primary;
+}
+
+.markdown-content ul, .markdown-content ol {
+  @apply pl-5 space-y-1;
+}
+
+/* Reduce gap below headers/paragraphs for lists */
+.markdown-content h1 + ul, .markdown-content h1 + ol,
+.markdown-content h2 + ul, .markdown-content h2 + ol,
+.markdown-content h3 + ul, .markdown-content h3 + ol,
+.markdown-content p + ul, .markdown-content p + ol {
+  @apply mt-2;
+}
+
+.markdown-content li {
+  @apply text-text-primary leading-relaxed;
+}
+
+.markdown-content li > ul,
+.markdown-content li > ol {
+  @apply mt-1;
+}
+
+.markdown-content table {
+  @apply w-full border-collapse my-4 rounded-2xl overflow-hidden shadow-sm;
+  background-color: rgb(var(--bg-secondary));
+}
+
+.markdown-content th {
+  @apply px-4 py-3 text-left text-xs font-black uppercase tracking-wider bg-surface/50 text-text-secondary;
+}
+
+.markdown-content td {
+  @apply px-4 py-3 text-sm text-text-primary transition-colors border-b border-white/5;
+  white-space: pre-line;
+}
+
+.markdown-content td p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.markdown-content tr:hover td {
+  background-color: rgba(var(--bg-overlay), 0.03);
+}
+
+.markdown-content code {
+  @apply px-1.5 py-0.5 rounded-md bg-surface/80 font-mono text-sm text-text-primary font-medium;
+}
+
+.markdown-content pre {
+  @apply p-4 rounded-xl bg-secondary/80 shadow-lg mt-4 overflow-x-auto border border-white/5;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-indigo-500 bg-indigo-500/5 px-5 py-4 rounded-r-xl italic mt-4 text-text-primary/90;
+}
+
+.markdown-content hr {
+  @apply my-5 border-t border-white/5;
+}
+ol, ul, menu {
+  list-style: circle;
 }

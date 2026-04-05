@@ -22,7 +22,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
+lib/ollama/
+
 lib64/
 parts/
 sdist/
@@ -72,6 +74,22 @@ data/postgres_data/
 # keep synthetic IT data if needed, but usually data folder is ignored
 # data/raw/synthetic_it/ 
 
+# Knowledge base
+knowledge_base/chroma_db/
+knowledge_base/chatbot_chroma/
+knowledge_base/career_chroma/
+knowledge_base/skill_chroma/
+
+# Large raw O*NET dataset
+knowledge_base/onet/db_28_1_text/
+
+# Optional: ignore other generated/indexed KB artifacts
+knowledge_base/**/*.sqlite3
+knowledge_base/**/*.bin
+knowledge_base/**/*.pickle
+
+
 # Model weight
 models/ner/checkpoint/
 models/ner/final/
+models/ner/jd_final/

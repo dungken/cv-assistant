@@ -1,5 +1,5 @@
 """
-Shared Pydantic Models - CV Assistant
+Shared Pydantic Models - Resume Assistant
 """
 from pydantic import BaseModel
 from typing import List, Optional, Any

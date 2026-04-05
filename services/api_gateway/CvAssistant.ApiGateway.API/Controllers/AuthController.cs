@@ -28,4 +28,32 @@ public class AuthController : ControllerBase
         var response = await _authService.LoginAsync(request);
         return Ok(response);
     }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<AuthResponse>> RefreshToken(RefreshTokenRequest request)
+    {
+        var response = await _authService.RefreshTokenAsync(request);
+        return Ok(response);
+    }
+
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail(VerifyEmailRequest request)
+    {
+        await _authService.VerifyEmailAsync(request);
+        return Ok(new { message = "Email verified successfully" });
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        await _authService.ForgotPasswordAsync(request);
+        return Ok(new { message = "If your email is registered, you will receive a password reset OTP" });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        await _authService.ResetPasswordAsync(request);
+        return Ok(new { message = "Password reset successfully" });
+    }
 }

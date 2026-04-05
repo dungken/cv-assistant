@@ -1,5 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System.IO;
+using Microsoft.AspNetCore.Hosting;
+using CvAssistant.ApiGateway.Application.Interfaces.Services;
+using CvAssistant.ApiGateway.Application.Interfaces.Repositories;
+using CvAssistant.ApiGateway.Application.DTOs;
 
 namespace CvAssistant.ApiGateway.API.Controllers;
 
@@ -13,11 +19,22 @@ public class NerProxyController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<NerProxyController> _logger;
+    private readonly ICVHistoryService _cvHistoryService;
+    private readonly IUserRepository _userRepository;
+    private readonly IWebHostEnvironment _environment;
 
-    public NerProxyController(IHttpClientFactory httpClientFactory, ILogger<NerProxyController> logger)
+    public NerProxyController(
+        IHttpClientFactory httpClientFactory, 
+        ILogger<NerProxyController> logger,
+        ICVHistoryService cvHistoryService,
+        IUserRepository userRepository,
+        IWebHostEnvironment environment)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _cvHistoryService = cvHistoryService;
+        _userRepository = userRepository;
+        _environment = environment;
     }
 
     /// <summary>
@@ -25,7 +42,7 @@ public class NerProxyController : ControllerBase
     /// </summary>
     [HttpPost("parse-cv")]
     [RequestSizeLimit(10_000_000)] // 10MB limit
-    public async Task<IActionResult> ParseCv(IFormFile file)
+    public async Task<IActionResult> ParseCv([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "No file provided" });
@@ -42,6 +59,40 @@ public class NerProxyController : ControllerBase
 
         var response = await client.PostAsync("/parse-cv", content);
         var result = await response.Content.ReadAsStringAsync();
+
+        if (response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
+                if (!string.IsNullOrEmpty(email))
+                {
+                    // Save file to local storage
+                    var uploadsDir = Path.Combine(_environment.ContentRootPath, "wwwroot", "uploads", "cvs");
+                    if (!Directory.Exists(uploadsDir)) Directory.CreateDirectory(uploadsDir);
+                    
+                    var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
+                    var filePath = Path.Combine(uploadsDir, uniqueFileName);
+                    
+                    using (var fs = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(fs);
+                    }
+                    
+                    var fileUrl = $"/uploads/cvs/{uniqueFileName}";
+                    
+                    await _cvHistoryService.SaveHistoryAsync(email, new SaveCVHistoryRequest(
+                        file.FileName,
+                        fileUrl,
+                        result
+                    ));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving CV history to database");
+            }
+        }
 
         return Content(result, "application/json");
     }

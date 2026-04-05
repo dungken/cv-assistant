@@ -11,4 +11,5 @@ public class ChatSession
     // Navigation property
     public User? User { get; set; }
     public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
+    public CollectorProgress? CollectorProgress { get; set; }
 }

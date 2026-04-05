@@ -3,7 +3,7 @@ import { UserPlus, Mail, Lock, User, ArrowRight, Sparkles, BookOpen, Target } fr
 import { authApi } from '../../services/api';
 
 interface RegisterProps {
-    onRegisterSuccess: (token: string, name: string) => void;
+    onRegisterSuccess: (token: string, name: string, role: string, email: string) => void;
     onSwitchToLogin: () => void;
 }
 
@@ -21,8 +21,10 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
         try {
             const res = await authApi.register({ name, email, password });
             localStorage.setItem('token', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
             localStorage.setItem('userName', res.data.name);
-            onRegisterSuccess(res.data.token, res.data.name);
+            localStorage.setItem('userRole', res.data.role);
+            onRegisterSuccess(res.data.token, res.data.name, res.data.role, res.data.email);
         } catch (err: any) {
             setError(err.response?.data?.error || 'Registration failed. Try again.');
         } finally {
@@ -31,7 +33,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
     };
 
     return (
-        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden border border-border-main shadow-2xl animate-in zoom-in-95 duration-700">
+        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden  shadow-2xl animate-in zoom-in-95 duration-700">
             {/* Left Column: Visuals & Mission */}
             <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-purple-600 via-indigo-700 to-indigo-900 p-12 flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full -mr-20 -mt-20 anim-pulse"></div>
@@ -63,7 +65,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                 </div>
 
                 <div className="relative z-10 mt-auto">
-                    <p className="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">© 2026 CV Assistant Intelligence</p>
+                    <p className="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">© 2026 Resume Assistant Intelligence</p>
                 </div>
             </div>
 
@@ -92,7 +94,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Dung Ken"
-                                className="w-full bg-secondary/50 border border-border-main text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
+                                className="w-full bg-secondary/50  text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
                                 required
                             />
                         </div>
@@ -106,7 +108,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="name@company.com"
-                                className="w-full bg-secondary/50 border border-border-main text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
+                                className="w-full bg-secondary/50  text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
                                 required
                             />
                         </div>
@@ -121,7 +123,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
                                 minLength={8}
-                                className="w-full bg-secondary/50 border border-border-main text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
+                                className="w-full bg-secondary/50  text-text-primary rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-accent-secondary focus:bg-surface focus:ring-2 focus:ring-accent-secondary/10 transition-all font-medium placeholder:text-text-secondary/30"
                                 required
                             />
                         </div>
@@ -149,7 +151,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                     </button>
                 </form>
 
-                <div className="mt-12 pt-8 border-t border-border-main/50 text-center">
+                <div className="mt-12 pt-8 border-t  text-center">
                     <p className="text-text-secondary text-xs font-bold uppercase tracking-widest">
                         Already have an account? <button onClick={onSwitchToLogin} className="text-accent-secondary hover:underline ml-1">Sign in here</button>
                     </p>

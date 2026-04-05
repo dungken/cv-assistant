@@ -22,20 +22,20 @@ export default function CareerPath() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center gap-4 mb-2">
         <Map className="w-8 h-8 text-accent-secondary" />
         <h2 className="text-3xl font-black tracking-tight">Career Trajectory Mapping</h2>
       </div>
       <p className="text-text-secondary mb-10">Generate optimized learning paths based on O*NET occupational data and your current capabilities.</p>
       
-      <div className="bg-surface/30 border border-border-main/10 rounded-3xl p-8 mb-10 flex flex-col md:flex-row gap-6">
+      <div className="bg-surface/30  rounded-3xl p-8 mb-10 flex flex-col md:flex-row gap-6">
          <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Origin Role</label>
             <input 
               value={currentRole}
               onChange={e => setCurrentRole(e.target.value)}
-              className="w-full bg-overlay border border-border-main/20 rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
               placeholder="E.g. Junior Developer"
             />
          </div>
@@ -47,7 +47,7 @@ export default function CareerPath() {
             <input 
               value={targetRole}
               onChange={e => setTargetRole(e.target.value)}
-              className="w-full bg-overlay border border-border-main/20 rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
               placeholder="E.g. Technical Lead"
             />
          </div>
@@ -56,7 +56,7 @@ export default function CareerPath() {
             <input 
               value={skills}
               onChange={e => setSkills(e.target.value)}
-              className="w-full bg-overlay border border-border-main/20 rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
               placeholder="E.g. React, Node"
             />
          </div>
@@ -73,7 +73,7 @@ export default function CareerPath() {
 
       {path && (
         <div className="space-y-8 animate-in zoom-in-95 duration-500">
-           <div className="bg-surface/50 border border-border-main/10 rounded-3xl p-8">
+           <div className="bg-surface/50  rounded-3xl p-8">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-3">
                 <Search className="w-5 h-5 text-accent-secondary" /> 
                 Skill Gap Analysis
@@ -93,7 +93,7 @@ export default function CareerPath() {
                 Suggested Trajectories
               </h3>
               {path.paths.map((p: any, i: number) => (
-                <div key={i} className="bg-surface/50 border border-border-main/10 rounded-3xl p-8 relative overflow-hidden group">
+                <div key={i} className="bg-surface/50  rounded-3xl p-8 relative overflow-hidden group">
                    <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-accent-primary to-accent-secondary opacity-50 group-hover:opacity-100 transition-opacity" />
                    <h4 className="text-lg font-bold mb-1 capitalize">{p.path_type} Path</h4>
                    <p className="text-sm text-text-muted mb-6">Estimated time: <span className="font-mono text-text-primary">{p.total_time}</span></p>
@@ -102,10 +102,10 @@ export default function CareerPath() {
                      {p.steps.map((step: any, j: number) => (
                        <div key={j} className="flex gap-6">
                          <div className="flex flex-col items-center">
-                           <div className="w-8 h-8 rounded-full bg-overlay border border-border-main flex items-center justify-center font-bold text-xs text-text-secondary">
+                           <div className="w-8 h-8 rounded-full bg-overlay  flex items-center justify-center font-bold text-xs text-text-secondary">
                              {step.step}
                            </div>
-                           {j < p.steps.length - 1 && <div className="w-px h-full bg-border-main/30 my-2" />}
+                           {j < p.steps.length - 1 && <div className="w-px h-full bg- my-2" />}
                          </div>
                          <div className="pb-6">
                            <h5 className="font-bold text-text-primary">{step.role}</h5>

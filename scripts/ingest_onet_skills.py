@@ -97,11 +97,13 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest O*NET skills into ChromaDB")
+    parser.add_argument("--host", type=str, default="localhost", help="ChromaDB host")
+    parser.add_argument("--port", type=int, default=8000, help="ChromaDB port")
     parser.add_argument("--force", action="store_true", help="Force ingestion even if data exists")
     args = parser.parse_args()
 
-    # Initialize client
-    client = get_chroma_client()
+    # Initialize client with specified host/port
+    client = get_chroma_client(host=args.host, port=args.port)
     collection = create_collection(client, COLLECTION_SKILLS)
     
     # Optimization: Skip if data already exists

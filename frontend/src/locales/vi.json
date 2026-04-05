@@ -1,0 +1,183 @@
+{
+  "common": {
+    "welcome": "Chào mừng",
+    "logout": "Đăng xuất",
+    "settings": "Cài đặt",
+    "search": "Tìm kiếm",
+    "profile": "Hồ sơ",
+    "theme": {
+      "dark": "Chế độ tối",
+      "light": "Chế độ sáng"
+    },
+    "language": "Ngôn ngữ",
+    "full_chat": "Toàn màn hình",
+    "start_cv": "Bắt đầu tạo CV",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "status": "Trạng thái"
+  },
+  "profile": {
+    "save": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "update": "Cập nhật",
+    "updating": "Đang cập nhật...",
+    "save_success": "Cập nhật thành công",
+    "save_error": "Lỗi cập nhật",
+    "avatar_success": "Đã cập nhật ảnh đại diện",
+    "avatar_error": "Lỗi tải ảnh",
+    "password_success": "Mật khẩu đã được thay đổi",
+    "password_error": "Lỗi đổi mật khẩu",
+    "password_mismatch": "Mật khẩu không khớp",
+    "password_min": "Mật khẩu tối thiểu 8 ký tự",
+    "delete_error": "Lỗi xóa tài khoản",
+    "load_error": "Không thể tải thông tin cá nhân"
+  },
+  "chat": {
+    "new_chat": "Hội thoại mới",
+    "start_where": "Chúng ta nên bắt đầu từ đâu?",
+    "thinking": "Đang suy nghĩ...",
+    "error": "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
+    "input_placeholder": "Hỏi tôi bất cứ điều gì về CV của bạn...",
+    "detected_lang": "Hệ thống nhận diện ngôn ngữ: {{lang}}",
+    "feedback_useful": "Gợi ý AI có hữu ích không?"
+  },
+  "sidebar": {
+    "assistant": "Trợ lý AI",
+    "designer": "Thiết kế CV",
+    "my_cvs": "CV của tôi",
+    "memory": "Mình biết về bạn",
+    "history": "Lịch sử",
+    "market": "Thị trường việc làm",
+    "admin": "Dashboard quản trị",
+    "chats_header": "Trò chuyện"
+  },
+  "memory": {
+    "title": "Mình biết về bạn",
+    "subtitle": "Bộ nhớ cá nhân hóa cho {{name}}",
+    "loading": "Đang tải bộ nhớ...",
+    "load_error": "Không thể tải bộ nhớ người dùng",
+    "save": "Lưu bộ nhớ",
+    "saving": "Đang lưu...",
+    "save_success": "Đã cập nhật bộ nhớ",
+    "save_error": "Không thể cập nhật bộ nhớ",
+    "reset_success": "Đã đặt lại trường dữ liệu",
+    "reset_profile": "Đặt lại hồ sơ nghề nghiệp",
+    "delete_all": "Xóa toàn bộ bộ nhớ",
+    "delete_all_confirm": "Bạn có chắc muốn xóa toàn bộ bộ nhớ cá nhân không?",
+    "delete_all_success": "Đã xóa toàn bộ bộ nhớ",
+    "forget_field": "Xóa thông tin này",
+    "updated_at": "Cập nhật lần cuối",
+    "placeholder_csv": "Nhập danh sách, phân tách bằng dấu phẩy",
+    "fields": {
+      "display_name": "Tên hiển thị",
+      "tone": "Giọng điệu",
+      "language": "Ngôn ngữ",
+      "current_role": "Vai trò hiện tại",
+      "target_role": "Vai trò mục tiêu",
+      "timeline_months": "Mốc thời gian (tháng)",
+      "current_skills": "Kỹ năng hiện tại",
+      "skill_gaps": "Khoảng trống kỹ năng"
+    },
+    "tone": {
+      "professional": "Chuyên nghiệp",
+      "casual": "Thân thiện"
+    }
+  },
+  "admin": {
+    "dashboard": "Dashboard quản trị",
+    "templates": "Quản lý mẫu CV",
+    "monitoring": "Giám sát hệ thống",
+    "feedback": "Phản hồi người dùng",
+    "users": "Quản lý thành viên",
+    "logs": "Nhật ký hệ thống",
+    "stats": "Thống kê",
+    "health": "Sức khỏe hệ thống",
+    "uptime": "Thời gian hoạt động"
+  },
+  "feedback": {
+    "title": "Đánh giá chất lượng CV",
+    "question": "Bạn thấy chất lượng CV vừa tạo thế nào?",
+    "comment_placeholder": "Chúng mình làm sai chỗ nào? (Tên công ty, kỹ năng...)",
+    "submit": "Gửi phản hồi",
+    "correction_tip": "Mẹo: Click vào thực thể bị gán nhãn sai để sửa lại."
+  },
+  "tool_context": {
+    "supporting": "Đang hỗ trợ",
+    "suggestions": {
+      "match_backend": "Apply Backend Developer",
+      "match_frontend": "Phân tích React/TypeScript",
+      "match_gap": "Thiếu gì để lên Senior?",
+      "career_goal": "Lên Senior trong 3 năm",
+      "career_transition": "Chuyển sang DevOps",
+      "career_skills": "Kỹ năng thăng tiến IT",
+      "upload_improve": "Cải thiện CV của tôi",
+      "upload_compare": "So sánh CV với JD",
+      "upload_ats": "Chấm điểm ATS",
+      "jd_analyze": "Phân tích yêu cầu JD",
+      "jd_match": "So sánh JD với kỹ năng",
+      "jd_tips": "Tips CV phù hợp JD",
+      "graph_explore": "Kỹ năng liên quan React",
+      "graph_path": "Lộ trình Full-stack",
+      "market_trends": "Kỹ năng hot nhất IT",
+      "market_salary": "Mức lương Backend Dev"
+    }
+  },
+  "prompt": {
+    "tools": "Công cụ",
+    "placeholder": "Hỏi tôi bất cứ điều gì về sự nghiệp của bạn...",
+    "builder_label": "Tạo CV AI",
+    "builder_desc": "Tạo CV từng bước với trợ lý",
+    "upload_label": "Tải CV lên",
+    "upload_desc": "Ẩn danh & phân tích",
+    "jd_label": "Phân tích JD",
+    "jd_desc": "Phân tích mô tả công việc",
+    "ats_label": "Chấm điểm ATS",
+    "ats_desc": "So khớp CV với JD",
+    "match_label": "Ma trận kỹ năng",
+    "match_desc": "Khớp kỹ năng với thị trường",
+    "career_label": "Lộ trình sự nghiệp",
+    "career_desc": "Khám phá các bước phát triển",
+    "graph_label": "Biểu đồ kỹ năng",
+    "graph_desc": "Khám phá mối liên hệ kỹ năng",
+    "market_label": "Thị trường việc làm",
+    "chips": {
+        "build": "Tạo CV của tôi",
+        "upload": "Tải & phân tích CV",
+        "jd": "Phân tích một JD",
+        "match": "Khớp kỹ năng của tôi",
+        "career": "Khám phá lộ trình",
+        "graph": "Bản đồ kỹ năng",
+        "interview": "Mẹo phỏng vấn",
+        "trends": "Xu hướng thị trường",
+        "cover_letter": "Viết thư xin việc",
+        "compare": "So sánh các vai trò"
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "tabs": {
+        "general": "Chung",
+        "appearance": "Giao diện",
+        "account": "Tài khoản",
+        "health": "Sức khỏe hệ thống",
+        "data": "Kiểm soát dữ liệu",
+        "security": "Bảo mật"
+    },
+    "appearance": {
+        "theme_title": "Giao diện hệ thống",
+        "theme_desc": "Tùy chỉnh giao diện Trợ lý CV trên thiết bị của bạn",
+        "palette_title": "Bảng màu",
+        "palette_desc": "Chọn màu sắc chủ đạo cho giao diện"
+    },
+    "general": {
+        "lang_title": "Ngôn ngữ",
+        "lang_desc": "Ngôn ngữ giao diện hệ thống",
+        "advanced_title": "Điều khiển nâng cao",
+        "advanced_desc": "Bật các tính năng AI thử nghiệm và phiên bản mô hình mới"
+    },
+    "health": {
+        "title": "Trạng thái hệ thống",
+        "desc": "Theo dõi kết nối thời gian thực với các dịch vụ backend"
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "logout": "Logout",
+    "settings": "Settings",
+    "search": "Search",
+    "profile": "Profile",
+    "theme": {
+      "dark": "Dark Mode",
+      "light": "Light Mode"
+    },
+    "language": "Language",
+    "full_chat": "Full Chat",
+    "start_cv": "Start CV Builder",
+    "save": "Save",
+    "cancel": "Cancel",
+    "status": "Status"
+  },
+  "profile": {
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "update": "Update",
+    "updating": "Updating...",
+    "save_success": "Profile updated successfully",
+    "save_error": "Failed to update profile",
+    "avatar_success": "Avatar updated",
+    "avatar_error": "Failed to upload avatar",
+    "password_success": "Password changed successfully",
+    "password_error": "Failed to change password",
+    "password_mismatch": "Passwords do not match",
+    "password_min": "Password must be at least 8 characters",
+    "delete_error": "Failed to delete account",
+    "load_error": "Failed to load profile"
+  },
+  "chat": {
+    "new_chat": "New Chat",
+    "start_where": "Where should we start?",
+    "thinking": "Thinking...",
+    "error": "An error occurred. Please try again later.",
+    "input_placeholder": "Ask me anything about your CV...",
+    "detected_lang": "Detected language: {{lang}}",
+    "feedback_useful": "Is this AI suggestion useful?"
+  },
+  "sidebar": {
+    "assistant": "AI Assistant",
+    "designer": "AI CV Designer",
+    "my_cvs": "My CVs",
+    "memory": "What I Know About You",
+    "history": "History",
+    "market": "Job Market Insights",
+    "admin": "Admin Dashboard",
+    "chats_header": "Chats"
+  },
+  "memory": {
+    "title": "What I Know About You",
+    "subtitle": "Personalization memory for {{name}}",
+    "loading": "Loading memory...",
+    "load_error": "Failed to load user memory",
+    "save": "Save Memory",
+    "saving": "Saving...",
+    "save_success": "Memory updated successfully",
+    "save_error": "Failed to update memory",
+    "reset_success": "Field reset successfully",
+    "reset_profile": "Reset Career Profile",
+    "delete_all": "Delete All Memory",
+    "delete_all_confirm": "Are you sure you want to delete all personal memory?",
+    "delete_all_success": "All memory has been deleted",
+    "forget_field": "Forget this field",
+    "updated_at": "Last updated",
+    "placeholder_csv": "Enter comma-separated values",
+    "fields": {
+      "display_name": "Display name",
+      "tone": "Tone",
+      "language": "Language",
+      "current_role": "Current role",
+      "target_role": "Target role",
+      "timeline_months": "Timeline (months)",
+      "current_skills": "Current skills",
+      "skill_gaps": "Skill gaps"
+    },
+    "tone": {
+      "professional": "Professional",
+      "casual": "Casual"
+    }
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "templates": "Template Management",
+    "monitoring": "System Monitoring",
+    "feedback": "User Feedback",
+    "users": "User Management",
+    "logs": "System Logs",
+    "stats": "Statistics",
+    "health": "System Health",
+    "uptime": "Uptime"
+  },
+  "feedback": {
+    "title": "Rate CV Quality",
+    "question": "How would you rate the generated CV?",
+    "comment_placeholder": "What did we get wrong? (Company name, skills...)",
+    "submit": "Submit Feedback",
+    "correction_tip": "Tip: Click on any mislabeled entity to correct it."
+  },
+  "tool_context": {
+    "supporting": "Supporting",
+    "suggestions": {
+      "match_backend": "Apply for Backend Developer",
+      "match_frontend": "Analyze React/TypeScript",
+      "match_gap": "What do I need for Senior?",
+      "career_goal": "Senior in 3 years",
+      "career_transition": "Switch to DevOps",
+      "career_skills": "Key skills for promotion",
+      "upload_improve": "Improve my CV",
+      "upload_compare": "Compare CV with JD",
+      "upload_ats": "Check ATS score",
+      "jd_analyze": "Analyze JD requirements",
+      "jd_match": "Compare JD with my skills",
+      "jd_tips": "Tips to match this JD",
+      "graph_explore": "Skills related to React",
+      "graph_path": "Full-stack roadmap",
+      "market_trends": "Hottest IT skills now",
+      "market_salary": "Backend Dev salary"
+    }
+  },
+  "prompt": {
+    "tools": "Tools",
+    "placeholder": "Ask me anything about your career...",
+    "builder_label": "AI CV Builder",
+    "builder_desc": "Step-by-step guided creation",
+    "upload_label": "Upload CV",
+    "upload_desc": "Anonymize & analyze",
+    "jd_label": "Analyze JD",
+    "jd_desc": "Parse job descriptions",
+    "ats_label": "ATS Score",
+    "ats_desc": "Compare CV against JD",
+    "match_label": "Skill Matrix",
+    "match_desc": "Match skills to market",
+    "career_label": "Career Paths",
+    "career_desc": "Discover growth steps",
+    "graph_label": "Knowledge Graph",
+    "graph_desc": "Explore skill relationships",
+    "market_label": "Job Market",
+    "chips": {
+        "build": "Build my CV",
+        "upload": "Upload & analyze CV",
+        "jd": "Analyze a JD",
+        "match": "Match my skills",
+        "career": "Explore career paths",
+        "graph": "Skill Knowledge Graph",
+        "interview": "Interview prep tips",
+        "trends": "Job market trends",
+        "cover_letter": "Write cover letter",
+        "compare": "Compare job roles"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+        "general": "General",
+        "appearance": "Appearance",
+        "account": "Account",
+        "health": "System Health",
+        "data": "Data Controls",
+        "security": "Security"
+    },
+    "appearance": {
+        "theme_title": "Interface Theme",
+        "theme_desc": "Customize how Resume Assistant looks on your device",
+        "palette_title": "Color Palette",
+        "palette_desc": "Select specialized accent colors for the neural interface"
+    },
+    "general": {
+        "lang_title": "Language",
+        "lang_desc": "System interface language",
+        "advanced_title": "Advanced Controls",
+        "advanced_desc": "Enable experimental AI features and model versions"
+    },
+    "health": {
+        "title": "Global Registry Status",
+        "desc": "Monitor real-time connectivity across the neural backend"
+    }
+  }
+}

@@ -30,17 +30,26 @@ public class ExceptionMiddleware
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-        
-        // Use generic 400 Bad Request for business logic exceptions to match Java behavior,
-        // or 500 Internal Server error for unexpected
+
         var statusCode = exception.Message switch
         {
             "User not found" => (int)HttpStatusCode.NotFound,
+            "CV document not found" => (int)HttpStatusCode.NotFound,
+            "Version not found" => (int)HttpStatusCode.NotFound,
             "Email already exists" => (int)HttpStatusCode.Conflict,
             "Invalid credentials" => (int)HttpStatusCode.Unauthorized,
+            "Invalid refresh token" => (int)HttpStatusCode.Unauthorized,
+            "Refresh token expired" => (int)HttpStatusCode.Unauthorized,
+            "Invalid verification token" => (int)HttpStatusCode.BadRequest,
+            "Verification token expired" => (int)HttpStatusCode.BadRequest,
+            "Invalid OTP" => (int)HttpStatusCode.BadRequest,
+            "OTP expired" => (int)HttpStatusCode.BadRequest,
+            "Access denied" => (int)HttpStatusCode.Forbidden,
+            "Recovery period expired" => (int)HttpStatusCode.Gone,
+            _ when exception.Message.StartsWith("Version ") => (int)HttpStatusCode.NotFound,
             _ => (int)HttpStatusCode.BadRequest
         };
-        
+
         context.Response.StatusCode = statusCode;
 
         var response = new
