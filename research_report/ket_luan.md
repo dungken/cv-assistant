@@ -28,4 +28,4 @@ Về ứng dụng thực tiễn, hệ thống có tiềm năng được triển 
 
 ---
 
-*[Tiếp theo: Tài liệu tham khảo]*
+[← 3.5 Thảo luận và Đánh giá Tổng thể](chuong3/3.5_thao_luan.md) | [→ Tài liệu tham khảo](tai_lieu_tham_khao.md)
