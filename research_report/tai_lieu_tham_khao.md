@@ -116,7 +116,7 @@
 ## Tài liệu Nghề nghiệp và Thị trường
 
 <a id="ref-36"></a>
-[36] ITviec, "Báo cáo Lương IT Việt Nam 2024: Xu hướng tuyển dụng và mức lương ngành CNTT," *ITviec Research*, TP. Hồ Chí Minh, 2024. Truy cập: [https://itviec.com/bao-cao-luong-it](https://itviec.com/bao-cao-luong-it).
+[36] ITviec, "Báo cáo Lương IT Việt Nam 2025: Xu hướng tuyển dụng và mức lương ngành CNTT," *ITviec Research*, TP. Hồ Chí Minh, 2025. Truy cập: [https://itviec.com/bao-cao-luong-it](https://itviec.com/bao-cao-luong-it).
 
 <a id="ref-37"></a>
-[37] TopCV, "Thống kê tuyển dụng CNTT 2024," *TopCV Vietnam*, Hà Nội, 2024.
+[37] TopCV, "Thống kê tuyển dụng CNTT 2025," *TopCV Vietnam*, Hà Nội, 2025.

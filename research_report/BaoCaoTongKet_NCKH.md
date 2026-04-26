@@ -195,7 +195,7 @@ Các nội dung do AI sinh ra đều đã được tác giả kiểm tra, chỉn
 
 ### 1. Lý do chọn đề tài
 
-Trong bối cảnh thị trường lao động công nghệ thông tin (CNTT) tại Việt Nam phát triển mạnh mẽ, nhu cầu tuyển dụng và tìm kiếm việc làm ngày càng gia tăng về số lượng lẫn độ phức tạp. Theo báo cáo của TopCV và ITviec (2024), Việt Nam cần bổ sung hơn 150.000 nhân lực CNTT mỗi năm trong giai đoạn 2024–2026, trong khi hầu hết ứng viên gặp khó khăn trong việc trình bày hồ sơ xin việc (CV) đúng chuẩn và xác định lộ trình nghề nghiệp phù hợp.
+Trong bối cảnh thị trường lao động công nghệ thông tin (CNTT) tại Việt Nam phát triển mạnh mẽ, nhu cầu tuyển dụng và tìm kiếm việc làm ngày càng gia tăng về số lượng lẫn độ phức tạp. Theo báo cáo của TopCV và ITviec (2025), Việt Nam cần bổ sung hơn 150.000 nhân lực CNTT mỗi năm trong giai đoạn 2025–2027, trong khi hầu hết ứng viên gặp khó khăn trong việc trình bày hồ sơ xin việc (CV) đúng chuẩn và xác định lộ trình nghề nghiệp phù hợp.
 
 Một trong những rào cản lớn nhất là **sự thiếu hụt công cụ hỗ trợ thông minh bằng tiếng Việt**: các hệ thống ATS (Applicant Tracking System) phổ biến trên thị trường chủ yếu được tối ưu cho tiếng Anh, trong khi CV tiếng Việt có cấu trúc và từ vựng đặc thù riêng. Theo khảo sát thị trường tuyển dụng CNTT Việt Nam từ ITviec [[36]](tai_lieu_tham_khao.md#ref-36) và TopCV [[37]](tai_lieu_tham_khao.md#ref-37), ứng viên thường không có đủ thông tin để tự đánh giá mức độ phù hợp (ATS score) giữa CV của mình và yêu cầu từ nhà tuyển dụng.
 
