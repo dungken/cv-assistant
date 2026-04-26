@@ -305,4 +305,83 @@ public class ChatbotProxyController : ControllerBase
             return Ok(new { status = "down", error = ex.Message });
         }
     }
+
+    // ─── US-29: CV Builder Optimization ──────────────────────────────────────
+
+    /// <summary>
+    /// US-29/T2: Generate AI bullet point suggestions in STAR format.
+    /// </summary>
+    [HttpPost("cv-builder/suggest")]
+    public async Task<IActionResult> SuggestCvContent([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("ChatbotService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PostAsync("/cv-builder/suggest", json);
+        var result = await response.Content.ReadAsStringAsync();
+        return Content(result, "application/json");
+    }
+
+    /// <summary>
+    /// US-29/T4: Validate a single CV field.
+    /// </summary>
+    [HttpPost("cv-builder/validate")]
+    public async Task<IActionResult> ValidateCvField([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("ChatbotService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PostAsync("/cv-builder/validate", json);
+        var result = await response.Content.ReadAsStringAsync();
+        return Content(result, "application/json");
+    }
+
+    /// <summary>
+    /// US-29/T5: Get CV builder draft for a user.
+    /// </summary>
+    [HttpGet("cv-builder/draft/{userId}")]
+    public async Task<IActionResult> GetDraft(string userId)
+    {
+        var client = _httpClientFactory.CreateClient("ChatbotService");
+        var response = await client.GetAsync($"/cv-builder/draft/{Uri.EscapeDataString(userId)}");
+        var result = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return StatusCode((int)response.StatusCode, result);
+        return Content(result, "application/json");
+    }
+
+    /// <summary>
+    /// US-29/T5: Save CV builder draft for a user.
+    /// </summary>
+    [HttpPut("cv-builder/draft/{userId}")]
+    public async Task<IActionResult> SaveDraft(string userId, [FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("ChatbotService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PutAsync($"/cv-builder/draft/{Uri.EscapeDataString(userId)}", json);
+        var result = await response.Content.ReadAsStringAsync();
+        return Content(result, "application/json");
+    }
+
+    /// <summary>
+    /// US-29/T5: Delete CV builder draft for a user.
+    /// </summary>
+    [HttpDelete("cv-builder/draft/{userId}")]
+    public async Task<IActionResult> DeleteDraft(string userId)
+    {
+        var client = _httpClientFactory.CreateClient("ChatbotService");
+        var response = await client.DeleteAsync($"/cv-builder/draft/{Uri.EscapeDataString(userId)}");
+        var result = await response.Content.ReadAsStringAsync();
+        return Content(result, "application/json");
+    }
 }

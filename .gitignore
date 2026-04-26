@@ -93,3 +93,6 @@ knowledge_base/**/*.pickle
 models/ner/checkpoint/
 models/ner/final/
 models/ner/jd_final/
+
+# Skills Agent Coding
+andrej-karpathy-skills/

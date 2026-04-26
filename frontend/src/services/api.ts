@@ -805,6 +805,60 @@ export const jdApi = {
         api.delete(JD_BASE + '/history/' + id),
 };
 
+// ─── US-29: CV Builder Optimization ─────────────────────────────────────────
+
+export interface BulletSuggestion {
+    id: number;
+    bullet: string;
+    star_format: { situation: string; task: string; action: string; result: string };
+    confidence: number;
+}
+
+export interface CVSuggestResponse {
+    job_title: string;
+    company: string | null;
+    duration: string | null;
+    raw_input: string;
+    suggestions: BulletSuggestion[];
+}
+
+export interface CVValidateResponse {
+    field: string;
+    is_valid: boolean;
+    error: string | null;
+    warning: string | null;
+}
+
+export interface CVDraftData {
+    user_id: string;
+    current_step: number;
+    completed_steps: string[];
+    progress_percent: number;
+    data: CVData;
+}
+
+export const cvBuilderApi = {
+    suggest: (payload: {
+        job_title: string;
+        company?: string;
+        duration?: string;
+        raw_input: string;
+        section?: string;
+    }) => api.post<CVSuggestResponse>(`${CHATBOT_BASE}/cv-builder/suggest`, payload),
+
+    validate: (field: string, value: string, field_type: string) =>
+        api.post<CVValidateResponse>(`${CHATBOT_BASE}/cv-builder/validate`, { field, value, field_type }),
+
+    getDraft: (userId: string) =>
+        api.get<CVDraftData>(`${CHATBOT_BASE}/cv-builder/draft/${encodeURIComponent(userId)}`),
+
+    saveDraft: (userId: string, draft: CVDraftData) =>
+        api.put<CVDraftData>(`${CHATBOT_BASE}/cv-builder/draft/${encodeURIComponent(userId)}`, draft),
+
+    deleteDraft: (userId: string) =>
+        api.delete(`${CHATBOT_BASE}/cv-builder/draft/${encodeURIComponent(userId)}`),
+};
+
 export const feedbackApi = {
     create: (data: { itemId?: string; type: string; rating?: number; comment?: string; correctionJson?: string }) =>
         api.post(`${BASE_URL}/feedback`, data),

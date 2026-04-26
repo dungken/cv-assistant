@@ -32,10 +32,10 @@ export default function CareerPath() {
       <div className="bg-surface/30  rounded-3xl p-8 mb-10 flex flex-col md:flex-row gap-6">
          <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Origin Role</label>
-            <input 
+            <input
               value={currentRole}
               onChange={e => setCurrentRole(e.target.value)}
-              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-white rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-secondary/50 transition-colors"
               placeholder="E.g. Junior Developer"
             />
          </div>
@@ -44,19 +44,19 @@ export default function CareerPath() {
          </div>
          <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Destination Role</label>
-            <input 
+            <input
               value={targetRole}
               onChange={e => setTargetRole(e.target.value)}
-              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-white rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-secondary/50 transition-colors"
               placeholder="E.g. Technical Lead"
             />
          </div>
          <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Current Arsenal</label>
-            <input 
+            <input
               value={skills}
               onChange={e => setSkills(e.target.value)}
-              className="w-full bg-overlay  rounded-xl px-5 py-3 text-text-primary focus:outline-none focus:border-accent-secondary/50 transition-colors"
+              className="w-full bg-white rounded-xl px-5 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-secondary/50 transition-colors"
               placeholder="E.g. React, Node"
             />
          </div>

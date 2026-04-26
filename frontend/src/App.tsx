@@ -1019,7 +1019,7 @@ export default function App() {
         </Routes>
       </main>
 
-      <ArtifactPanel 
+      <ArtifactPanel
         isOpen={isArtifactOpen}
         onClose={() => setIsArtifactOpen(false)}
         type={artifactType}
@@ -1028,6 +1028,7 @@ export default function App() {
         currentStep={currentStep}
         onUpdateCvData={setCvData}
         onUpdateStep={setCurrentStep}
+        userId={userEmail}
       />
 
       <SettingsModal

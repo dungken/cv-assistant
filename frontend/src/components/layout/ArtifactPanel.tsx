@@ -22,14 +22,15 @@ interface ArtifactPanelProps {
     currentStep?: number;
     onUpdateCvData?: (data: CVData) => void;
     onUpdateStep?: (step: number) => void;
+    userId?: string | null;
 }
 
 const MIN_PANEL_WIDTH = 380;
 const MAX_PANEL_RATIO = 0.7; // Panel can't exceed 70% of viewport
 const DEFAULT_PANEL_RATIO = 0.45; // 45% default
 
-const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ 
-    isOpen, onClose, type, sessionId, cvData, currentStep, onUpdateCvData, onUpdateStep 
+const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
+    isOpen, onClose, type, sessionId, cvData, currentStep, onUpdateCvData, onUpdateStep, userId
 }) => {
     const [panelWidth, setPanelWidth] = useState<number>(() => {
         const saved = localStorage.getItem('artifactPanelWidth');
@@ -150,13 +151,14 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {type === 'builder' && sessionId && cvData && currentStep !== undefined && (
-                        <CVBuilderView 
-                            sessionId={sessionId} 
+                        <CVBuilderView
+                            sessionId={sessionId}
                             initialCvData={cvData}
                             initialStep={currentStep}
                             onDataSync={onUpdateCvData}
                             onStepSync={onUpdateStep}
                             isArtifactMode={true}
+                            userId={userId}
                         />
                     )}
                     {type === 'upload' && <CVUpload onParsedCvData={onUpdateCvData} />}

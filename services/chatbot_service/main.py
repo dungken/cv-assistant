@@ -1,6 +1,8 @@
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 import sys
+import re
+import json
 from pathlib import Path
 import requests as req
 from typing import List, Optional, Dict
@@ -19,7 +21,9 @@ from services.chatbot_service.models.schemas import (
     ChatRequest, ChatResponse, SessionHistory, CollectorResponse,
     CVRewriteRequest, CVRewriteResponse, CVGenerateRequest, CVOptimizeResponse,
     OptimizationSuggestion, OptimizationResponse,
-    UserMemory, MemoryUpdateRequest, TitleRequest, TitleResponse
+    UserMemory, MemoryUpdateRequest, TitleRequest, TitleResponse,
+    CVSuggestRequest, CVSuggestResponse, BulletSuggestion,
+    CVValidateRequest, CVValidateResponse, CVDraftData
 )
 from services.chatbot_service.services.agent import ChatService
 from services.chatbot_service.services.optimization import OptimizationService
@@ -305,6 +309,152 @@ def delete_all_memory(user_id: str, service: ChatService = Depends(get_chat_serv
     if not service.memory_service:
         raise HTTPException(status_code=503, detail="Memory service not available")
     service.memory_service.delete_all(user_id)
+    return {"status": "ok"}
+
+
+# ─── US-29: CV Builder Optimization ──────────────────────────────────────────
+
+# In-memory draft store (keyed by user_id). Survives restarts if memory_dir used.
+_draft_store: Dict[str, dict] = {}
+
+@app.post("/cv-builder/suggest", response_model=CVSuggestResponse)
+def suggest_cv_content(request: CVSuggestRequest, service: ChatService = Depends(get_chat_service)):
+    """T2: Generate 3-5 AI bullet point suggestions in STAR format."""
+    logger.info(f"CV suggest req: job={request.job_title}, section={request.section}")
+
+    section_instruction = {
+        "experience": "experience bullet points for a CV experience section",
+        "summary": "a professional summary paragraph",
+        "projects": "project description bullet points",
+    }.get(request.section, "bullet points")
+
+    system_prompt = f"""You are a professional CV writing expert specializing in ATS-optimized resumes.
+Generate exactly 3 STAR-format {section_instruction} based on the user's raw description.
+
+Rules:
+- Use strong action verbs (Developed, Optimized, Led, Implemented, Reduced...)
+- Include specific metrics/numbers where plausible (e.g. 10K+ requests/min, 40% faster)
+- Each bullet should be 1-2 sentences, under 20 words
+- Make bullets ATS-friendly with relevant technical keywords
+- Write in English
+
+Return ONLY a valid JSON array, no markdown, no extra text:
+[
+  {{
+    "id": 1,
+    "bullet": "...",
+    "star_format": {{"situation": "...", "task": "...", "action": "...", "result": "..."}},
+    "confidence": 0.85
+  }}
+]"""
+
+    user_msg = f"Job Title: {request.job_title}\nCompany: {request.company or 'N/A'}\nDuration: {request.duration or 'N/A'}\nRaw description: {request.raw_input}"
+
+    try:
+        raw = service._call_llm([{"role": "user", "content": user_msg}], system_prompt=system_prompt)
+        # Strip markdown code fences if present
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        parsed = json.loads(raw.strip())
+        suggestions = [BulletSuggestion(**item) for item in parsed[:5]]
+    except Exception as e:
+        logger.error(f"CV suggest LLM error: {e}")
+        suggestions = [
+            BulletSuggestion(
+                id=1,
+                bullet=f"Contributed to key {request.section} responsibilities at {request.company or 'the company'} as {request.job_title}",
+                star_format={"situation": "Team needed results", "task": "Deliver assigned work", "action": "Executed tasks", "result": "Positive outcome"},
+                confidence=0.5
+            )
+        ]
+
+    return CVSuggestResponse(
+        job_title=request.job_title,
+        company=request.company,
+        duration=request.duration,
+        raw_input=request.raw_input,
+        suggestions=suggestions
+    )
+
+
+@app.post("/cv-builder/validate", response_model=CVValidateResponse)
+def validate_cv_field(request: CVValidateRequest):
+    """T4: Validate a single CV field and return error/warning if invalid."""
+    value = request.value.strip()
+    error = None
+    warning = None
+
+    if request.field_type == "email":
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+            error = "Email không hợp lệ. Ví dụ: name@email.com"
+    elif request.field_type == "phone":
+        digits = re.sub(r"[\s\-\(\)\+]", "", value)
+        if not re.match(r"^[0-9]{9,12}$", digits):
+            error = "Số điện thoại không hợp lệ. Ví dụ: 0901234567"
+    elif request.field_type == "date":
+        if not re.match(r"^(19|20)\d{2}(-(0[1-9]|1[0-2])(-([0-2]\d|3[01]))?)?$", value):
+            error = "Ngày không hợp lệ. Dùng định dạng YYYY hoặc YYYY-MM"
+    elif request.field_type == "url":
+        if value and not re.match(r"^https?://", value):
+            warning = "URL nên bắt đầu bằng http:// hoặc https://"
+    elif request.field_type == "text":
+        if len(value) < 2:
+            error = f"Trường '{request.field}' quá ngắn"
+        elif len(value) > 500:
+            warning = f"Trường '{request.field}' quá dài (>{500} ký tự)"
+
+    return CVValidateResponse(
+        field=request.field,
+        is_valid=error is None,
+        error=error,
+        warning=warning
+    )
+
+
+@app.put("/cv-builder/draft/{user_id}", response_model=CVDraftData)
+def save_draft(user_id: str, draft: CVDraftData):
+    """T5: Auto-save CV builder draft for a user."""
+    _draft_store[user_id] = draft.dict()
+    # Also persist to disk if memory_dir is available
+    try:
+        draft_path = Path(settings.memory_dir) / f"cv_draft_{user_id}.json"
+        draft_path.write_text(json.dumps(_draft_store[user_id], ensure_ascii=False))
+    except Exception:
+        pass
+    logger.info(f"Draft saved for user: {user_id}, step={draft.current_step}")
+    return draft
+
+
+@app.get("/cv-builder/draft/{user_id}", response_model=CVDraftData)
+def get_draft(user_id: str):
+    """T5: Get CV builder draft for a user."""
+    if user_id in _draft_store:
+        return CVDraftData(**_draft_store[user_id])
+    # Try loading from disk
+    try:
+        draft_path = Path(settings.memory_dir) / f"cv_draft_{user_id}.json"
+        if draft_path.exists():
+            data = json.loads(draft_path.read_text())
+            _draft_store[user_id] = data
+            return CVDraftData(**data)
+    except Exception:
+        pass
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="No draft found")
+
+
+@app.delete("/cv-builder/draft/{user_id}")
+def delete_draft(user_id: str):
+    """T5: Delete CV builder draft for a user."""
+    _draft_store.pop(user_id, None)
+    try:
+        draft_path = Path(settings.memory_dir) / f"cv_draft_{user_id}.json"
+        draft_path.unlink(missing_ok=True)
+    except Exception:
+        pass
     return {"status": "ok"}
 
 

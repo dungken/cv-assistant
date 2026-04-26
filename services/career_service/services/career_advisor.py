@@ -54,6 +54,110 @@ IT_CAREER_GRAPH: Dict[str, List[Dict[str, str]]] = {
     "11-3021.00": [  # Computer and Information Systems Managers
         {"role": "Chief Technology Officer", "code": "11-1011.00", "timeframe": "5-10 years"},
     ],
+    "17-2061.00": [  # Computer Hardware Engineers / IoT Engineers
+        {"role": "Computer Network Architects", "code": "15-1241.00", "timeframe": "2-3 years"},
+        {"role": "Computer Systems Engineers/Architects", "code": "15-1299.08", "timeframe": "2-3 years"},
+        {"role": "Information Security Analysts", "code": "15-1212.00", "timeframe": "2-4 years"},
+    ],
+    "15-1299.08": [  # Computer Systems Engineers/Architects
+        {"role": "Computer and Information Systems Manager", "code": "11-3021.00", "timeframe": "3-5 years"},
+        {"role": "Computer Network Architects", "code": "15-1241.00", "timeframe": "2-3 years"},
+    ],
+    "15-2051.01": [  # Data/Business Intelligence Analysts
+        {"role": "Database Architects", "code": "15-1243.00", "timeframe": "2-3 years"},
+        {"role": "Computer/Info Research Scientists", "code": "15-1221.00", "timeframe": "2-4 years"},
+        {"role": "Computer Systems Analysts", "code": "15-1211.00", "timeframe": "1-2 years"},
+    ],
+}
+
+# Common role aliases → O*NET code (for roles not in O*NET by exact name)
+ROLE_ALIASES: Dict[str, str] = {
+    # Backend
+    "backend": "15-1252.00",
+    "backend developer": "15-1252.00",
+    "backend engineer": "15-1252.00",
+    "server-side developer": "15-1252.00",
+    "software engineer": "15-1252.00",
+    "junior developer": "15-1252.00",
+    "junior software engineer": "15-1252.00",
+    "senior software engineer": "15-1252.00",
+    "senior developer": "15-1252.00",
+    # Frontend / Web
+    "frontend": "15-1254.00",
+    "frontend developer": "15-1254.00",
+    "frontend engineer": "15-1254.00",
+    "front-end developer": "15-1254.00",
+    "web developer": "15-1254.00",
+    "ui developer": "15-1254.00",
+    # Full-stack
+    "fullstack": "15-1252.00",
+    "full-stack": "15-1252.00",
+    "full stack developer": "15-1252.00",
+    "full-stack developer": "15-1252.00",
+    "full stack engineer": "15-1252.00",
+    # Mobile
+    "mobile developer": "15-1252.00",
+    "android developer": "15-1252.00",
+    "ios developer": "15-1252.00",
+    # DevOps / SRE / Infra
+    "devops": "15-1244.00",
+    "devops engineer": "15-1244.00",
+    "sre": "15-1244.00",
+    "site reliability engineer": "15-1244.00",
+    "infrastructure engineer": "15-1244.00",
+    "cloud engineer": "15-1244.00",
+    "systems administrator": "15-1244.00",
+    "sysadmin": "15-1244.00",
+    # Data
+    "data analyst": "15-2051.01",
+    "data engineer": "15-1243.00",
+    "data scientist": "15-1221.00",
+    "machine learning engineer": "15-1221.00",
+    "ml engineer": "15-1221.00",
+    "ai engineer": "15-1221.00",
+    "database administrator": "15-1242.00",
+    "dba": "15-1242.00",
+    # Security
+    "security engineer": "15-1299.05",
+    "cybersecurity engineer": "15-1299.05",
+    "security analyst": "15-1212.00",
+    "cybersecurity analyst": "15-1212.00",
+    "penetration tester": "15-1299.05",
+    "pentester": "15-1299.05",
+    # QA / Test
+    "qa engineer": "15-1253.00",
+    "test engineer": "15-1253.00",
+    "software tester": "15-1253.00",
+    "quality assurance": "15-1253.00",
+    # Network
+    "network engineer": "15-1241.00",
+    "network architect": "15-1241.00",
+    "network administrator": "15-1244.00",
+    # IoT / Embedded / Hardware
+    "iot": "17-2061.00",
+    "iot engineer": "17-2061.00",
+    "iot developer": "17-2061.00",
+    "internet of things": "17-2061.00",
+    "embedded engineer": "17-2061.00",
+    "embedded developer": "17-2061.00",
+    "embedded systems engineer": "17-2061.00",
+    "firmware engineer": "17-2061.00",
+    "hardware engineer": "17-2061.00",
+    # Management
+    "tech lead": "15-1299.09",
+    "technical lead": "15-1299.09",
+    "it project manager": "15-1299.09",
+    "project manager": "15-1299.09",
+    "engineering manager": "11-3021.00",
+    "it manager": "11-3021.00",
+    "cto": "11-1011.00",
+    "chief technology officer": "11-1011.00",
+    # Systems
+    "systems analyst": "15-1211.00",
+    "systems engineer": "15-1299.08",
+    "solutions architect": "15-1299.08",
+    "software architect": "15-1299.08",
+    "blockchain engineer": "15-1299.07",
 }
 
 # Technology skills associated with IT roles (mapped from O*NET Technology Skills)
@@ -71,6 +175,11 @@ ROLE_TECH_SKILLS: Dict[str, List[str]] = {
     "11-3021.00": ["Leadership", "Strategic Planning", "Agile", "Cloud", "DevOps", "Architecture", "Budget"],
     "15-1221.00": ["Python", "TensorFlow", "PyTorch", "Machine Learning", "AI", "Research", "NLP"],
     "15-1299.05": ["OWASP", "Penetration Testing", "SIEM", "Python", "Cloud Security", "IAM", "PKI"],
+    "15-1299.08": ["Python", "Java", "Microservices", "Docker", "Kubernetes", "AWS", "UML", "REST API"],
+    "15-1299.07": ["Solidity", "Ethereum", "Hyperledger", "Python", "Go", "Cryptography", "Smart Contracts"],
+    "17-2061.00": ["C", "C++", "Embedded C", "MQTT", "Linux", "RTOS", "Arduino", "Raspberry Pi", "IoT protocols", "Firmware"],
+    "15-2051.01": ["SQL", "Python", "Excel", "Tableau", "Power BI", "Statistics", "R", "Data Visualization"],
+    "15-1243.01": ["SQL", "ETL", "Python", "Hadoop", "Spark", "Data Modeling", "Airflow", "BigQuery"],
 }
 
 
@@ -133,12 +242,40 @@ class CareerAdvisor:
         logger.info(f"Loaded {len(self.occupations)} occupations, {len(self.tech_skills)} with tech skills")
 
     def find_role(self, query: str) -> Optional[dict]:
-        """Find role by title or semantic search."""
-        query_lower = query.lower()
+        """Find role by alias → exact → substring → semantic."""
+        query_lower = query.lower().strip()
+
+        # 1. Alias lookup (common shorthand names not in O*NET)
+        if query_lower in ROLE_ALIASES:
+            code = ROLE_ALIASES[query_lower]
+            occ = self.occupations.get(code)
+            if occ:
+                return occ
+            # Code not in loaded occupations — build synthetic entry
+            return {"code": code, "title": query.title(), "description": ""}
+
+        # 2. Exact match against O*NET titles
+        for code, occ in self.occupations.items():
+            if occ["title"].lower() == query_lower:
+                return occ
+
+        # 3. Plural/singular variants
+        variants = {query_lower, query_lower.rstrip('s'), query_lower + 's'}
+        for code, occ in self.occupations.items():
+            if occ["title"].lower() in variants:
+                return occ
+
+        # 4. Substring match (query inside title)
         for code, occ in self.occupations.items():
             if query_lower in occ["title"].lower():
                 return occ
 
+        # 5. Substring match (title inside query)
+        for code, occ in self.occupations.items():
+            if occ["title"].lower() in query_lower:
+                return occ
+
+        # 6. Semantic search via ChromaDB
         if self.collection:
             res = self.collection.query(query_texts=[query], n_results=1)
             if res["metadatas"] and res["metadatas"][0]:
@@ -176,11 +313,10 @@ class CareerAdvisor:
         return related[:5]
 
     def calculate_gap(self, current_skills: List[str], target_code: str) -> SkillGap:
-        """Analyze skill gap using both O*NET skills and technology skills."""
-        # Combine O*NET skills and tech skills
-        onet_skills = self.skills_map.get(target_code, [])
+        """Analyze skill gap using technology skills only (excludes O*NET soft skills)."""
         tech = self.tech_skills.get(target_code, [])
-        required = list(dict.fromkeys(onet_skills + tech))
+        # Fallback to O*NET skills only when no tech skills exist for this role
+        required = tech if tech else self.skills_map.get(target_code, [])
 
         curr_lower = {s.lower() for s in current_skills}
         missing = [s for s in required if s.lower() not in curr_lower]

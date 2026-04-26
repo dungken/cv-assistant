@@ -29,19 +29,41 @@ class NERExtractor:
             self.nlp = None
 
     def extract(self, text: str) -> List[Entity]:
-        """Atomic entity extraction with detokenization."""
+        """Atomic entity extraction with detokenization.
+        Chunks long texts to avoid BERT 512-token truncation."""
         if self.nlp:
-            results = self.nlp(text)
-            entities = []
-            for res in results:
-                entities.append(Entity(
-                    text=res['word'],
-                    type=res['entity_group'],
-                    start=res['start'],
-                    end=res['end'],
-                    confidence=float(res['score'])
-                ))
-            return self._post_process_entities(entities)
+            # BERT max is 512 subword tokens ≈ 350–400 chars safe per chunk
+            CHUNK_CHARS = 380
+            OVERLAP_CHARS = 40
+
+            if len(text) <= CHUNK_CHARS:
+                chunks = [(text, 0)]
+            else:
+                chunks = []
+                pos = 0
+                while pos < len(text):
+                    chunks.append((text[pos:pos + CHUNK_CHARS], pos))
+                    pos += CHUNK_CHARS - OVERLAP_CHARS
+
+            raw_entities: List[Entity] = []
+            seen_spans: set = set()
+            for chunk_text, offset in chunks:
+                results = self.nlp(chunk_text)
+                for res in results:
+                    abs_start = res['start'] + offset
+                    abs_end   = res['end']   + offset
+                    span_key  = (abs_start, abs_end, res['entity_group'])
+                    if span_key in seen_spans:
+                        continue
+                    seen_spans.add(span_key)
+                    raw_entities.append(Entity(
+                        text=res['word'],
+                        type=res['entity_group'],
+                        start=abs_start,
+                        end=abs_end,
+                        confidence=float(res['score'])
+                    ))
+            return self._post_process_entities(raw_entities)
         
         # Fallback Mock Logic
         logger.info("Mock extraction triggered.")

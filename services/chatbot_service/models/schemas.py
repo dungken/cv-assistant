@@ -110,3 +110,44 @@ class OptimizationResponse(BaseModel):
     suggestions: List[OptimizationSuggestion]
     ats_score: float
     breakdown: Dict[str, float]
+
+
+# ─── US-29: CV Builder Optimization ──────────────────────────────────────────
+
+class CVSuggestRequest(BaseModel):
+    job_title: str
+    company: Optional[str] = None
+    duration: Optional[str] = None
+    raw_input: str
+    section: str = "experience"  # experience, summary, projects
+
+class BulletSuggestion(BaseModel):
+    id: int
+    bullet: str
+    star_format: Dict[str, str]
+    confidence: float
+
+class CVSuggestResponse(BaseModel):
+    job_title: str
+    company: Optional[str]
+    duration: Optional[str]
+    raw_input: str
+    suggestions: List[BulletSuggestion]
+
+class CVValidateRequest(BaseModel):
+    field: str
+    value: str
+    field_type: str  # email | phone | date | text | url
+
+class CVValidateResponse(BaseModel):
+    field: str
+    is_valid: bool
+    error: Optional[str] = None
+    warning: Optional[str] = None
+
+class CVDraftData(BaseModel):
+    user_id: str
+    current_step: int
+    completed_steps: List[str] = []
+    progress_percent: int = 0
+    data: CVData
