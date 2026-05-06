@@ -26,7 +26,15 @@ ACTION_VERBS = {
     "standardized", "stimulated", "strategized", "streamlined", "strengthened",
     "supervised", "supported", "surpassed", "synthesized", "systematized",
     "tabulated", "tailored", "taught", "tested", "trained", "transformed",
-    "translated", "upgraded", "utilized", "validated", "visualized", "wrote"
+    "translated", "upgraded", "utilized", "validated", "visualized", "wrote",
+}
+
+# Vietnamese action verb prefixes (first word of a bullet)
+VI_ACTION_VERBS = {
+    "xây", "phát", "thiết", "tối", "quản", "nghiên", "phân", "tích", "hợp",
+    "triển", "đào", "cải", "hỗ", "giám", "điều", "báo", "đề", "thực", "xử",
+    "kiểm", "lãnh", "dẫn", "chịu", "tham", "đóng", "hoàn", "nâng", "mở",
+    "tạo", "viết", "đảm", "phụ", "hướng", "vận", "ứng", "đưa", "thu", "tổ",
 }
 
 class ATSScoringEngine:
@@ -214,13 +222,16 @@ class ATSScoringEngine:
         all_bullets = [str(b) for b in all_bullets if b]
 
             
+        if not all_bullets:
+            return 50.0, []
+
         verb_count = 0
         for bullet in all_bullets:
             if not bullet.strip(): continue
             first_word = bullet.strip().split(' ')[0].lower().strip(',.')
-            if first_word in ACTION_VERBS:
+            if first_word in ACTION_VERBS or first_word in VI_ACTION_VERBS:
                 verb_count += 1
-                
+
         percentage = (verb_count / len(all_bullets)) * 100
 
         issues = []
@@ -231,7 +242,7 @@ class ATSScoringEngine:
                 message=f"Chỉ {round(percentage)}% bullet points bắt đầu bằng động từ hành động.",
                 suggestion="Sử dụng các động từ mạnh như 'Developed', 'Led', 'Optimized' ở đầu mỗi dòng."
             ))
-            
+
         return float(min(100, percentage * 1.5)), issues
 
     def _score_metrics(self, cv_data: CVData) -> Tuple[float, List[ATSIssue]]:
@@ -247,8 +258,17 @@ class ATSScoringEngine:
         
         if not all_text.strip(): return 0.0, []
 
-        # Look for numbers, percentages, currency
-        metrics = re.findall(r"\d+%|\$\d+|\d+ users|\d+ employees|\d+ months", all_text)
+        # Look for numbers, percentages, currency (English and Vietnamese)
+        metrics = re.findall(
+            r"\d+%"                      # percentages: 20%, 30%
+            r"|\$\d[\d,.]*"              # USD: $1000
+            r"|[\d,.]+[kK]\b"            # shorthand: 10k, 5K
+            r"|\d+x\b"                   # multipliers: 2x, 10x
+            r"|\d+[\s\-]*(người|nhân viên|thành viên|member|user|employee|engineer|month|tháng|năm|year|dự án|project)"
+            r"|\d[\d,.]*\s*(triệu|tỷ|nghìn|million|billion)"
+            r"|tăng\s+\d+|giảm\s+\d+|tiết kiệm\s+\d+|rút ngắn\s+\d+",
+            all_text, re.IGNORECASE
+        )
 
         
         score = min(100, len(metrics) * 20)

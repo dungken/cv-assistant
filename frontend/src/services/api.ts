@@ -630,7 +630,28 @@ export interface MultiSkillMatchResponse {
     results: SkillMatchResponse[];
 }
 
+export interface ATSIssue {
+    category: string;
+    severity: 'high' | 'medium' | 'low';
+    message: string;
+    suggestion: string;
+}
+
+export interface ATSScoreResponse {
+    cv_id: string;
+    total_score: number;
+    breakdown: Record<string, number>;
+    issues: ATSIssue[];
+    benchmark_avg: number;
+}
+
 export const skillApi = {
+    getAtsScore: (cvData: CVData, jdText?: string) =>
+        api.post<ATSScoreResponse>(`${SKILL_BASE}/cv/ats-score`, {
+            cv_data: cvData,
+            jd_text: jdText ?? null,
+        }),
+
     match: (cvSkills: string[], jdText: string, cvDetails?: any) =>
         api.post<SkillMatchResponse>(`${SKILL_BASE}/match`, {
             cv_skills: cvSkills,

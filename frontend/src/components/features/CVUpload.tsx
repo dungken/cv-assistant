@@ -168,6 +168,18 @@ const mapParseResultToCvData = (result: ParseResult): CVData => {
     new Set(Object.values(result.skills || {}).flatMap(list => list || []).map(s => s.trim()).filter(Boolean))
   );
 
+  const toBullets = (desc: string | string[] | undefined): string[] => {
+    if (!desc) return [];
+    if (Array.isArray(desc)) return desc.map(s => s.trim()).filter(Boolean);
+    return desc.split('\n').map(line => line.trim().replace(/^[-•*◦]\s*/, '')).filter(Boolean);
+  };
+
+  const parseDates = (dates: string[]): { start_date: string; end_date: string } => {
+    if (dates.length >= 2) return { start_date: dates[0], end_date: dates[1] };
+    if (dates.length === 1) return { start_date: dates[0], end_date: '' };
+    return { start_date: '', end_date: '' };
+  };
+
   return {
     personal_info: {
       full_name: names[0] || '',
@@ -176,31 +188,41 @@ const mapParseResultToCvData = (result: ParseResult): CVData => {
       location: locs[0] || '',
       title: jobTitles[0] || '',
     },
-    education: (result.education || []).map((item) => ({
-      degree: item.anchor || '',
-      institution: pickEntities([item], 'ORG')[0] || '',
-      graduation_year: '',
-      gpa: ''
-    })),
-    experience: (result.experience || []).map((item) => ({
-      company: pickEntities([item], 'ORG')[0] || orgs[0] || '',
-      title: pickEntities([item], 'JOB_TITLE')[0] || item.anchor || '',
-      duration: pickEntities([item], 'DATE').join(' - ') || '',
-      achievements: item.description
-        ? item.description.split('\n').map(line => line.trim().replace(/^[-•\*◦]\s*/, '')).filter(Boolean)
-        : []
-    })),
+    education: (result.education || []).map((item) => {
+      const dates = parseDates(pickEntities([item], 'DATE'));
+      return {
+        school: pickEntities([item], 'ORG')[0] || item.anchor || '',
+        degree: pickEntities([item], 'DEGREE')[0] || '',
+        major: pickEntities([item], 'MAJOR')[0] || '',
+        start_date: dates.start_date,
+        end_date: dates.end_date,
+        gpa: null,
+      };
+    }),
+    experience: (result.experience || []).map((item) => {
+      const dates = parseDates(pickEntities([item], 'DATE'));
+      return {
+        company: pickEntities([item], 'ORG')[0] || orgs[0] || '',
+        position: pickEntities([item], 'JOB_TITLE')[0] || item.anchor || '',
+        location: pickEntities([item], 'LOC')[0] || '',
+        start_date: dates.start_date,
+        end_date: dates.end_date,
+        description: toBullets(item.description),
+      };
+    }),
     skills,
     projects: (result.projects || []).map((item) => ({
       name: item.anchor || '',
-      description: item.description || '',
-      technologies: pickEntities([item], 'SKILL')
+      description: toBullets(item.description),
+      technologies: pickEntities([item], 'SKILL'),
+      link: null,
     })),
     certifications: (result.certifications || []).map((item) => ({
       name: item.anchor || '',
-      issuer: pickEntities([item], 'ORG')[0] || '',
-      year: pickEntities([item], 'DATE')[0] || ''
-    }))
+      organization: pickEntities([item], 'ORG')[0] || '',
+      issue_date: pickEntities([item], 'DATE')[0] || '',
+      expiry_date: null,
+    })),
   };
 };
 

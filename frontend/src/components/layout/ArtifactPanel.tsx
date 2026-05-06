@@ -10,7 +10,7 @@ import MarketDashboard from '../features/MarketDashboard';
 import ATSScoreDashboard from '../features/ATSScoreDashboard';
 import AdminPortal from '../features/AdminPortal';
 import { cn } from '../../lib/utils';
-import { CVData } from '../../services/api';
+import { CVData, skillApi, ATSScoreResponse } from '../../services/api';
 
 interface ArtifactPanelProps {
     isOpen: boolean;
@@ -38,6 +38,49 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
     });
     const isDragging = useRef(false);
     const panelRef = useRef<HTMLDivElement>(null);
+
+    const [atsData, setAtsData] = useState<ATSScoreResponse | null>(null);
+    const [atsLoading, setAtsLoading] = useState(false);
+
+    useEffect(() => {
+        if (type !== 'ats' || !isOpen) return;
+        setAtsLoading(true);
+
+        const toList = (v: any): string[] => {
+            if (Array.isArray(v)) return v.map(String);
+            if (typeof v === 'string' && v.trim()) return v.split('\n').map(s => s.trim()).filter(Boolean);
+            return [];
+        };
+
+        const payload = {
+            personal_info: {
+                full_name: cvData?.personal_info?.full_name ?? '',
+                email: cvData?.personal_info?.email ?? '',
+                phone: cvData?.personal_info?.phone ?? '',
+                location: cvData?.personal_info?.location ?? '',
+                title: cvData?.personal_info?.title ?? '',
+            },
+            summary: cvData?.summary ?? '',
+            education: (cvData?.education ?? []).map((e: any) => ({
+                ...e,
+                gpa: e.gpa === '' || e.gpa === null || e.gpa === undefined ? null : Number(e.gpa) || null,
+            })),
+            experience: (cvData?.experience ?? []).map((e: any) => ({
+                ...e,
+                description: toList(e.description),
+            })),
+            skills: cvData?.skills ?? [],
+            projects: (cvData?.projects ?? []).map((p: any) => ({
+                ...p,
+                description: toList(p.description),
+            })),
+            certifications: cvData?.certifications ?? [],
+        };
+        skillApi.getAtsScore(payload as any)
+            .then(res => setAtsData(res.data))
+            .catch(() => setAtsData(null))
+            .finally(() => setAtsLoading(false));
+    }, [type, isOpen]);
 
     // Persist width
     useEffect(() => {
@@ -166,29 +209,13 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
                     {type === 'career' && <CareerPath />}
                     {type === 'ats' && (
                         <ATSScoreDashboard
-                            data={{
-                                total_score: 68,
-                                breakdown: {
-                                    keyword_match: 62,
-                                    format_quality: 74,
-                                    experience_alignment: 69,
-                                    skills_alignment: 67
-                                },
-                                issues: [
-                                    {
-                                        category: 'keyword_match',
-                                        severity: 'high',
-                                        message: 'Thiếu từ khóa theo JD',
-                                        suggestion: 'Bổ sung các từ khóa kỹ năng trùng với JD ở phần Experience và Skills.'
-                                    },
-                                    {
-                                        category: 'experience_alignment',
-                                        severity: 'medium',
-                                        message: 'Mô tả kinh nghiệm chưa đủ định lượng',
-                                        suggestion: 'Thêm số liệu tác động (%, thời gian, quy mô) cho mỗi bullet.'
-                                    }
-                                ],
-                                benchmark_avg: 63
+                            isLoading={atsLoading}
+                            data={atsData ?? {
+                                total_score: 0,
+                                breakdown: {},
+                                issues: [],
+                                benchmark_avg: 70,
+                                cv_id: '',
                             }}
                         />
                     )}
