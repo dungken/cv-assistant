@@ -14,18 +14,16 @@ Resilience: ITviec markup changes occasionally. Each field has try/except so
 one bad JD doesn't kill the batch. health_check() should be run daily.
 """
 import logging
-import random
 import re
-import time
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-import cloudscraper
 from bs4 import BeautifulSoup
 
 from services.crawler_service.config import settings
 from services.crawler_service.models.schemas import RawJD
 from services.crawler_service.services.base_crawler import IJDCrawler
+from services.crawler_service.services.http_client import PoliteHttpClient
 
 try:
     # Auto-generated mapping (see scripts/build_role_mapping.py).
@@ -60,14 +58,14 @@ class ItviecCrawler(IJDCrawler):
     base_url = "https://itviec.com"
 
     def __init__(self) -> None:
-        # cloudscraper bypasses ITviec's Cloudflare challenge automatically.
-        self.session = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "linux", "mobile": False}
+        # cloudscraper handles ITviec's CF challenge; PoliteHttpClient adds
+        # retries with exponential backoff and a configurable jitter sleep.
+        self.client = PoliteHttpClient(
+            extra_headers={
+                "X-Crawler-Contact": settings.crawl_user_agent,
+                "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
+            }
         )
-        self.session.headers.update({
-            "X-Crawler-Contact": settings.crawl_user_agent,
-            "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
-        })
 
     # ── public interface ────────────────────────────────────────────
 
@@ -325,15 +323,10 @@ class ItviecCrawler(IJDCrawler):
     # ── utilities ───────────────────────────────────────────────────
 
     def _get(self, url: str) -> str:
-        resp = self.session.get(url, timeout=20)
-        resp.raise_for_status()
-        return resp.text
+        return self.client.get(url)
 
     def _polite_sleep(self) -> None:
-        delay = random.uniform(
-            settings.crawl_sleep_min_seconds, settings.crawl_sleep_max_seconds
-        )
-        time.sleep(delay)
+        self.client.polite_sleep()
 
     @staticmethod
     def _parse_exp_level(text: Optional[str]) -> Optional[str]:

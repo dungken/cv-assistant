@@ -14,18 +14,16 @@ Categories: TopCV uses search-keyword URLs rather than fixed category paths.
 We hardcode a few useful keyword combinations.
 """
 import logging
-import random
 import re
-import time
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-import cloudscraper
 from bs4 import BeautifulSoup
 
 from services.crawler_service.config import settings
 from services.crawler_service.models.schemas import RawJD
 from services.crawler_service.services.base_crawler import IJDCrawler
+from services.crawler_service.services.http_client import PoliteHttpClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +39,18 @@ CATEGORY_QUERIES = {
     "ai": "ai-engineer",
 }
 
+# Map TopCV category → (canonical role slug aligned with ITviec, role_group)
+# Lets us populate role/role_group columns consistently across sources.
+CATEGORY_TO_ROLE = {
+    "backend":   ("backend-developer",       "web_application_development"),
+    "frontend":  ("frontend-developer",      "web_application_development"),
+    "fullstack": ("fullstack-developer",     "web_application_development"),
+    "mobile":    ("mobile-application-developer", "mobile_application_development"),
+    "devops":    ("devops-engineer",         "devops_and_site_reliability_sre"),
+    "data":      ("data-engineer",           "data_engineering"),
+    "ai":        ("ai-machine-learning-engineer", "data_science_and_ai_machine_learning"),
+}
+
 
 class TopCVCrawler(IJDCrawler):
     source_name = "topcv"
@@ -51,13 +61,12 @@ class TopCVCrawler(IJDCrawler):
         # as of 2026-05 blocks headless Chrome consistently. See README.md.
         # When False, skills are extracted from title via ontology matching
         # in pipeline.py — recovers ~78% of skills (avg 1.2 skills/JD).
-        self.session = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "linux", "mobile": False}
+        self.client = PoliteHttpClient(
+            extra_headers={
+                "X-Crawler-Contact": settings.crawl_user_agent,
+                "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
+            }
         )
-        self.session.headers.update({
-            "X-Crawler-Contact": settings.crawl_user_agent,
-            "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-        })
         # When True, use Selenium to fetch each detail page for description text.
         # ~3-5s per JD; required to get skills since listing cards lack them.
         self.fetch_details = fetch_details
@@ -106,6 +115,7 @@ class TopCVCrawler(IJDCrawler):
             raise ValueError(f"Unknown category: {category}")
 
         jds: list[RawJD] = []
+        consecutive_failures = 0
         for page in range(1, max_pages + 1):
             page_url = (
                 f"{self.base_url}/tim-viec-lam-{keyword}"
@@ -113,9 +123,23 @@ class TopCVCrawler(IJDCrawler):
             )
             try:
                 html = self._get(page_url)
+                consecutive_failures = 0
             except Exception as e:
-                logger.warning("listing fetch failed page=%s: %s", page, e)
-                break
+                consecutive_failures += 1
+                # TopCV throttles aggressively. Back off a long time on 403,
+                # but don't give up after the first failure since CF challenges
+                # may resolve on their own after a cool-down.
+                logger.warning(
+                    "topcv listing fetch failed cat=%s page=%s (%d/3): %s",
+                    category, page, consecutive_failures, e,
+                )
+                if consecutive_failures >= 3:
+                    logger.error("topcv category=%s aborted after 3 failures", category)
+                    break
+                # Long cool-down before retrying this page
+                import time
+                time.sleep(15.0)
+                continue
 
             page_jds = self._parse_listing_cards(html, category)
             if not page_jds:
@@ -284,6 +308,11 @@ class TopCVCrawler(IJDCrawler):
                 posted_el.get_text(strip=True) if posted_el else None
             )
 
+            # TopCV listings don't expose role badges like ITviec, so we lift
+            # the role from the category being crawled. role_hint flows through
+            # the pipeline and ends up populating jd_raw.role.
+            role_slug, _ = CATEGORY_TO_ROLE.get(category, (category, None))
+
             return RawJD(
                 source=self.source_name,
                 source_id=job_id,
@@ -298,6 +327,7 @@ class TopCVCrawler(IJDCrawler):
                 exp_level=self._parse_exp_level(title),
                 posted_date=posted_date,
                 url=url,
+                role_hint=role_slug,
             )
         except Exception as e:
             logger.warning("card parse failed: %s", e)
@@ -306,15 +336,10 @@ class TopCVCrawler(IJDCrawler):
     # ── utilities ───────────────────────────────────────────────────
 
     def _get(self, url: str) -> str:
-        resp = self.session.get(url, timeout=20)
-        resp.raise_for_status()
-        return resp.text
+        return self.client.get(url)
 
     def _polite_sleep(self) -> None:
-        delay = random.uniform(
-            settings.crawl_sleep_min_seconds, settings.crawl_sleep_max_seconds
-        )
-        time.sleep(delay)
+        self.client.polite_sleep()
 
     @staticmethod
     def _parse_salary(text: Optional[str]) -> tuple[Optional[int], Optional[int], Optional[str]]:
