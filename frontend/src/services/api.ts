@@ -773,9 +773,23 @@ export interface OpportunityJD {
     url?: string | null;
     salary_min?: number | null;
     salary_max?: number | null;
+    salary_currency?: string | null;
+    // Tuần 16 — enriched signal from JDParser
+    seniority?: string | null;
+    min_exp?: number | null;
+    max_exp?: number | null;
+    work_mode?: string | null;
+    description_summary?: string | null;
     match_score: number;
+    skill_required_coverage: number;
+    skill_preferred_coverage: number;
+    exp_fit: number;
+    location_match: boolean;
+    work_mode_match: boolean;
     matched_skills: string[];
-    missing_skills: string[];
+    missing_required: string[];
+    missing_preferred: string[];
+    blockers: string[];
 }
 
 export interface OpportunityWindowResponse {
@@ -808,9 +822,23 @@ export interface LearningPathResponse {
 }
 
 export const cvHealthApi = {
-    upsertCv: (userId: string, targetRole: string, skills: CvHealthSkill[]) =>
+    upsertCv: (
+        userId: string,
+        targetRole: string,
+        skills: CvHealthSkill[],
+        opts?: {
+            yearsExperience?: number | null;
+            preferredLocation?: string | null;
+            preferredWorkModes?: string[] | null;
+        },
+    ) =>
         api.post<CvUpsertResponse>(`${SKILL_BASE}/cv/me`, {
-            user_id: userId, target_role: targetRole, skills,
+            user_id: userId,
+            target_role: targetRole,
+            skills,
+            years_experience: opts?.yearsExperience ?? null,
+            preferred_location: opts?.preferredLocation ?? null,
+            preferred_work_modes: opts?.preferredWorkModes ?? null,
         }),
 
     getHealthScore: (userId: string, persist: boolean = true) =>

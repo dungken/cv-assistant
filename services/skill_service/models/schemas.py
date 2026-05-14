@@ -314,6 +314,10 @@ class CVUpsertRequest(BaseModel):
     user_id: str
     target_role: str = "backend"
     skills: List[CVUpsertSkill]
+    # Tuần 16 — optional personal preferences. None = don't touch existing value.
+    years_experience: Optional[float] = None
+    preferred_location: Optional[str] = None
+    preferred_work_modes: Optional[List[str]] = None
 
 class CVUpsertResponse(BaseModel):
     user_id: str
@@ -357,9 +361,23 @@ class OpportunityJDItem(BaseModel):
     url: Optional[str] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    salary_currency: Optional[str] = None
+    # Tuần 16 — enriched signal
+    seniority: Optional[str] = None
+    min_exp: Optional[int] = None
+    max_exp: Optional[int] = None
+    work_mode: Optional[str] = None
+    description_summary: Optional[str] = None
     match_score: float
+    skill_required_coverage: float = 0.0
+    skill_preferred_coverage: float = 0.0
+    exp_fit: float = 1.0
+    location_match: bool = True
+    work_mode_match: bool = True
     matched_skills: List[str] = []
-    missing_skills: List[str] = []
+    missing_required: List[str] = []
+    missing_preferred: List[str] = []
+    blockers: List[str] = []
 
 class OpportunityWindowResponse(BaseModel):
     user_id: str

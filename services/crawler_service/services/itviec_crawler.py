@@ -279,7 +279,15 @@ class ItviecCrawler(IJDCrawler):
             return None
 
     def _parse_detail_page(self, soup: BeautifulSoup, url: str) -> Optional[RawJD]:
-        """Parse a standalone JD detail page (preview_jd_page variant)."""
+        """Parse a standalone JD detail page.
+
+        ITviec embeds a schema.org JobPosting JSON-LD block on every detail
+        page — we use it as the source of truth for structured fields (dates,
+        location, salary, industry, monthsOfExperience). Falls back to HTML
+        selectors when JSON-LD is missing.
+        """
+        import json as _json
+
         try:
             slug = url.split("/it-jobs/")[-1].split("?")[0]
             title_el = soup.select_one("h1, h3.text-break")
@@ -287,19 +295,107 @@ class ItviecCrawler(IJDCrawler):
             if not title:
                 return None
 
-            company_el = soup.select_one('a[href*="/companies/"]')
-            company = company_el.get_text(strip=True) if company_el else None
+            # ── JSON-LD JobPosting ─────────────────────────────────────────
+            ld: dict = {}
+            for sc in soup.select('script[type="application/ld+json"]'):
+                try:
+                    data = _json.loads(sc.string or "")
+                except Exception:
+                    continue
+                if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                    ld = data
+                    break
 
-            # JD description: ITviec wraps full description in various containers
-            desc_el = soup.select_one(".job-description, .preview-content, .content")
-            description = desc_el.get_text("\n", strip=True) if desc_el else ""
+            # ── Company ────────────────────────────────────────────────────
+            company = (
+                (ld.get("hiringOrganization") or {}).get("name")
+                if isinstance(ld.get("hiringOrganization"), dict) else None
+            )
+            if not company:
+                company_el = soup.select_one('a[href*="/companies/"]')
+                company = company_el.get_text(strip=True) if company_el else None
 
+            # ── Description (decoded from JSON-LD when available) ──────────
+            description = ""
+            ld_desc = ld.get("description") or ""
+            if ld_desc:
+                # description is HTML-escaped; strip tags to plain text
+                description = BeautifulSoup(ld_desc, "html.parser").get_text("\n", strip=True)
+            if not description:
+                desc_el = (
+                    soup.select_one("section.job-content")
+                    or soup.select_one(".job-description")
+                    or soup.select_one(".preview-content")
+                )
+                description = desc_el.get_text("\n", strip=True) if desc_el else ""
+
+            # ── Skill tags (from listing-style itag-light anchors) ─────────
             skills_raw = [
                 t.get_text(strip=True)
                 for t in soup.select("a.itag.itag-light")
                 if t.get_text(strip=True)
             ]
             skills_raw = list(dict.fromkeys(skills_raw))
+            # Fallback: comma-separated string in JSON-LD
+            if not skills_raw and ld.get("skills"):
+                skills_raw = [s.strip() for s in str(ld["skills"]).split(",") if s.strip()]
+
+            # ── Location (JSON-LD addressRegion or HTML title attr) ────────
+            location = None
+            ld_locs = ld.get("jobLocation") or []
+            if isinstance(ld_locs, dict):
+                ld_locs = [ld_locs]
+            for loc in ld_locs:
+                addr = loc.get("address", {}) if isinstance(loc, dict) else {}
+                region = (addr.get("addressRegion") or "").strip()
+                city = (addr.get("addressLocality") or "").strip()
+                if region and region.lower() not in {"not available", "n/a", ""}:
+                    location = region
+                    break
+                if city and city.lower() not in {"not available", "n/a", ""}:
+                    location = city
+                    break
+            if not location:
+                loc_el = soup.select_one("div.text-rich-grey.text-truncate.text-nowrap[title]")
+                if loc_el:
+                    location = loc_el.get("title") or loc_el.get_text(strip=True)
+
+            # ── Salary (JSON-LD baseSalary) ────────────────────────────────
+            salary_min = salary_max = None
+            salary_currency = None
+            base_sal = ld.get("baseSalary") if isinstance(ld.get("baseSalary"), dict) else None
+            if base_sal:
+                salary_currency = base_sal.get("currency")
+                sv = base_sal.get("value") or {}
+                if isinstance(sv, dict):
+                    smin = sv.get("minValue")
+                    smax = sv.get("maxValue")
+                    if isinstance(smin, (int, float)) and smin > 0:
+                        salary_min = int(smin)
+                    if isinstance(smax, (int, float)) and smax > 0:
+                        salary_max = int(smax)
+            # Fallback: parse salary text from HTML card ("1,000 - 1,800 USD")
+            if salary_min is None and salary_max is None:
+                sal_el = soup.select_one(".salary .ips-2.fw-500, span.salary")
+                if sal_el:
+                    parsed = self._parse_salary_text(sal_el.get_text(" ", strip=True))
+                    if parsed:
+                        salary_min, salary_max, salary_currency = parsed
+
+            # ── Posted date (JSON-LD datePosted) ───────────────────────────
+            posted_date_val = date.today()
+            if ld.get("datePosted"):
+                try:
+                    posted_date_val = date.fromisoformat(ld["datePosted"][:10])
+                except Exception:
+                    pass
+
+            # ── Work mode badge ("At office" / "Hybrid" / "Remote") ────────
+            # Lives in the preview header, not in description. We surface it
+            # into `description` so the downstream extractor picks it up.
+            for txt in soup.find_all(string=re.compile(r"^(At office|Hybrid|Remote|Onsite|On-site)$", re.I)):
+                description = f"{description}\nWork mode: {txt.strip()}"
+                break
 
             return RawJD(
                 source=self.source_name,
@@ -308,12 +404,12 @@ class ItviecCrawler(IJDCrawler):
                 company=company,
                 description=description,
                 skills_raw=skills_raw,
-                salary_min=None,
-                salary_max=None,
-                salary_currency=None,
-                location=None,
+                salary_min=salary_min,
+                salary_max=salary_max,
+                salary_currency=salary_currency,
+                location=location,
                 exp_level=self._parse_exp_level(title),
-                posted_date=date.today(),
+                posted_date=posted_date_val,
                 url=url,
             )
         except Exception as e:
@@ -339,6 +435,30 @@ class ItviecCrawler(IJDCrawler):
             return "junior"
         if "middle" in t or " mid " in t or "mid-" in t:
             return "mid"
+        return None
+
+    @staticmethod
+    def _parse_salary_text(text: str) -> Optional[tuple[int, int, str]]:
+        """Parse ITviec salary spans like '1,000 - 1,800 USD' or '20.000.000 – 30.000.000'.
+        Returns (min, max, currency) or None when not parseable.
+        """
+        if not text:
+            return None
+        # USD-style with comma separator
+        m = re.search(r"([\d,]+)\s*[-–]\s*([\d,]+)\s*(USD|VND)?", text, re.I)
+        if m:
+            lo = int(m.group(1).replace(",", ""))
+            hi = int(m.group(2).replace(",", ""))
+            cur = (m.group(3) or "USD").upper()
+            if lo > 0 and hi > 0:
+                return lo, hi, cur
+        # VND-style with dot separator (e.g. 20.000.000)
+        m = re.search(r"(\d{1,3}(?:\.\d{3})+)\s*[-–]\s*(\d{1,3}(?:\.\d{3})+)", text)
+        if m:
+            lo = int(m.group(1).replace(".", ""))
+            hi = int(m.group(2).replace(".", ""))
+            if lo > 0 and hi > 0:
+                return lo, hi, "VND"
         return None
 
     @staticmethod

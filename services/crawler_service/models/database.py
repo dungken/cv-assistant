@@ -11,7 +11,13 @@ Base = declarative_base()
 
 
 class JDRaw(Base):
-    """Raw JD crawled from sources (deduplicated by jd_key)."""
+    """Raw JD crawled from sources (deduplicated by jd_key).
+
+    Tuần 16 enrichment: in addition to the basic crawler fields, we run each
+    JD through `JDParser` (NER service) and store structured signal so the
+    matching/learning-path/freshness layers can use real-world constraints —
+    not just skill set overlap.
+    """
     __tablename__ = "jd_raw"
 
     jd_key = Column(String(16), primary_key=True)
@@ -26,17 +32,31 @@ class JDRaw(Base):
     salary_max = Column(Integer)
     salary_currency = Column(String(8))
     location = Column(String(128))
-    exp_level = Column(String(16))
-    role = Column(String(128))         # ITviec slug, e.g. 'data-analyst'; longest is 76 chars
-    role_group = Column(String(64))    # ITviec top-level group, e.g. 'data_analytics_and_business_intelligence'
+    exp_level = Column(String(16))        # raw level slug from crawler (e.g. 'senior')
+    role = Column(String(128))            # ITviec slug, e.g. 'data-analyst'
+    role_group = Column(String(64))       # ITviec top-level group
     posted_date = Column(Date, nullable=False)
     first_seen = Column(DateTime, nullable=False, default=datetime.utcnow)
     last_seen = Column(DateTime, nullable=False, default=datetime.utcnow)
     url = Column(Text)
 
+    # ── Tuần 16: parsed signals (filled by JDParser after crawl) ────────────
+    min_exp = Column(Integer)                          # years
+    max_exp = Column(Integer)                          # years
+    seniority = Column(String(16))                     # junior | mid | senior | lead
+    skills_required = Column(JSONB, default=list)      # blocker skills (must have)
+    skills_preferred = Column(JSONB, default=list)     # nice-to-have skills
+    degree_required = Column(String(64))               # Bachelor / Master / None
+    work_mode = Column(String(16))                     # onsite | hybrid | remote | None
+    description_summary = Column(Text)                 # 2-3 sentence summary
+    parsed_at = Column(DateTime)                       # when JDParser ran; NULL = not yet
+    parse_version = Column(String(16))                 # bump when parser changes
+
     __table_args__ = (
         Index("idx_jd_posted", "posted_date"),
         Index("idx_jd_role", "role"),
+        Index("idx_jd_seniority", "seniority"),
+        Index("idx_jd_parsed", "parsed_at"),
     )
 
 

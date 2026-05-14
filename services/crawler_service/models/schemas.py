@@ -31,9 +31,21 @@ class ProcessedJD(BaseModel):
     raw: RawJD
     skills_canonical: list[str]
     role: Optional[str] = None         # ITviec slug, e.g. 'data-analyst'
-    role_group: Optional[str] = None   # Top-level group, e.g. 'data_analytics_and_business_intelligence'
+    role_group: Optional[str] = None   # Top-level group
     first_seen: datetime
     last_seen: datetime
+
+    # Tuần 16 — enriched signal from JDParser (None until /parse-jd-text succeeds)
+    min_exp: Optional[int] = None
+    max_exp: Optional[int] = None
+    seniority: Optional[str] = None
+    skills_required: list[str] = Field(default_factory=list)
+    skills_preferred: list[str] = Field(default_factory=list)
+    degree_required: Optional[str] = None
+    work_mode: Optional[str] = None
+    description_summary: Optional[str] = None
+    parsed_at: Optional[datetime] = None
+    parse_version: Optional[str] = None
 
 
 class CrawlerRunResult(BaseModel):

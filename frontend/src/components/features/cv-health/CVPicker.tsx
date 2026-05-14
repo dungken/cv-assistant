@@ -79,8 +79,17 @@ export default function CVPicker({ userId, onLinked }: Props) {
 
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [role, setRole] = useState<string>('backend');
+    const [yearsExp, setYearsExp] = useState<string>('1');         // text so user can clear it
+    const [location, setLocation] = useState<string>('HCM');
+    const [workModes, setWorkModes] = useState<string[]>(['onsite', 'hybrid', 'remote']);
     const [linking, setLinking] = useState(false);
     const [linkError, setLinkError] = useState<string | null>(null);
+
+    function toggleWorkMode(mode: string) {
+        setWorkModes(prev =>
+            prev.includes(mode) ? prev.filter(m => m !== mode) : [...prev, mode]
+        );
+    }
 
     useEffect(() => {
         let cancelled = false;
@@ -126,10 +135,19 @@ export default function CVPicker({ userId, onLinked }: Props) {
             }
 
             const currentYear = new Date().getFullYear();
+            const parsedYears = yearsExp.trim() === '' ? null : Number(yearsExp);
+            const yearsValue = parsedYears === null || Number.isNaN(parsedYears)
+                ? null
+                : Math.max(0, parsedYears);
             await cvHealthApi.upsertCv(
                 userId,
                 role,
                 skills.map(name => ({ name, last_used_year: currentYear })),
+                {
+                    yearsExperience: yearsValue,
+                    preferredLocation: location.trim() || null,
+                    preferredWorkModes: workModes.length > 0 ? workModes : null,
+                },
             );
             onLinked();
         } catch (err) {
@@ -218,6 +236,59 @@ export default function CVPicker({ userId, onLinked }: Props) {
                                         className="h-8 px-3 text-xs"
                                     >
                                         {r.label}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div className="text-xs uppercase tracking-widest text-text-secondary font-bold mb-2">
+                                    Số năm kinh nghiệm
+                                </div>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={40}
+                                    step={0.5}
+                                    value={yearsExp}
+                                    onChange={e => setYearsExp(e.target.value)}
+                                    className="w-full h-9 px-3 rounded-xl bg-surface/40 border border-white/5 text-sm focus:outline-none focus:border-accent-primary/40"
+                                    placeholder="vd: 1.5"
+                                />
+                            </div>
+                            <div>
+                                <div className="text-xs uppercase tracking-widest text-text-secondary font-bold mb-2">
+                                    Địa điểm mong muốn
+                                </div>
+                                <input
+                                    type="text"
+                                    value={location}
+                                    onChange={e => setLocation(e.target.value)}
+                                    className="w-full h-9 px-3 rounded-xl bg-surface/40 border border-white/5 text-sm focus:outline-none focus:border-accent-primary/40"
+                                    placeholder="HCM, Hà Nội, Đà Nẵng…"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="text-xs uppercase tracking-widest text-text-secondary font-bold mb-2">
+                                Hình thức làm việc chấp nhận
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { id: 'onsite', label: 'Onsite' },
+                                    { id: 'hybrid', label: 'Hybrid' },
+                                    { id: 'remote', label: 'Remote' },
+                                ].map(m => (
+                                    <Button
+                                        key={m.id}
+                                        size="sm"
+                                        variant={workModes.includes(m.id) ? 'default' : 'ghost'}
+                                        onClick={() => toggleWorkMode(m.id)}
+                                        className="h-8 px-3 text-xs"
+                                    >
+                                        {m.label}
                                     </Button>
                                 ))}
                             </div>

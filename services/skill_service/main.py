@@ -376,7 +376,12 @@ def upsert_cv(
     """Insert/update the user's CV. Triggers a background Freshness recompute
     per §3.2.5 ("Sự kiện: User upload CV mới → BackgroundTask")."""
     skills = [s.dict() for s in request.skills]
-    rec = cv_store.upsert_cv(db, request.user_id, request.target_role, skills)
+    rec = cv_store.upsert_cv(
+        db, request.user_id, request.target_role, skills,
+        years_experience=request.years_experience,
+        preferred_location=request.preferred_location,
+        preferred_work_modes=request.preferred_work_modes,
+    )
     background_tasks.add_task(_recompute_freshness_bg, request.user_id)
     return CVUpsertResponse(
         user_id=rec.user_id, target_role=rec.target_role,
@@ -493,6 +498,9 @@ def opportunity_window(
     skill_names = [s["name"] for s in cv.skills_with_recency]
     opps = find_opportunities(
         db=db, cv_skills=skill_names, target_role=cv.target_role,
+        cv_years=cv.years_experience,
+        cv_location=cv.preferred_location,
+        cv_work_modes=cv.preferred_work_modes or None,
         days=days, limit=limit, min_match=min_match,
     )
     return OpportunityWindowResponse(
@@ -519,10 +527,21 @@ def learning_path_me(
     # coverage ratio we can reuse here.
     opps = find_opportunities(
         db=db, cv_skills=skill_names, target_role=cv.target_role,
+        cv_years=cv.years_experience,
+        cv_location=cv.preferred_location,
+        cv_work_modes=cv.preferred_work_modes or None,
         days=request.days, limit=request.max_jds, min_match=0.4,
     )
-    # Filter the "too easy" JDs (≥ 0.85 coverage — user can already apply).
-    target_opps = [o for o in opps if o.match_score < 0.85]
+    # Filter:
+    # - Drop "too easy" JDs (composite ≥ 0.85 — user can already apply)
+    # - Drop JDs where the experience gap is too large (cv_years < min_exp - 2):
+    #   no amount of learning skill fixes "needs 5y, you have 1y". This
+    #   aligns the optimizer with real hiring constraints (§3.1).
+    def _exp_reachable(o):
+        if cv.years_experience is None or o.min_exp is None:
+            return True
+        return float(cv.years_experience) >= float(o.min_exp) - 2.0
+    target_opps = [o for o in opps if o.match_score < 0.85 and _exp_reachable(o)]
     if not target_opps:
         raise HTTPException(
             status_code=422,
@@ -530,13 +549,18 @@ def learning_path_me(
                    "Try widening `days` or check crawler data freshness.",
         )
 
+    # Feed only *required* skills to the optimizer — those are the actual
+    # blockers. Preferred skills are nice-to-have and shouldn't drive what we
+    # tell the user to learn. (matched + missing_required = full required set.)
     tc = LP_TestCase(
         test_id=f"me-{request.user_id}",
         description=f"User {request.user_id} → {cv.target_role}",
         role=cv.target_role,
         S_user=skill_names,
-        JDs=[LP_JD(id=o.jd_key, required=list({*o.matched_skills, *o.missing_skills}))
-             for o in target_opps],
+        JDs=[
+            LP_JD(id=o.jd_key, required=list({*o.matched_skills, *o.missing_required}))
+            for o in target_opps
+        ],
         budget=request.budget_weeks,
     )
     try:

@@ -82,11 +82,37 @@ class JDStorage:
                     first_seen=jd.first_seen,
                     last_seen=jd.last_seen,
                     url=jd.raw.url,
+                    # Tuần 16 enrichment — these may be None if NER unavailable.
+                    min_exp=jd.min_exp,
+                    max_exp=jd.max_exp,
+                    seniority=jd.seniority,
+                    skills_required=jd.skills_required,
+                    skills_preferred=jd.skills_preferred,
+                    degree_required=jd.degree_required,
+                    work_mode=jd.work_mode,
+                    description_summary=jd.description_summary,
+                    parsed_at=jd.parsed_at,
+                    parse_version=jd.parse_version,
                 )
-                # On conflict: only refresh last_seen — existing JD still active.
+                # On conflict: refresh last_seen + re-enrich if we parsed this run.
+                # When parsed_at is set, also overwrite parsed columns so a later
+                # crawl picks up a better parse if the parser was upgraded.
+                update_set = {"last_seen": now}
+                if jd.parsed_at is not None:
+                    update_set.update({
+                        "min_exp": jd.min_exp,
+                        "max_exp": jd.max_exp,
+                        "seniority": jd.seniority,
+                        "skills_required": jd.skills_required,
+                        "skills_preferred": jd.skills_preferred,
+                        "degree_required": jd.degree_required,
+                        "work_mode": jd.work_mode,
+                        "description_summary": jd.description_summary,
+                        "parsed_at": jd.parsed_at,
+                        "parse_version": jd.parse_version,
+                    })
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=["jd_key"],
-                    set_={"last_seen": now},
+                    index_elements=["jd_key"], set_=update_set,
                 )
                 result = session.execute(stmt)
                 # rowcount==1 for both insert and update; check via SELECT before for accuracy

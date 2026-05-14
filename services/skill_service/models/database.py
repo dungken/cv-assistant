@@ -27,16 +27,22 @@ class FreshnessHistoryDB(Base):
 
 
 class UserCVDB(Base):
-    """Tuần 14 — per-user CV state. Source of truth for the `/health-score`,
-    `/skill-alerts`, `/opportunity-window` endpoints.
+    """Tuần 14 + Tuần 16 — per-user CV state. Source of truth for the
+    `/health-score`, `/skill-alerts`, `/opportunity-window` endpoints.
 
     skills_with_recency is a list of {name, last_used_year} dicts so the
     Freshness engine can compute recency per skill without re-running NER.
+
+    years_experience, preferred_location, preferred_work_modes — Tuần 16:
+    needed for realistic JD matching (§3.1 / §3.2 — beyond pure skill set).
     """
     __tablename__ = "skill_user_cv"
     user_id = Column(String, primary_key=True)
     target_role = Column(String, nullable=False, default="backend")
     skills_with_recency = Column(JSON, nullable=False, default=list)
+    years_experience = Column(Float)              # total years across all jobs; None = unknown
+    preferred_location = Column(String(128))       # "HCM" / "Hà Nội" / "Đà Nẵng" / "Remote"
+    preferred_work_modes = Column(JSON, default=list)  # ["onsite","hybrid","remote"]
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
