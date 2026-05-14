@@ -105,6 +105,30 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  crawler_service:
+    build:
+      context: .
+      dockerfile: services/crawler_service/Dockerfile
+    ports:
+      - "5006:5006"
+    environment:
+      SERVICE_PORT: "5006"
+      DATABASE_URL: "postgresql://skill_user:skill_password@skill_postgres:5432/skill_data"
+      CHROMA_HOST: skill_chromadb
+      CHROMA_PORT: "8000"
+      CHROMA_COLLECTION: "real_jds"
+      NER_SERVICE_URL: "http://ner_service:5001"
+      SKILL_SERVICE_URL: "http://skill_service:5002"
+      ENABLE_SCHEDULER: "true"
+    depends_on:
+      skill_postgres:
+        condition: service_healthy
+      skill_chromadb:
+        condition: service_started
+      ner_service:
+        condition: service_started
+    restart: unless-stopped
+
   career_service:
     build:
       context: .

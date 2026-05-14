@@ -69,7 +69,7 @@ Ngoài phần Mở đầu, Kết luận và Tài liệu tham khảo, báo cáo �
 
 - **[Chương 1](./chuong1/1.1_tong_quan_cong_trinh.md):** Tổng quan
 - **[Chương 2](./chuong2/2.1_skill_graph_knowledge_graph.md):** Cơ sở lý thuyết
-- **Chương 3:** Phân tích và Thiết kế hệ thống *(viết từ tuần 13)*
+- **[Chương 3](./chuong3/3.1_phan_tich_yeu_cau.md):** Phân tích và Thiết kế hệ thống
 - **Chương 4:** Xây dựng và Thực nghiệm *(viết từ tuần 17)*
 
 ---
