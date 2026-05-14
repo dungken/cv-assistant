@@ -597,8 +597,34 @@ SKILL_RELATIONSHIPS: list[tuple[str, str, str]] = [
 ]
 
 
-# ─── Skill Metadata (level range, description, demand) ────────────────────────
+# ─── Default learning cost by category (in weeks) ─────────────────────────────
+# Used when a skill has no explicit `cost` in SKILL_METADATA.
+# Approximations based on community surveys and bootcamp curricula. The values
+# are intentionally coarse — Learning Path Optimizer benchmarks treat them as
+# integer weights, and recruiter survey can tune later.
+
+DEFAULT_COST_BY_CATEGORY: dict[str, int] = {
+    "Programming Languages": 4,
+    "Frontend Development": 3,
+    "Backend Development": 4,
+    "Database": 3,
+    "DevOps & Infrastructure": 5,
+    "Cloud Platforms": 5,
+    "ML/AI": 6,
+    "Data Engineering": 5,
+    "Mobile": 4,
+    "Testing": 2,
+    "Soft Skills": 2,
+    "Other": 3,
+}
+
+DEFAULT_COST_FALLBACK = 3  # weeks, when category is unknown
+
+
+# ─── Skill Metadata (level range, description, demand, cost) ──────────────────
 # Key skills with additional metadata. Skills not listed default to intermediate.
+# `cost` is the learning effort estimate in weeks (4h/day study), used by the
+# Learning Path Optimizer (§3.3) and CV Freshness Score is unaffected by it.
 
 SKILL_METADATA: dict[str, dict] = {
     "Python": {"levels": ["beginner", "expert"], "demand": 0.95, "trending": True, "description": "General-purpose programming language, widely used in web, data science, and AI"},
@@ -698,6 +724,50 @@ SKILL_METADATA: dict[str, dict] = {
     "Microservices": {"levels": ["advanced", "expert"], "demand": 0.78, "trending": True, "description": "Architectural style that structures an app as a collection of services"},
     "CI/CD": {"levels": ["intermediate", "advanced"], "demand": 0.85, "trending": True, "description": "Continuous Integration and Continuous Delivery practices"},
 }
+
+
+# ─── Explicit learning cost overrides (weeks) ─────────────────────────────────
+# Skills not listed fall back to DEFAULT_COST_BY_CATEGORY.
+
+SKILL_COST: dict[str, int] = {
+    # Programming Languages
+    "Python": 4, "JavaScript": 4, "TypeScript": 3, "Java": 5, "C#": 5,
+    "Go": 4, "Rust": 6, "C": 5, "C++": 6, "Kotlin": 4, "Swift": 4,
+    "Ruby": 4, "PHP": 4, "SQL": 3, "R": 4, "Dart": 3, "Scala": 6,
+    # Frontend
+    "HTML": 1, "CSS": 2, "React": 3, "Angular": 4, "Vue.js": 3, "Svelte": 3,
+    "Next.js": 2, "Nuxt.js": 2, "Tailwind CSS": 1, "Redux": 2,
+    # Backend
+    "Node.js": 3, "Express.js": 2, "NestJS": 3, "Django": 4, "Flask": 2,
+    "FastAPI": 2, "Spring Boot": 5, "ASP.NET Core": 5,
+    "GraphQL": 2, "REST": 2, "gRPC": 3,
+    # Database
+    "PostgreSQL": 3, "MySQL": 3, "MongoDB": 3, "Redis": 2,
+    "Elasticsearch": 4, "Neo4j": 4,
+    # DevOps
+    "Docker": 2, "Kubernetes": 6, "Terraform": 4, "AWS": 6, "Azure": 6, "GCP": 6,
+    "Jenkins": 3, "GitHub Actions": 2, "Linux": 4, "Nginx": 2,
+    "Ansible": 3, "Prometheus": 3, "Grafana": 2, "ArgoCD": 3, "Helm": 2,
+    # ML/AI
+    "TensorFlow": 5, "PyTorch": 5, "Scikit-learn": 3, "Pandas": 2, "NumPy": 2,
+    "Hugging Face": 3, "LangChain": 3, "OpenCV": 4, "MLflow": 2,
+    # Data Engineering
+    "Apache Spark": 5, "Apache Kafka": 4, "Apache Airflow": 3,
+    "Snowflake": 3, "dbt": 2, "Tableau": 2,
+    # Mobile
+    "React Native": 3, "Flutter": 3,
+    # Misc
+    "Git": 1, "Agile": 1, "Microservices": 4, "CI/CD": 2,
+}
+
+
+def get_skill_cost(skill: str, category: Optional[str] = None) -> int:
+    """Learning cost in weeks. Falls back to category default, then global default."""
+    if skill in SKILL_COST:
+        return SKILL_COST[skill]
+    if category and category in DEFAULT_COST_BY_CATEGORY:
+        return DEFAULT_COST_BY_CATEGORY[category]
+    return DEFAULT_COST_FALLBACK
 
 
 class SkillOntology:
@@ -837,6 +907,7 @@ class SkillOntology:
             "description": meta.get("description", ""),
             "demand_score": meta.get("demand", 0.5),
             "trending": meta.get("trending", False),
+            "cost_weeks": get_skill_cost(name, cat),
             "relationships": relationships,
             "required_by": prerequisites_of[:10],
             "leads_from": leads_from[:10],

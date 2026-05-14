@@ -30,6 +30,7 @@ class SkillNodeResponse(BaseModel):
     description: str = ""
     demand_score: float = 0.5
     trending: bool = False
+    cost_weeks: int = 3
     relationships: Dict[str, List[str]] = {}
     required_by: List[str] = []
     leads_from: List[str] = []
@@ -236,3 +237,61 @@ class MarketOverviewResponse(BaseModel):
     location_distribution: Dict[str, int]
     salary_overview: List[SalaryStats]
     correlations: List[SkillCorrelation]
+
+
+# ─── Tuần 10: CV Freshness Score ──────────────────────────────────────────────
+
+class FreshnessSkillInput(BaseModel):
+    name: str
+    last_used_year: Optional[int] = None  # e.g. 2025 from NER experience block
+
+class FreshnessRequest(BaseModel):
+    cv_skills: List[FreshnessSkillInput]
+    role: str = "backend"  # backend|frontend|data|devops|ai_engineer|fullstack|mobile
+    snapshot_date: Optional[str] = None  # ISO date; defaults to today
+
+class SkillContributionItem(BaseModel):
+    skill: str
+    importance: float
+    trend: float
+    recency: float
+    contribution: float
+
+class FreshnessResponse(BaseModel):
+    score: float
+    role: str
+    snapshot_date: str
+    contributions: List[SkillContributionItem] = []
+    ideal_skills: List[str] = []
+    missing_ideal: List[str] = []
+    cold_start: bool = False
+
+
+# ─── Tuần 12: Learning Path Optimizer ─────────────────────────────────────────
+
+class LearningPathJD(BaseModel):
+    id: str
+    required: List[str]
+
+class LearningPathRequest(BaseModel):
+    cv_skills: List[str]
+    role: str = "backend"
+    jds: List[LearningPathJD]
+    budget_weeks: int = 12
+    algorithm: str = "greedy"  # greedy | dijkstra
+
+class PathStepResponse(BaseModel):
+    order: int
+    skill: str
+    cost_weeks: int
+    reason: str
+    jd_unlocked_after_this: List[str]
+
+class LearningPathResponse(BaseModel):
+    algorithm: str
+    total_weeks: int
+    jd_unlocked_count: int
+    jd_unlocked_total: int
+    coverage_percent: float
+    steps: List[PathStepResponse]
+    runtime_ms: float

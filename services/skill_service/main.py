@@ -22,15 +22,23 @@ from services.skill_service.models.schemas import (
     OntologyStatsResponse, CategoriesResponse, MultiSkillMatchRequest,
     MultiSkillMatchResponse, CVDetails,
     BookmarkRequest, ProgressUpdateRequest, Course, LearningRoadmap,
-    ATSScoreRequest, ATSScoreResponse, MarketOverviewResponse
+    ATSScoreRequest, ATSScoreResponse, MarketOverviewResponse,
+    FreshnessRequest, FreshnessResponse, SkillContributionItem,
+    LearningPathRequest, LearningPathResponse, PathStepResponse,
 )
+from services.skill_service.services.learning_path import LearningPathOptimizer
+from services.skill_service.services.lp_benchmark import JD as LP_JD, TestCase as LP_TestCase
 from services.skill_service.services.matcher import SkillMatcher
 from services.skill_service.services.explainer import SkillGapExplainer
 from services.skill_service.services.ontology import SkillOntology
 from services.skill_service.services.course_service import CourseService
 from services.skill_service.services.ats_engine import ATSScoringEngine
 from services.skill_service.services.market_analyzer import MarketAnalyzer
+from services.skill_service.services.freshness_engine import (
+    CVFreshnessEngine, CVSkillInput,
+)
 from services.skill_service.services.db_session import init_db, get_db
+from datetime import date as _date
 from shared.db.chroma_client import get_collection
 from shared.utils.logging_config import setup_logging
 from shared.constants import COLLECTION_JOBS
@@ -57,6 +65,8 @@ _matcher = None
 _ontology = None
 _ats_engine = None
 _market_analyzer = None
+_freshness_engine = None
+_lp_optimizer = None
 
 def get_ontology() -> SkillOntology:
     """Singleton ontology instance."""
@@ -97,6 +107,18 @@ def get_market_analyzer() -> MarketAnalyzer:
         collection = get_collection("market_jds")
         _market_analyzer = MarketAnalyzer(collection)
     return _market_analyzer
+
+def get_freshness_engine() -> CVFreshnessEngine:
+    global _freshness_engine
+    if _freshness_engine is None:
+        _freshness_engine = CVFreshnessEngine(get_ontology())
+    return _freshness_engine
+
+def get_lp_optimizer() -> LearningPathOptimizer:
+    global _lp_optimizer
+    if _lp_optimizer is None:
+        _lp_optimizer = LearningPathOptimizer(get_ontology())
+    return _lp_optimizer
 
 def get_course_service() -> CourseService:
     """Dependency injection for CourseService."""
@@ -238,6 +260,68 @@ def toggle_bookmark(request: BookmarkRequest, course_service: CourseService = De
 def update_progress(request: ProgressUpdateRequest, course_service: CourseService = Depends(get_course_service)):
     course_service.update_progress(request.course_id, request.progress, request.user_id)
     return {"status": "success"}
+
+@app.post("/learning-path", response_model=LearningPathResponse)
+def learning_path(
+    request: LearningPathRequest,
+    optimizer: LearningPathOptimizer = Depends(get_lp_optimizer),
+):
+    """Tuần 12 — Learning Path Optimizer (chuong3/3.3)."""
+    tc = LP_TestCase(
+        test_id="api",
+        description="",
+        role=request.role,
+        S_user=request.cv_skills,
+        JDs=[LP_JD(id=j.id, required=j.required) for j in request.jds],
+        budget=request.budget_weeks,
+    )
+    try:
+        result, explained = optimizer.optimize(tc, algorithm=request.algorithm)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("learning_path failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    coverage = (
+        100.0 * explained.jd_unlocked_count / max(explained.jd_unlocked_total, 1)
+    )
+    return LearningPathResponse(
+        algorithm=explained.algorithm,
+        total_weeks=explained.total_weeks,
+        jd_unlocked_count=explained.jd_unlocked_count,
+        jd_unlocked_total=explained.jd_unlocked_total,
+        coverage_percent=round(coverage, 2),
+        steps=[PathStepResponse(**s.__dict__) for s in explained.steps],
+        runtime_ms=round(1000 * result.runtime_s, 3),
+    )
+
+
+@app.post("/cv/freshness", response_model=FreshnessResponse)
+def cv_freshness(
+    request: FreshnessRequest,
+    engine: CVFreshnessEngine = Depends(get_freshness_engine),
+    db = Depends(get_db),
+):
+    """Tuần 10 — CV Freshness Score (chuong3/3.2)."""
+    snapshot = _date.fromisoformat(request.snapshot_date) if request.snapshot_date else _date.today()
+    cv_inputs = [CVSkillInput(name=s.name, last_used_year=s.last_used_year) for s in request.cv_skills]
+    try:
+        result = engine.compute(db=db, cv_skills=cv_inputs, role=request.role, snapshot_date=snapshot)
+    except Exception as e:
+        logger.error("Freshness computation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return FreshnessResponse(
+        score=result.score,
+        role=result.role,
+        snapshot_date=result.snapshot_date.isoformat(),
+        contributions=[SkillContributionItem(**c.__dict__) for c in result.contributions],
+        ideal_skills=result.ideal_skills,
+        missing_ideal=result.missing_ideal,
+        cold_start=result.cold_start,
+    )
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=settings.service_port)
