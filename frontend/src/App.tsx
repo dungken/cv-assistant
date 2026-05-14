@@ -24,6 +24,7 @@ import CVListPage from './components/features/CVListPage';
 import FeedbackModal from './components/features/FeedbackModal';
 import UserMemoryPanel from './components/features/UserMemoryPanel';
 import AdminPortal from './components/features/AdminPortal';
+import CVHealthDashboard from './components/features/cv-health/CVHealthDashboard';
 import { Button } from './components/ui/Button';
 import { Badge } from './components/ui/Badge';
 import { cn } from './lib/utils';
@@ -79,18 +80,39 @@ export default function App() {
   const [tempTitle, setTempTitle] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
-  const [cursorPos, setCursorPos] = useState({ x: -9999, y: -9999 });
+  // Cursor spotlight position is written straight to the DOM via ref to avoid
+  // a setState-per-mousemove storm that re-rendered the whole app (charts,
+  // dashboard cards, etc.) on every pixel of motion.
+  const cursorSpotlightRef = useRef<HTMLDivElement>(null);
   const [showAllMessages, setShowAllMessages] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setCursorPos({ x: e.clientX, y: e.clientY });
+    let frame = 0;
+    let lastX = -9999;
+    let lastY = -9999;
+    const apply = () => {
+      frame = 0;
+      const el = cursorSpotlightRef.current;
+      if (el) {
+        el.style.left = `${lastX}px`;
+        el.style.top = `${lastY}px`;
+        if (el.style.opacity !== '1') el.style.opacity = '1';
+      }
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    const handleMouseMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      // Coalesce to rAF — at most one paint per frame instead of one per pixel.
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
@@ -793,8 +815,10 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-canvas text-text-primary overflow-hidden font-sans transition-colors duration-500">
-      {/* Fixed cursor spotlight - follows mouse globally */}
+      {/* Fixed cursor spotlight — position updated via ref to avoid full-app
+          re-renders on every mousemove. */}
       <div
+        ref={cursorSpotlightRef}
         className="fixed pointer-events-none z-[1]"
         style={{
           width: 700,
@@ -802,9 +826,11 @@ export default function App() {
           borderRadius: '50%',
           background: `radial-gradient(circle, rgba(var(--accent-primary), 0.12) 0%, transparent 65%)`,
           transform: 'translate(-50%, -50%)',
-          left: cursorPos.x,
-          top: cursorPos.y,
-          transition: 'left 0.12s ease-out, top 0.12s ease-out',
+          left: -9999,
+          top: -9999,
+          opacity: 0,
+          willChange: 'left, top',
+          transition: 'left 0.12s ease-out, top 0.12s ease-out, opacity 0.3s',
         }}
       />
       <Sidebar
@@ -852,9 +878,17 @@ export default function App() {
         className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-canvas transition-all duration-300"
       >
         <Routes>
-          <Route 
-            path="/admin" 
-            element={userRole === 'Admin' ? <AdminPortal userName={userName} /> : <Navigate to="/" replace />} 
+          <Route
+            path="/admin"
+            element={userRole === 'Admin' ? <AdminPortal userName={userName} /> : <Navigate to="/" replace />}
+          />
+          <Route
+            path="/cv-health"
+            element={
+              <div className="flex-1 overflow-y-auto relative z-10">
+                <CVHealthDashboard userId={userEmail || 'demo'} />
+              </div>
+            }
           />
           <Route path="/" element={
             <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -862,20 +896,7 @@ export default function App() {
               <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-accent-primary/15 rounded-full blur-[160px] pointer-events-none z-0" />
               <div className="absolute bottom-0 left-0 w-[700px] h-[700px] bg-accent-secondary/15 rounded-full blur-[160px] pointer-events-none z-0" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(var(--accent-primary),0.09)_0%,transparent_100%)] pointer-events-none z-0" />
-              {/* Cursor spotlight */}
-              <div
-                className="absolute pointer-events-none z-0 transition-opacity duration-300"
-                style={{
-                  width: 600,
-                  height: 600,
-                  borderRadius: '50%',
-                  background: `radial-gradient(circle, rgba(var(--accent-primary), 0.1) 0%, transparent 70%)`,
-                  transform: 'translate(-50%, -50%)',
-                  left: cursorPos.x,
-                  top: cursorPos.y,
-                  opacity: cursorPos.x < 0 ? 0 : 1,
-                }}
-              />
+              {/* (Cursor spotlight is rendered globally at the App root.) */}
 
               <header className="h-16 flex items-center justify-between px-8 z-20 transition-all bg-canvas/80 backdrop-blur-md sticky top-0">
                 <div className="w-32 flex items-center gap-3">

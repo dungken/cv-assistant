@@ -26,6 +26,20 @@ class FreshnessHistoryDB(Base):
     )
 
 
+class UserCVDB(Base):
+    """Tuần 14 — per-user CV state. Source of truth for the `/health-score`,
+    `/skill-alerts`, `/opportunity-window` endpoints.
+
+    skills_with_recency is a list of {name, last_used_year} dicts so the
+    Freshness engine can compute recency per skill without re-running NER.
+    """
+    __tablename__ = "skill_user_cv"
+    user_id = Column(String, primary_key=True)
+    target_role = Column(String, nullable=False, default="backend")
+    skills_with_recency = Column(JSON, nullable=False, default=list)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class FreshnessAlertDB(Base):
     """Tuần 11 — fired when score drops materially between snapshots.
 

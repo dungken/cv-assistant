@@ -21,6 +21,22 @@ public class SkillProxyController : ControllerBase
     }
 
     /// <summary>
+    /// Forward an HttpResponseMessage to the client, preserving status code so
+    /// the browser sees real 404/422/500 instead of 200-with-error-body.
+    /// </summary>
+    private async Task<IActionResult> ForwardAsync(HttpResponseMessage upstream)
+    {
+        var body = await upstream.Content.ReadAsStringAsync();
+        var contentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+        return new ContentResult
+        {
+            StatusCode = (int)upstream.StatusCode,
+            ContentType = contentType,
+            Content = body,
+        };
+    }
+
+    /// <summary>
     /// Match CV skills against a job description with ontology-enhanced analysis.
     /// </summary>
     [HttpPost("match")]
@@ -172,5 +188,138 @@ public class SkillProxyController : ControllerBase
         var result = await response.Content.ReadAsStringAsync();
 
         return Content(result, "application/json");
+    }
+
+    // ─── Tuần 10: standalone Freshness compute (no user_id, stateless) ────────
+
+    /// <summary>
+    /// Compute Freshness Score from skills + role without persisting.
+    /// </summary>
+    [HttpPost("cv/freshness")]
+    public async Task<IActionResult> ComputeFreshness([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PostAsync("/cv/freshness", json);
+        return await ForwardAsync(response);
+    }
+
+    // ─── Tuần 12: stateless Learning Path (client supplies JD list) ───────────
+
+    /// <summary>
+    /// Run Learning Path Optimizer with caller-supplied JDs (no CV state read).
+    /// </summary>
+    [HttpPost("learning-path")]
+    public async Task<IActionResult> LearningPath([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PostAsync("/learning-path", json);
+        return await ForwardAsync(response);
+    }
+
+    // ─── Tuần 14: user-scoped CV Health Intelligence endpoints ────────────────
+
+    /// <summary>
+    /// Upsert the user's stored CV. Triggers a BackgroundTask Freshness recompute.
+    /// </summary>
+    [HttpPost("cv/me")]
+    public async Task<IActionResult> UpsertCv([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        _logger.LogInformation("Proxying CV upsert");
+        var response = await client.PostAsync("/cv/me", json);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// Current Freshness Score for `user_id`. Persists to history by default.
+    /// </summary>
+    [HttpGet("health-score")]
+    public async Task<IActionResult> GetHealthScore(
+        [FromQuery] string user_id,
+        [FromQuery] bool persist = true)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = $"/health-score?user_id={Uri.EscapeDataString(user_id ?? "")}&persist={persist.ToString().ToLowerInvariant()}";
+        var response = await client.GetAsync(qs);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// Freshness Score time-series for the dashboard chart.
+    /// </summary>
+    [HttpGet("freshness/history")]
+    public async Task<IActionResult> GetFreshnessHistory(
+        [FromQuery] string user_id,
+        [FromQuery] string? role = null,
+        [FromQuery] int limit = 60)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = $"/freshness/history?user_id={Uri.EscapeDataString(user_id ?? "")}&limit={limit}";
+        if (!string.IsNullOrWhiteSpace(role))
+            qs += $"&role={Uri.EscapeDataString(role)}";
+        var response = await client.GetAsync(qs);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// Recent score-drop alerts for the user.
+    /// </summary>
+    [HttpGet("skill-alerts")]
+    public async Task<IActionResult> GetSkillAlerts(
+        [FromQuery] string user_id,
+        [FromQuery] int limit = 20)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = $"/skill-alerts?user_id={Uri.EscapeDataString(user_id ?? "")}&limit={limit}";
+        var response = await client.GetAsync(qs);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// JDs posted recently that match the user's stored CV well.
+    /// </summary>
+    [HttpGet("opportunity-window")]
+    public async Task<IActionResult> GetOpportunityWindow(
+        [FromQuery] string user_id,
+        [FromQuery] int days = 7,
+        [FromQuery] int limit = 10,
+        [FromQuery] double min_match = 0.5)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = $"/opportunity-window?user_id={Uri.EscapeDataString(user_id ?? "")}" +
+                 $"&days={days}&limit={limit}&min_match={min_match.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        var response = await client.GetAsync(qs);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// User-friendly Learning Path: builds JD target set from stored CV + market data.
+    /// </summary>
+    [HttpPost("learning-path/me")]
+    public async Task<IActionResult> LearningPathMe([FromBody] object body)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var json = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(body),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+        var response = await client.PostAsync("/learning-path/me", json);
+        return await ForwardAsync(response);
     }
 }

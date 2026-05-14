@@ -287,6 +287,10 @@ class PathStepResponse(BaseModel):
     reason: str
     jd_unlocked_after_this: List[str]
 
+class JDLabel(BaseModel):
+    label: str            # "Title — Company"
+    url: Optional[str] = None
+
 class LearningPathResponse(BaseModel):
     algorithm: str
     total_weeks: int
@@ -295,3 +299,88 @@ class LearningPathResponse(BaseModel):
     coverage_percent: float
     steps: List[PathStepResponse]
     runtime_ms: float
+    # Tuần 14 — for the /me variant we also send a mapping of jd_key → label
+    # + clickable url so the dashboard can render hyperlinks instead of raw IDs.
+    jd_labels: Dict[str, JDLabel] = {}
+
+
+# ─── Tuần 14: user-state endpoints ────────────────────────────────────────────
+
+class CVUpsertSkill(BaseModel):
+    name: str
+    last_used_year: Optional[int] = None
+
+class CVUpsertRequest(BaseModel):
+    user_id: str
+    target_role: str = "backend"
+    skills: List[CVUpsertSkill]
+
+class CVUpsertResponse(BaseModel):
+    user_id: str
+    target_role: str
+    skill_count: int
+    updated_at: str
+    recompute_scheduled: bool = True
+
+class HealthScoreResponse(BaseModel):
+    user_id: str
+    role: str
+    score: float
+    snapshot_date: str
+    contributions: List[SkillContributionItem] = []
+    ideal_skills: List[str] = []
+    missing_ideal: List[str] = []
+    cold_start: bool = False
+    history_recorded: bool = False
+
+class AlertItem(BaseModel):
+    id: int
+    user_id: str
+    role: str
+    fired_at: str
+    prev_score: float
+    new_score: float
+    delta: float
+    reason: str
+
+class SkillAlertsResponse(BaseModel):
+    user_id: str
+    alerts: List[AlertItem] = []
+
+class OpportunityJDItem(BaseModel):
+    jd_key: str
+    title: str
+    company: str
+    role: Optional[str] = None
+    location: Optional[str] = None
+    posted_date: str
+    url: Optional[str] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    match_score: float
+    matched_skills: List[str] = []
+    missing_skills: List[str] = []
+
+class OpportunityWindowResponse(BaseModel):
+    user_id: str
+    role: Optional[str] = None
+    days: int
+    items: List[OpportunityJDItem] = []
+
+class LearningPathMeRequest(BaseModel):
+    user_id: str
+    budget_weeks: int = 12
+    algorithm: str = "greedy"
+    days: int = 30        # use JDs posted in last N days as targets
+    max_jds: int = 50     # cap JDs fed to optimizer
+
+
+class FreshnessHistoryPoint(BaseModel):
+    snapshot_date: str
+    score: float
+    cold_start: bool = False
+
+class FreshnessHistoryResponse(BaseModel):
+    user_id: str
+    role: Optional[str] = None
+    points: List[FreshnessHistoryPoint] = []

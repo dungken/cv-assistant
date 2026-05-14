@@ -691,6 +691,170 @@ export const skillApi = {
         api.get<{ categories: string[] }>(`${SKILL_BASE}/ontology/categories`),
 };
 
+
+// ─── Tuần 15: CV Health Intelligence dashboard ────────────────────────────────
+//
+// Maps to the 6 backend endpoints built in Tuần 14:
+//   POST /cv/me                    upsertCv()
+//   GET  /health-score             getHealthScore()
+//   GET  /freshness/history        getFreshnessHistory()
+//   GET  /skill-alerts             getSkillAlerts()
+//   GET  /opportunity-window       getOpportunities()
+//   POST /learning-path/me         getLearningPathMe()
+
+export interface CvHealthSkill {
+    name: string;
+    last_used_year?: number | null;
+}
+
+export interface CvUpsertResponse {
+    user_id: string;
+    target_role: string;
+    skill_count: number;
+    updated_at: string;
+    recompute_scheduled: boolean;
+}
+
+export interface SkillContribution {
+    skill: string;
+    importance: number;
+    trend: number;
+    recency: number;
+    contribution: number;
+}
+
+export interface HealthScoreResponse {
+    user_id: string;
+    role: string;
+    score: number;
+    snapshot_date: string;
+    contributions: SkillContribution[];
+    ideal_skills: string[];
+    missing_ideal: string[];
+    cold_start: boolean;
+    history_recorded: boolean;
+}
+
+export interface FreshnessHistoryPoint {
+    snapshot_date: string;
+    score: number;
+    cold_start: boolean;
+}
+
+export interface FreshnessHistoryResponse {
+    user_id: string;
+    role?: string | null;
+    points: FreshnessHistoryPoint[];
+}
+
+export interface SkillAlert {
+    id: number;
+    user_id: string;
+    role: string;
+    fired_at: string;
+    prev_score: number;
+    new_score: number;
+    delta: number;
+    reason: string;
+}
+
+export interface SkillAlertsResponse {
+    user_id: string;
+    alerts: SkillAlert[];
+}
+
+export interface OpportunityJD {
+    jd_key: string;
+    title: string;
+    company: string;
+    role?: string | null;
+    location?: string | null;
+    posted_date: string;
+    url?: string | null;
+    salary_min?: number | null;
+    salary_max?: number | null;
+    match_score: number;
+    matched_skills: string[];
+    missing_skills: string[];
+}
+
+export interface OpportunityWindowResponse {
+    user_id: string;
+    role?: string | null;
+    days: number;
+    items: OpportunityJD[];
+}
+
+export interface PathStep {
+    order: number;
+    skill: string;
+    cost_weeks: number;
+    reason: string;
+    jd_unlocked_after_this: string[];
+}
+
+export interface LearningPathResponse {
+    algorithm: string;
+    total_weeks: number;
+    jd_unlocked_count: number;
+    jd_unlocked_total: number;
+    coverage_percent: number;
+    steps: PathStep[];
+    runtime_ms: number;
+    // Map jd_key → { label, url } so the dashboard never has to show raw
+    // hashes. Populated by /learning-path/me; absent on the stateless
+    // /learning-path endpoint.
+    jd_labels?: Record<string, { label: string; url?: string | null }>;
+}
+
+export const cvHealthApi = {
+    upsertCv: (userId: string, targetRole: string, skills: CvHealthSkill[]) =>
+        api.post<CvUpsertResponse>(`${SKILL_BASE}/cv/me`, {
+            user_id: userId, target_role: targetRole, skills,
+        }),
+
+    getHealthScore: (userId: string, persist: boolean = true) =>
+        api.get<HealthScoreResponse>(`${SKILL_BASE}/health-score`, {
+            params: { user_id: userId, persist },
+        }),
+
+    getFreshnessHistory: (userId: string, opts?: { role?: string; limit?: number }) =>
+        api.get<FreshnessHistoryResponse>(`${SKILL_BASE}/freshness/history`, {
+            params: { user_id: userId, role: opts?.role, limit: opts?.limit ?? 60 },
+        }),
+
+    getSkillAlerts: (userId: string, limit: number = 20) =>
+        api.get<SkillAlertsResponse>(`${SKILL_BASE}/skill-alerts`, {
+            params: { user_id: userId, limit },
+        }),
+
+    getOpportunities: (
+        userId: string,
+        opts?: { days?: number; limit?: number; minMatch?: number },
+    ) =>
+        api.get<OpportunityWindowResponse>(`${SKILL_BASE}/opportunity-window`, {
+            params: {
+                user_id: userId,
+                days: opts?.days ?? 7,
+                limit: opts?.limit ?? 10,
+                min_match: opts?.minMatch ?? 0.5,
+            },
+        }),
+
+    getLearningPathMe: (
+        userId: string,
+        opts?: { budgetWeeks?: number; algorithm?: 'greedy' | 'dijkstra' | 'dp'; days?: number; maxJds?: number },
+    ) =>
+        api.post<LearningPathResponse>(`${SKILL_BASE}/learning-path/me`, {
+            user_id: userId,
+            budget_weeks: opts?.budgetWeeks ?? 12,
+            algorithm: opts?.algorithm ?? 'greedy',
+            days: opts?.days ?? 30,
+            max_jds: opts?.maxJds ?? 50,
+        }),
+};
+
+
 export const courseApi = {
     bookmark: (courseId: string, userId?: string) =>
         api.post<{ status: string; is_bookmarked: boolean }>(`${SKILL_BASE}/courses/bookmark`, {

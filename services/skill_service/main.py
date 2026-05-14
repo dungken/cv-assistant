@@ -9,7 +9,7 @@ import uuid
 # Add project root to path for shared imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import uvicorn
@@ -24,10 +24,22 @@ from services.skill_service.models.schemas import (
     BookmarkRequest, ProgressUpdateRequest, Course, LearningRoadmap,
     ATSScoreRequest, ATSScoreResponse, MarketOverviewResponse,
     FreshnessRequest, FreshnessResponse, SkillContributionItem,
-    LearningPathRequest, LearningPathResponse, PathStepResponse,
+    LearningPathRequest, LearningPathResponse, PathStepResponse, JDLabel,
+    CVUpsertRequest, CVUpsertResponse,
+    HealthScoreResponse, SkillAlertsResponse, AlertItem,
+    OpportunityWindowResponse, OpportunityJDItem,
+    LearningPathMeRequest,
+    FreshnessHistoryResponse, FreshnessHistoryPoint,
 )
 from services.skill_service.services.learning_path import LearningPathOptimizer
 from services.skill_service.services.lp_benchmark import JD as LP_JD, TestCase as LP_TestCase
+from services.skill_service.services.freshness_engine import (
+    CVSkillInput, record_history_and_alert,
+)
+from services.skill_service.services import cv_store
+from services.skill_service.services.opportunity_window import find_opportunities
+from services.skill_service.models.database import FreshnessAlertDB, FreshnessHistoryDB
+from services.skill_service.services.db_session import SessionLocal
 from services.skill_service.services.matcher import SkillMatcher
 from services.skill_service.services.explainer import SkillGapExplainer
 from services.skill_service.services.ontology import SkillOntology
@@ -320,6 +332,236 @@ def cv_freshness(
         ideal_skills=result.ideal_skills,
         missing_ideal=result.missing_ideal,
         cold_start=result.cold_start,
+    )
+
+
+# ─── Tuần 14: BackgroundTask for Freshness recompute ──────────────────────────
+
+def _recompute_freshness_bg(user_id: str) -> None:
+    """Background job: recompute Freshness Score for `user_id` and persist
+    history + alerts. Opens its own DB session because the request-scoped
+    session is already closed by the time this runs.
+    """
+    db = SessionLocal()
+    try:
+        cv = cv_store.get_cv(db, user_id)
+        if cv is None:
+            logger.warning("BG recompute: no CV for user_id=%s", user_id)
+            return
+        engine = get_freshness_engine()
+        cv_inputs = [
+            CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year"))
+            for s in cv.skills_with_recency
+        ]
+        result = engine.compute(db=db, cv_skills=cv_inputs, role=cv.target_role)
+        record_history_and_alert(db=db, user_id=user_id, result=result)
+        logger.info(
+            "BG recompute done user=%s role=%s score=%.2f cold_start=%s",
+            user_id, cv.target_role, result.score, result.cold_start,
+        )
+    except Exception as e:
+        logger.error("BG recompute failed for user=%s: %s", user_id, e, exc_info=True)
+    finally:
+        db.close()
+
+
+# ─── Tuần 14: user-state endpoints ────────────────────────────────────────────
+
+@app.post("/cv/me", response_model=CVUpsertResponse)
+def upsert_cv(
+    request: CVUpsertRequest,
+    background_tasks: BackgroundTasks,
+    db = Depends(get_db),
+):
+    """Insert/update the user's CV. Triggers a background Freshness recompute
+    per §3.2.5 ("Sự kiện: User upload CV mới → BackgroundTask")."""
+    skills = [s.dict() for s in request.skills]
+    rec = cv_store.upsert_cv(db, request.user_id, request.target_role, skills)
+    background_tasks.add_task(_recompute_freshness_bg, request.user_id)
+    return CVUpsertResponse(
+        user_id=rec.user_id, target_role=rec.target_role,
+        skill_count=len(rec.skills_with_recency),
+        updated_at=rec.updated_at.isoformat(),
+        recompute_scheduled=True,
+    )
+
+
+@app.get("/health-score", response_model=HealthScoreResponse)
+def health_score(
+    user_id: str = Query(...),
+    persist: bool = Query(True, description="Insert into history + fire alerts"),
+    engine: CVFreshnessEngine = Depends(get_freshness_engine),
+    db = Depends(get_db),
+):
+    """Compute current Freshness Score for `user_id` using their stored CV.
+    By default also writes to history and fires an alert if the score dropped."""
+    cv = cv_store.get_cv(db, user_id)
+    if cv is None:
+        raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
+    cv_inputs = [
+        CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year"))
+        for s in cv.skills_with_recency
+    ]
+    try:
+        result = engine.compute(db=db, cv_skills=cv_inputs, role=cv.target_role)
+    except Exception as e:
+        logger.error("health-score failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    history_recorded = False
+    if persist:
+        try:
+            record_history_and_alert(db=db, user_id=user_id, result=result)
+            history_recorded = True
+        except Exception as e:
+            logger.error("history record failed: %s", e, exc_info=True)
+
+    return HealthScoreResponse(
+        user_id=user_id, role=result.role,
+        score=result.score, snapshot_date=result.snapshot_date.isoformat(),
+        contributions=[SkillContributionItem(**c.__dict__) for c in result.contributions],
+        ideal_skills=result.ideal_skills, missing_ideal=result.missing_ideal,
+        cold_start=result.cold_start, history_recorded=history_recorded,
+    )
+
+
+@app.get("/freshness/history", response_model=FreshnessHistoryResponse)
+def freshness_history(
+    user_id: str = Query(...),
+    role: str = Query(None),
+    limit: int = Query(60, ge=1, le=365),
+    db = Depends(get_db),
+):
+    """Return Freshness Score time-series for the user (most-recent N points
+    by `snapshot_date`). Used by the dashboard time-series chart (§3.5)."""
+    q = db.query(FreshnessHistoryDB).filter(FreshnessHistoryDB.user_id == user_id)
+    if role:
+        q = q.filter(FreshnessHistoryDB.role == role)
+    rows = q.order_by(FreshnessHistoryDB.snapshot_date.desc()).limit(limit).all()
+    rows.reverse()  # send chronological asc to the chart
+    return FreshnessHistoryResponse(
+        user_id=user_id, role=role,
+        points=[
+            FreshnessHistoryPoint(
+                snapshot_date=r.snapshot_date.isoformat(),
+                score=r.score,
+                cold_start=bool(r.cold_start),
+            )
+            for r in rows
+        ],
+    )
+
+
+@app.get("/skill-alerts", response_model=SkillAlertsResponse)
+def skill_alerts(
+    user_id: str = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    db = Depends(get_db),
+):
+    """Return the most recent score-drop alerts for the user (§3.2.5)."""
+    rows = (
+        db.query(FreshnessAlertDB)
+        .filter(FreshnessAlertDB.user_id == user_id)
+        .order_by(FreshnessAlertDB.fired_at.desc())
+        .limit(limit)
+        .all()
+    )
+    items = [
+        AlertItem(
+            id=r.id, user_id=r.user_id, role=r.role,
+            fired_at=r.fired_at.isoformat(),
+            prev_score=r.prev_score, new_score=r.new_score,
+            delta=r.delta, reason=r.reason or "",
+        )
+        for r in rows
+    ]
+    return SkillAlertsResponse(user_id=user_id, alerts=items)
+
+
+@app.get("/opportunity-window", response_model=OpportunityWindowResponse)
+def opportunity_window(
+    user_id: str = Query(...),
+    days: int = Query(7, ge=1, le=30),
+    limit: int = Query(10, ge=1, le=50),
+    min_match: float = Query(0.5, ge=0.0, le=1.0),
+    db = Depends(get_db),
+):
+    """Return recent JDs that match the user's CV well (§FR-D1)."""
+    cv = cv_store.get_cv(db, user_id)
+    if cv is None:
+        raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
+    skill_names = [s["name"] for s in cv.skills_with_recency]
+    opps = find_opportunities(
+        db=db, cv_skills=skill_names, target_role=cv.target_role,
+        days=days, limit=limit, min_match=min_match,
+    )
+    return OpportunityWindowResponse(
+        user_id=user_id, role=cv.target_role, days=days,
+        items=[OpportunityJDItem(**o.__dict__) for o in opps],
+    )
+
+
+@app.post("/learning-path/me", response_model=LearningPathResponse)
+def learning_path_me(
+    request: LearningPathMeRequest,
+    optimizer: LearningPathOptimizer = Depends(get_lp_optimizer),
+    db = Depends(get_db),
+):
+    """User-facing variant of /learning-path: builds the JD target set
+    automatically from recent crawl data instead of requiring the client to
+    pass it (§3.3.1 step "Xác định tập JD mục tiêu")."""
+    cv = cv_store.get_cv(db, request.user_id)
+    if cv is None:
+        raise HTTPException(status_code=404, detail=f"No CV stored for user_id={request.user_id}")
+    skill_names = [s["name"] for s in cv.skills_with_recency]
+    # Pull recent JDs that aren't already easily satisfied (ATS too high) nor
+    # too far out of reach (ATS too low). The opportunity helper computes a
+    # coverage ratio we can reuse here.
+    opps = find_opportunities(
+        db=db, cv_skills=skill_names, target_role=cv.target_role,
+        days=request.days, limit=request.max_jds, min_match=0.4,
+    )
+    # Filter the "too easy" JDs (≥ 0.85 coverage — user can already apply).
+    target_opps = [o for o in opps if o.match_score < 0.85]
+    if not target_opps:
+        raise HTTPException(
+            status_code=422,
+            detail="No JDs in the target window (0.4 ≤ coverage < 0.85). "
+                   "Try widening `days` or check crawler data freshness.",
+        )
+
+    tc = LP_TestCase(
+        test_id=f"me-{request.user_id}",
+        description=f"User {request.user_id} → {cv.target_role}",
+        role=cv.target_role,
+        S_user=skill_names,
+        JDs=[LP_JD(id=o.jd_key, required=list({*o.matched_skills, *o.missing_skills}))
+             for o in target_opps],
+        budget=request.budget_weeks,
+    )
+    try:
+        result, explained = optimizer.optimize(tc, algorithm=request.algorithm)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    coverage = 100.0 * explained.jd_unlocked_count / max(explained.jd_unlocked_total, 1)
+    # Build human labels + URLs for every jd_key the optimizer might mention
+    # so the frontend can render clickable links instead of raw 16-char hashes.
+    jd_labels = {
+        o.jd_key: JDLabel(
+            label=f"{o.title} — {o.company}" if o.company else o.title,
+            url=o.url,
+        )
+        for o in target_opps
+    }
+    return LearningPathResponse(
+        algorithm=explained.algorithm,
+        total_weeks=explained.total_weeks,
+        jd_unlocked_count=explained.jd_unlocked_count,
+        jd_unlocked_total=explained.jd_unlocked_total,
+        coverage_percent=round(coverage, 2),
+        steps=[PathStepResponse(**s.__dict__) for s in explained.steps],
+        runtime_ms=round(1000 * result.runtime_s, 3),
+        jd_labels=jd_labels,
     )
 
 

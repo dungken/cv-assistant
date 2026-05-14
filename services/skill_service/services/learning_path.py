@@ -98,10 +98,7 @@ def _reason_for_step(skill: str, newly_unlocked: list[str], tc: TestCase,
                      ontology: SkillOntology, cost: int) -> str:
     if newly_unlocked:
         roi = len(newly_unlocked) / max(cost, 1)
-        return (f"Unlocks {len(newly_unlocked)} JD ngay (ROI {roi:.2f} JD/tuần): "
-                f"{', '.join(newly_unlocked[:3])}.")
-    # Otherwise it's a prereq for something else in the path.
-    deps = [s for s in tc.S_user + [skill]]  # placeholder
+        return f"Mở khóa thêm {len(newly_unlocked)} JD (ROI {roi:.2f} JD/tuần)."
     return "Là prerequisite cho skill chính tiếp theo trong lộ trình."
 
 

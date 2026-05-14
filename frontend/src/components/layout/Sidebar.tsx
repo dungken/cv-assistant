@@ -3,7 +3,7 @@ import {
     Plus, MessageSquare, Database, BookOpen, History, Rocket, Sun, Moon, LogOut,
     PanelLeftClose, Edit2, Check, Trash2, PanelLeftOpen, Briefcase, Settings,
     Search, MoreVertical, Sparkles, UserCircle, HelpCircle, Share2, Pin,
-    AlertCircle, Menu, SquarePen, BarChart3, Shield, Home
+    AlertCircle, Menu, SquarePen, BarChart3, Shield, Home, Activity
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -175,9 +175,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 {t('sidebar.designer')}
                             </span>
                         </Button>
-                        <Button 
+                        <Button
                             onClick={onOpenMarket}
-                            variant="ghost" 
+                            variant="ghost"
                             className={cn(
                                 "h-10 flex items-center !justify-start group transition-all duration-400 overflow-hidden mx-[10px] px-[14px] border",
                                 isOpen ? "w-[calc(100%-20px)] rounded-xl border-transparent" : "w-12 rounded-full shadow-lg shadow-black/5 bg-surface/50 border-white/5"
@@ -186,6 +186,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <BarChart3 className="w-5 h-5 text-text-secondary group-hover:scale-110 transition-transform shrink-0" strokeWidth={1.5} />
                             <span className={cn("sidebar-content-slide font-bold text-[13px] text-left ml-4 text-text-primary", isOpen ? "open" : "closed")}>
                                 {t('sidebar.market')}
+                            </span>
+                        </Button>
+                        <Button
+                            onClick={() => navigate('/cv-health')}
+                            variant="ghost"
+                            className={cn(
+                                "h-10 flex items-center !justify-start group transition-all duration-400 overflow-hidden mx-[10px] px-[14px] border",
+                                isOpen ? "w-[calc(100%-20px)] rounded-xl border-transparent" : "w-12 rounded-full shadow-lg shadow-black/5 bg-surface/50 border-white/5",
+                                location.pathname === '/cv-health' && "bg-surface-hover text-white border-white/10 shadow-black/20"
+                            )}
+                        >
+                            <Activity className={cn("w-5 h-5 transition-transform group-hover:scale-110 shrink-0", location.pathname === '/cv-health' ? "text-white" : "text-text-secondary")} strokeWidth={1.5} />
+                            <span className={cn("sidebar-content-slide font-bold text-[13px] text-left ml-4 transition-all", isOpen ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4", location.pathname === '/cv-health' ? "text-white" : "text-text-primary")}>
+                                CV Health
                             </span>
                         </Button>
                         {userRole === 'Admin' && onOpenAdmin && (
