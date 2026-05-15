@@ -329,12 +329,24 @@ class ItviecCrawler(IJDCrawler):
                 )
                 description = desc_el.get_text("\n", strip=True) if desc_el else ""
 
-            # ── Skill tags (from listing-style itag-light anchors) ─────────
-            skills_raw = [
-                t.get_text(strip=True)
-                for t in soup.select("a.itag.itag-light")
-                if t.get_text(strip=True)
-            ]
+            # ── Skill tags (scoped to main job, NOT "More jobs for you") ───
+            # ITviec re-uses .itag.itag-light for similar-job cards at the
+            # bottom of the page. We restrict to the main job container and
+            # also drop any anchor whose href has ?lab_feature=similar_job.
+            main = (
+                soup.select_one("section.preview-job-overview")
+                or soup.select_one("section.job-content")
+                or soup.select_one(".preview-job-wrapper")
+                or soup
+            )
+            skills_raw = []
+            for t in main.select("a.itag.itag-light"):
+                href = t.get("href", "") or ""
+                if "lab_feature=similar_job" in href:
+                    continue
+                txt = t.get_text(strip=True)
+                if txt:
+                    skills_raw.append(txt)
             skills_raw = list(dict.fromkeys(skills_raw))
             # Fallback: comma-separated string in JSON-LD
             if not skills_raw and ld.get("skills"):

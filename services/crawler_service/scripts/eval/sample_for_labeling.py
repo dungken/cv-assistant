@@ -109,6 +109,12 @@ def main() -> int:
         help="output JSONL path",
     )
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--min-desc-chars",
+        type=int,
+        default=200,
+        help="minimum description length (default 200; lower if pool is thin)",
+    )
     args = ap.parse_args()
 
     random.seed(args.seed)
@@ -124,13 +130,13 @@ def main() -> int:
                COALESCE(role, '') AS role, COALESCE(role_group, '') AS role_group,
                skills_canonical
         FROM jd_raw
-        WHERE description IS NOT NULL AND length(description) >= 200
+        WHERE description IS NOT NULL AND length(description) >= :min_chars
         ORDER BY posted_date DESC
         LIMIT 2000
     """
     db = SessionLocal()
     try:
-        rows = db.execute(text(sql)).fetchall()
+        rows = db.execute(text(sql), {"min_chars": args.min_desc_chars}).fetchall()
     finally:
         db.close()
 
