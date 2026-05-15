@@ -163,19 +163,19 @@ class LLMJDExtractor:
 
 def _build_prompt(title: str, description: str, candidate_skills: list[str]) -> str:
     skill_list = ", ".join(candidate_skills[:40]) or "(none)"
-    return f"""You are an extraction assistant. EXTRACT facts directly from the job description below. DO NOT infer, guess, or fabricate. If something is not explicitly stated, return null.
+    return f"""You are a STRICT extraction assistant. Read the JOB DESCRIPTION and copy facts that are LITERALLY written there. You MUST NOT guess, infer, generalize, or fill gaps from your knowledge.
 
 JOB TITLE: {title}
 
-CANDIDATE SKILLS (the ONLY allowed values for skills_required/skills_preferred — copy exactly):
+CANDIDATE SKILLS (these are the only valid string values for skills_required and skills_preferred — copy exactly as listed):
 {skill_list}
 
-JOB DESCRIPTION:
+JOB DESCRIPTION (this is your ONLY source of truth):
 \"\"\"
 {description}
 \"\"\"
 
-Return exactly ONE JSON object with these keys, nothing else:
+Return ONE JSON object with exactly these keys, no others:
 
 {{
   "seniority": "junior" | "mid" | "senior" | "lead" | null,
@@ -190,46 +190,102 @@ Return exactly ONE JSON object with these keys, nothing else:
   "work_mode": "onsite" | "hybrid" | "remote" | null
 }}
 
-STRICT RULES — break any and you fail:
+==================== ABSOLUTE RULES ====================
 
-1. **NO inference**. If the description does not literally contain the information, return null (or [] for lists).
-   - "5+ years of experience" → min_exp=5. But seniority stays null unless the text says "Senior", "Junior", "Lead", "Mid-level", "Middle", "Principal".
-   - "Bachelor of Banking is a plus" → degree_required=null (it's not required, just a plus).
-   - If the job title literally contains "Senior" / "Junior" / "Lead" / "Mid" → use that.
+If you violate ANY of these rules, the extraction fails. When in doubt, return null. Empty/null is ALWAYS better than guessed.
 
-2. **min_exp/max_exp**: only fill when years are explicitly mentioned for the candidate's experience requirement.
-   - "3-5 years experience" → min_exp=3, max_exp=5.
-   - "at least 4 years" → min_exp=4, max_exp=null.
-   - "5+ years" → min_exp=5, max_exp=null.
-   - No years mentioned → both null.
-   - Years about the company/product (e.g. "60 years of heritage") → IGNORE.
+──── RULE 1: SENIORITY ────
 
-3. **degree_required**: only fill when text explicitly REQUIRES a specific degree as a hard requirement.
-   - "Bachelor's degree in CS required" → "Bachelor".
-   - "Bachelor of Banking is a plus" → null (it's preferred, not required).
-   - Just mentions university name → null.
+The ONLY valid signal for `seniority` is one of these words appearing in the JOB TITLE or as a literal section heading in the description:
+  "Senior" / "Sr." / "Senior-level" → "senior"
+  "Junior" / "Jr." / "Fresher" / "Intern" → "junior"
+  "Mid" / "Middle" / "Mid-level" → "mid"
+  "Lead" / "Principal" / "Head of" / "Chief" → "lead"
 
-4. **skills_required vs skills_preferred**:
-   - **skills_preferred** ONLY when the skill appears in a section explicitly marked:
-     "Nice-to-Have", "Preferred", "Bonus", "Plus", "Optional", "Ưu tiên", "Lợi thế", "Sẽ là lợi thế", "Điểm cộng".
-   - **skills_required**: skills appearing in "Must-Have", "Required", "Requirements", "Your Skills and Experience", "Qualifications", "Yêu cầu".
-   - If a skill is not mentioned in either section but is in CANDIDATE SKILLS → put in skills_required (default).
-   - **NEVER invent**. Only copy strings from CANDIDATE SKILLS exactly as written.
-   - Each skill appears in at most ONE bucket.
+If NONE of these literal words appear → seniority = null. DO NOT infer from years of experience. DO NOT infer from job complexity. DO NOT use your training knowledge.
 
-5. **salary_min/max/currency**: only fill when a numeric range is stated.
-   - "1,000 - 1,800 USD" → min=1000, max=1800, currency="USD".
-   - "20.000.000 – 30.000.000 VND" → min=20000000, max=30000000, currency="VND".
-   - "Up to $2000" → min=null, max=2000, currency="USD".
-   - "You'll love it" / "Negotiable" / "Sign in to view" / "Competitive" → all null.
+EXAMPLES:
+  Title "Senior Backend Developer" → "senior" ✓
+  Title "Python Developer" + "3+ years" → null  (NOT "junior", NOT "mid")
+  Title "IT Security Engineer" + "5+ years" → null  (NOT "senior")
+  Title "Lead Architect" → "lead" ✓
 
-6. **work_mode**: "onsite" / "hybrid" / "remote" — pick what the JD states.
-   - "At office", "Tại văn phòng" → "onsite".
-   - "Hybrid working", "Kết hợp" → "hybrid".
-   - "Fully remote", "100% remote", "Work from home" → "remote".
-   - Not mentioned → null.
+──── RULE 2: min_exp / max_exp ────
 
-7. Output ONLY the JSON. No prose, no markdown, no code fences."""
+Only extract numbers from phrases that literally state YEARS OF CANDIDATE EXPERIENCE.
+
+  Pattern "N+ years" / "N+ năm" → min_exp = N, max_exp = null
+  Pattern "N-M years" / "N to M years" → min_exp = N, max_exp = M
+  Pattern "at least N years" / "minimum N years" → min_exp = N, max_exp = null
+  No years mentioned → both null
+
+DO NOT invent max_exp if only min_exp is stated. "3+ years" means min_exp=3, max_exp=null. NEVER write max_exp=5 unless the text says "3-5 years" or "3 to 5 years" explicitly.
+
+IGNORE years that don't refer to candidate experience:
+  "60 years of heritage" → IGNORE
+  "founded in 2010" → IGNORE
+  "13th month salary" → IGNORE
+
+──── RULE 3: degree_required ────
+
+Only fill when the text REQUIRES a specific degree as a hard requirement.
+
+  "Bachelor's degree in CS required" → "Bachelor" ✓
+  "Bachelor's degree is mandatory" → "Bachelor" ✓
+  "Bachelor of Banking is a plus" → null (it's preferred, not required)
+  "We graduate top universities" → null (about company, not requirement)
+  Just mentions university name → null
+
+──── RULE 4: skills_required vs skills_preferred (READ CAREFULLY) ────
+
+**THIS IS THE MOST COMMON FAILURE POINT. PAY EXTRA ATTENTION.**
+
+Step 1 — Scan the JOB DESCRIPTION for these EXACT section markers (case-insensitive):
+  PREFERRED markers: "Nice-to-Have", "Nice to Have", "Preferred", "Bonus", "Plus", "Optional", "Highly Valued", "Ưu tiên", "Lợi thế", "Sẽ là lợi thế", "Điểm cộng"
+  REQUIRED markers: "Must-Have", "Must Have", "Required", "Requirements", "Your Skills", "Skills and Experience", "Qualifications", "Yêu cầu", "Kỹ năng yêu cầu"
+
+Step 2 — Bucket each CANDIDATE SKILL by where it appears in the description:
+
+  CASE A: Skill appears AFTER a PREFERRED marker → put in skills_preferred.
+  CASE B: Skill appears AFTER a REQUIRED marker (and not in a PREFERRED section) → put in skills_required.
+  CASE C: Skill appears anywhere else but NOT in any preferred section → put in skills_required.
+  CASE D: Skill is in CANDIDATE SKILLS but does NOT appear anywhere in description → put in skills_required (default).
+
+Step 3 — CRITICAL: If the description has NO PREFERRED MARKER at all, then `skills_preferred = []` (empty array). DO NOT redistribute candidate skills into preferred. DO NOT invent a preferred section.
+
+Step 4 — A skill must NEVER appear in both buckets. If conflict, REQUIRED wins.
+
+Step 5 — Use the EXACT casing/spelling from CANDIDATE SKILLS. Never invent a skill not in that list.
+
+EXAMPLES:
+  Description has "Nice-to-Have: CISSP, CCNP, ISO 27001" → skills_preferred = (skills from that section that match CANDIDATE SKILLS)
+  Description has only "Requirements: ..." with no Nice-to-Have section → skills_preferred = []  (EMPTY!)
+  Description has "Must-Have: Python" and "Highly Valued: Docker" → skills_required = [Python], skills_preferred = [Docker]
+
+──── RULE 5: salary ────
+
+Only fill when a NUMERIC range or value is stated:
+  "1,000 - 1,800 USD" → min=1000, max=1800, currency="USD"
+  "20.000.000 – 30.000.000 VND" → min=20000000, max=30000000, currency="VND"
+  "Up to $2000" → min=null, max=2000, currency="USD"
+  "Negotiable" / "You'll love it" / "Sign in to view" / "Competitive" / "DOE" → ALL null
+
+──── RULE 6: work_mode ────
+
+  "At office" / "Tại văn phòng" / "On-site" → "onsite"
+  "Hybrid" / "Kết hợp" → "hybrid"
+  "Fully remote" / "100% remote" / "Work from home" → "remote"
+  Not mentioned → null
+
+==================== FINAL CHECK ====================
+
+Before responding, audit your JSON:
+  □ Did I look for the LITERAL words for seniority? If no literal word, did I write null?
+  □ Did I avoid inferring max_exp from a "+years" pattern?
+  □ For preferred skills: does the description ACTUALLY have a "Nice-to-Have" / "Preferred" section? If no, is skills_preferred = []?
+  □ Did I copy skill names EXACTLY from CANDIDATE SKILLS without modification?
+
+Output ONLY the JSON. No prose, no markdown, no code fences."""
 
 
 _JSON_OBJ = re.compile(r"\{[\s\S]*\}", re.M)
