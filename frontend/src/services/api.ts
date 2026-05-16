@@ -689,7 +689,39 @@ export const skillApi = {
 
     getCategories: () =>
         api.get<{ categories: string[] }>(`${SKILL_BASE}/ontology/categories`),
+
+    // Market Intel — single-call dashboard payload
+    getMarketIntelDashboard: (params: { source?: string; role_group?: string; seniority?: string }) =>
+        api.get<MarketIntelDashboard>(`${SKILL_BASE}/market-intel/dashboard`, { params }),
 };
+
+// ── Market Intel types ───────────────────────────────────────────
+export interface MarketIntelDashboard {
+    filters_applied: { source: string; role_group: string | null; seniority: string | null };
+    kpis: {
+        total_jds: number;
+        total_companies: number;
+        total_sources: number;
+        unique_skills: number;
+        earliest_post: string | null;
+        latest_post: string | null;
+    };
+    source_breakdown: { source: string; cnt: number }[];
+    top_skills: { skill: string; cnt: number }[];
+    role_distribution: { role_group: string; cnt: number }[];
+    seniority_distribution: { seniority: string; cnt: number }[];
+    work_mode_distribution: { work_mode: string; cnt: number }[];
+    salary_by_seniority: {
+        seniority: string;
+        currency: string | null;
+        cnt: number;
+        median_min: number | null;
+        median_max: number | null;
+    }[];
+    top_locations: { location: string; cnt: number }[];
+    heatmap: { skill: string; role_group: string; cnt: number }[];
+    options: { sources: string[]; role_groups: string[]; seniorities: string[] };
+}
 
 
 // ─── Tuần 15: CV Health Intelligence dashboard ────────────────────────────────

@@ -176,6 +176,28 @@ public class SkillProxyController : ControllerBase
     }
 
     /// <summary>
+    /// Market Intelligence dashboard — KPIs + 8 chart datasets in one call.
+    /// </summary>
+    [HttpGet("market-intel/dashboard")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetMarketIntelDashboard(
+        [FromQuery] string? source,
+        [FromQuery] string? role_group,
+        [FromQuery] string? seniority)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(source)) qs.Add($"source={Uri.EscapeDataString(source)}");
+        if (!string.IsNullOrWhiteSpace(role_group)) qs.Add($"role_group={Uri.EscapeDataString(role_group)}");
+        if (!string.IsNullOrWhiteSpace(seniority)) qs.Add($"seniority={Uri.EscapeDataString(seniority)}");
+        var url = "/market-intel/dashboard" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
+
+        var response = await client.GetAsync(url);
+        var result = await response.Content.ReadAsStringAsync();
+        return new ContentResult { Content = result, ContentType = "application/json", StatusCode = (int)response.StatusCode };
+    }
+
+    /// <summary>
     /// List all skill categories.
     /// </summary>
 

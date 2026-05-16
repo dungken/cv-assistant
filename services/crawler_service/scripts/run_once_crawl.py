@@ -22,6 +22,7 @@ from services.crawler_service.services.aggregator import aggregate_skill_trends
 from services.crawler_service.services.itviec_crawler import ItviecCrawler
 from services.crawler_service.services.pipeline import CrawlPipeline
 from services.crawler_service.services.topcv_crawler import TopCVCrawler
+from services.crawler_service.services.uit_forum_crawler import UITForumCrawler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +46,8 @@ def main() -> None:
     )
     ap.add_argument("--max-jds-itviec", type=int, default=1000)
     ap.add_argument("--max-jds-topcv", type=int, default=500)
+    ap.add_argument("--max-jds-uit", type=int, default=300,
+        help="UIT forum (Discourse) — set to 0 to skip.")
     ap.add_argument(
         "--enrich-inline",
         action="store_true",
@@ -106,6 +109,23 @@ def main() -> None:
         total_jds += result["jd_count"]
     except Exception as e:
         logger.exception("TopCV crawl crashed: %s", e)
+
+    # ── UIT forum (Discourse) ──
+    if args.max_jds_uit > 0:
+        try:
+            result = CrawlPipeline(
+                crawler=UITForumCrawler(),
+                fetch_details=True,   # Discourse JSON already includes body; this just enables the path
+                enrich_inline=args.enrich_inline,
+                use_llm=args.use_llm,
+            ).run(
+                categories=["internship", "thuc-tap", "viec-lam", "tuyen-dung"],
+                max_pages=20, max_jds=args.max_jds_uit,
+            )
+            logger.info("UIT forum: status=%s jds=%d", result["status"], result["jd_count"])
+            total_jds += result["jd_count"]
+        except Exception as e:
+            logger.exception("UIT forum crawl crashed: %s", e)
 
     # ── Aggregate ──
     try:

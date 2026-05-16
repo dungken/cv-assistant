@@ -46,6 +46,7 @@ from services.skill_service.services.ontology import SkillOntology
 from services.skill_service.services.course_service import CourseService
 from services.skill_service.services.ats_engine import ATSScoringEngine
 from services.skill_service.services.market_analyzer import MarketAnalyzer
+from services.skill_service.services.market_intel import get_dashboard as get_market_intel_dashboard
 from services.skill_service.services.freshness_engine import (
     CVFreshnessEngine, CVSkillInput,
 )
@@ -243,6 +244,21 @@ def get_market_overview(
 ):
     """US-19: Market analysis dashboard data."""
     return analyzer.get_overview(industry=industry)
+
+
+@app.get("/market-intel/dashboard")
+def market_intel_dashboard(
+    source: str = Query("all"),
+    role_group: str | None = Query(None),
+    seniority: str | None = Query(None),
+    db = Depends(get_db),
+):
+    """Aggregated payload for the /market-intel page.
+
+    Single endpoint returning KPIs + 8 chart datasets so the frontend renders
+    in one round-trip. All aggregations run in Postgres against jd_raw.
+    """
+    return get_market_intel_dashboard(db, source=source, role_group=role_group, seniority=seniority)
 
 
 @app.get("/ontology/skill/{name}", response_model=SkillNodeResponse)

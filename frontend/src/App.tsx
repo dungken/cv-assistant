@@ -25,6 +25,7 @@ import FeedbackModal from './components/features/FeedbackModal';
 import UserMemoryPanel from './components/features/UserMemoryPanel';
 import AdminPortal from './components/features/AdminPortal';
 import CVHealthDashboard from './components/features/cv-health/CVHealthDashboard';
+import MarketIntelDashboard from './components/features/MarketIntelDashboard';
 import { Button } from './components/ui/Button';
 import { Badge } from './components/ui/Badge';
 import { cn } from './lib/utils';
@@ -887,6 +888,14 @@ export default function App() {
             element={
               <div className="flex-1 overflow-y-auto relative z-10">
                 <CVHealthDashboard userId={userEmail || 'demo'} />
+              </div>
+            }
+          />
+          <Route
+            path="/market-intel"
+            element={
+              <div className="flex-1 overflow-y-auto relative z-10">
+                <MarketIntelDashboard />
               </div>
             }
           />
