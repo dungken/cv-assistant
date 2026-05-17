@@ -23,6 +23,14 @@ class RawJD(BaseModel):
     url: str
     role_hint: Optional[str] = None  # role inferred from listing badge (preferred over category)
 
+    # Listing-level structured fields. Sources like TopCV expose these directly
+    # in the listing card (no need to wait for LLM extraction on description).
+    # When set, the pipeline writes them through to ProcessedJD without
+    # re-deriving from description.
+    min_exp_listing: Optional[int] = None
+    max_exp_listing: Optional[int] = None
+    degree_listing: Optional[str] = None
+
 
 class ProcessedJD(BaseModel):
     """JD after dedup + skill normalization, ready to persist."""

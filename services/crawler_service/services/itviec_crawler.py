@@ -60,11 +60,18 @@ class ItviecCrawler(IJDCrawler):
     def __init__(self) -> None:
         # cloudscraper handles ITviec's CF challenge; PoliteHttpClient adds
         # retries with exponential backoff and a configurable jitter sleep.
+        # Sleep tuned per endpoint usage:
+        #   - listing pages (~50 cards each): 1-2s — low-cost, indexable
+        #   - AJAX /content (per-JD enrichment): 0.3-0.8s — not rate-limited
+        #   - full detail with JSON-LD salary: callers should sleep more
+        #     (CF gates after ~20 bursts); we leave that to the caller.
         self.client = PoliteHttpClient(
             extra_headers={
                 "X-Crawler-Contact": settings.crawl_user_agent,
                 "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
-            }
+            },
+            sleep_min=0.3,
+            sleep_max=0.8,
         )
 
     # ── public interface ────────────────────────────────────────────
@@ -136,18 +143,97 @@ class ItviecCrawler(IJDCrawler):
         return jds
 
     def fetch_description(self, url: str) -> Optional[str]:
-        """Fetch only the description text via ITviec's AJAX `/content` endpoint.
+        """Backwards-compat wrapper — returns just description text.
 
-        ITviec's full-page detail (`/it-jobs/<slug>?lab_feature=preview_jd_page`)
-        is aggressively rate-limited by Cloudflare (403 after ~20 requests). The
-        AJAX endpoint at `/it-jobs/<slug>/content?job_index=0&locale=en` returns
-        the right-hand pane HTML (description, skills, location) and is NOT
-        rate-limited the same way — 0.4s per fetch.
+        For new code, prefer fetch_content_details() (richer) or
+        fetch_full_jd_signal() (richest, also fetches JSON-LD salary).
+        """
+        details = self.fetch_content_details(url)
+        return details.get("description") if details else None
 
-        We use this only to enrich the description field. All structured
-        fields (salary, location, skills_raw, posted_date) come from the
-        listing card via crawl_category_rich, which the AJAX endpoint hides
-        behind a login wall.
+    def fetch_full_jd_signal(self, url: str) -> Optional[dict]:
+        """Combined fetch: AJAX content + full-detail JSON-LD for salary.
+
+        ITviec splits the JD content across two endpoints:
+          - `/it-jobs/<slug>/content?...` (AJAX) → description + work_mode
+            + location_text. NOT Cloudflare-blocked.
+          - `/it-jobs/<slug>?lab_feature=preview_jd_page` (full page) →
+            JSON-LD JobPosting block with baseSalary. Cloudflare gates this
+            after ~20 requests, so we fail soft on 403 and just return None
+            for salary fields rather than blowing up the crawl.
+
+        Returns:
+          {
+            "description": str | None,
+            "salary_min": int | None,
+            "salary_max": int | None,
+            "salary_currency": str | None,
+            "work_mode": str | None,
+            "location_text": str | None,
+          }
+        """
+        details = self.fetch_content_details(url) or {}
+        smin, smax, scur = self._fetch_jsonld_salary(url)
+        if smin is not None: details["salary_min"] = smin
+        if smax is not None: details["salary_max"] = smax
+        if scur: details["salary_currency"] = scur
+        return details
+
+    def _fetch_jsonld_salary(self, url: str) -> tuple[Optional[int], Optional[int], Optional[str]]:
+        """Fetch the full detail page and pull `baseSalary` from its JSON-LD
+        JobPosting block. Returns (min, max, currency) or all-None on failure.
+
+        Cloudflare gates this endpoint aggressively (typically 403 after ~10
+        bursts). We add an extra 2-4s jitter sleep BEFORE each fetch — beyond
+        the AJAX sleep — to keep CF happy across long crawls. Failure is
+        treated as "salary not available" rather than retried.
+        """
+        import json as _json
+        import random as _random
+        import time as _time
+        _time.sleep(_random.uniform(2.0, 4.0))
+        try:
+            html = self._get(url)
+        except Exception:
+            return None, None, None
+        soup = BeautifulSoup(html, "html.parser")
+        for sc in soup.select('script[type="application/ld+json"]'):
+            try:
+                data = _json.loads(sc.string or "")
+            except Exception:
+                continue
+            if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                base = data.get("baseSalary")
+                if not isinstance(base, dict):
+                    return None, None, None
+                cur = base.get("currency")
+                sv = base.get("value") or {}
+                if not isinstance(sv, dict):
+                    return None, None, cur
+                smin = sv.get("minValue")
+                smax = sv.get("maxValue")
+                return (
+                    int(smin) if isinstance(smin, (int, float)) and smin > 0 else None,
+                    int(smax) if isinstance(smax, (int, float)) and smax > 0 else None,
+                    cur,
+                )
+        return None, None, None
+
+    def fetch_content_details(self, url: str) -> Optional[dict]:
+        """Fetch full content pane via `/it-jobs/<slug>/content` AJAX endpoint.
+
+        Returns a dict with all structured fields the pane exposes:
+          description   — concatenated text of job-description + job-experiences
+          salary_min    — int (if numeric salary shown; None when 'You'll love it')
+          salary_max    — int
+          salary_currency — 'USD' / 'VND'
+          work_mode     — onsite / hybrid / remote (parsed from preview-job-overview)
+          location_text — full location string ('Tower 2 (T26) Times City, ...')
+
+        The AJAX endpoint is NOT Cloudflare-blocked (the full /it-jobs/<slug>
+        page is), so we can crawl this at ~0.4s per JD even on cold IPs.
+        Some employers gate salary behind sign-in — those JDs show 'You'll
+        love it' instead of numbers; we return None for salary_* in that case.
         """
         slug = self._extract_slug(url)
         if not slug:
@@ -159,11 +245,68 @@ class ItviecCrawler(IJDCrawler):
             logger.warning("content fetch failed slug=%s: %s", slug, e)
             return None
         soup = BeautifulSoup(html, "html.parser")
-        job_content = soup.select_one("section.job-content")
-        if not job_content:
-            return None
-        text = job_content.get_text(" ", strip=True)
-        return text or None
+
+        # ── description: 3 sections + heading labels ───────────────────
+        parts: list[str] = []
+        for sec_class, label in (
+            ("job-description", "Job description"),
+            ("job-experiences", "Your skills and experience"),
+            ("job-why-love-working", "Why you'll love working here"),
+        ):
+            sec = soup.select_one(f"section.{sec_class}")
+            if not sec:
+                continue
+            body = sec.select_one(".paragraph") or sec
+            text = body.get_text(" ", strip=True)
+            if text:
+                parts.append(f"{label}\n\n{text}")
+        if not parts:
+            legacy = soup.select_one("section.job-content, .job-content, .preview-content")
+            if legacy:
+                txt = legacy.get_text(" ", strip=True)
+                if txt:
+                    parts.append(txt)
+        description = "\n\n".join(parts) or None
+
+        # ── salary: `.salary.text-success-color span` of preview header ─
+        # When the employer chose to hide it, the span reads "You'll love it"
+        # (or sometimes "Sign in to view salary"). Those are not numeric →
+        # parse_salary returns (None, None, None) and we leave the fields None.
+        salary_min = salary_max = salary_currency = None
+        sal_el = soup.select_one(".preview-job-header .salary span, .salary.text-success-color span")
+        if sal_el:
+            sal_text = sal_el.get_text(strip=True)
+            salary_min, salary_max, salary_currency = self._parse_salary_text(sal_text)
+
+        # ── work_mode: preview-job-overview has the "At office" / "Hybrid"
+        # / "Remote" badge. Map to canonical enum.
+        work_mode = None
+        for badge in soup.select(".preview-job-overview .preview-header-item span"):
+            t = badge.get_text(strip=True).lower()
+            if t in {"at office", "onsite", "on-site", "on site", "làm việc tại văn phòng"}:
+                work_mode = "onsite"
+                break
+            if t in {"hybrid"}:
+                work_mode = "hybrid"
+                break
+            if t in {"remote", "fully remote"}:
+                work_mode = "remote"
+                break
+
+        # ── location_text: first map-pin span in overview ───────────────
+        location_text = None
+        loc_el = soup.select_one(".preview-job-overview .small-text.text-rich-grey")
+        if loc_el:
+            location_text = loc_el.get_text(strip=True)
+
+        return {
+            "description": description,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": salary_currency,
+            "work_mode": work_mode,
+            "location_text": location_text,
+        }
 
     def crawl_detail(self, url: str) -> Optional[RawJD]:
         """Legacy detail-page entry point — now delegates to the listing parser.

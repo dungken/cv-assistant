@@ -124,9 +124,17 @@ Hệ thống CV Health Intelligence chạy được end-to-end với các thành
 
 **VI. Đóng góp của đề tài**
 
-Về mặt khoa học, đề tài đề xuất công thức **CV Freshness Score** — một cách định lượng mức độ cập nhật của CV theo thị trường tuyển dụng. Bên cạnh đó, đề tài hình thức hóa bài toán **Learning Path Optimization trên skill graph** và so sánh thực nghiệm 3 thuật toán trên dữ liệu thị trường CNTT Việt Nam.
+Về mặt khoa học, đề tài có bốn đóng góp chính:
 
-Về mặt thực tiễn, hệ thống giải quyết một vấn đề khá rõ mà các công cụ hiện có (ChatGPT, LinkedIn, TopCV) chưa làm được: coi CV như một tài liệu sống cần cập nhật theo thị trường, không phải file tĩnh viết một lần rồi để đó. Hệ thống có thể dùng tại Career Center của các trường đại học để hỗ trợ sinh viên CNTT theo dõi và cải thiện CV trong suốt quá trình học và đi tìm việc.
+1. **Multi-criteria CV Freshness Framework** — đề xuất khung đánh giá CV theo 8 chiều (Skill, Experience, Project, Education, Achievement, Language, Completeness, Market Alignment) cùng công thức tổng hợp định lượng mức độ cập nhật của CV so với thị trường tuyển dụng CNTT Việt Nam.
+
+2. **Learning Path Optimizer với benchmark 3 thuật toán** — hình thức hóa bài toán tối ưu lộ trình học trên skill graph và so sánh thực nghiệm Greedy, Dijkstra, Dynamic Programming trên 50 test cases sinh viên CNTT, đo các tiêu chí: số JD unlock được, runtime, optimality gap.
+
+3. **NER song ngữ Việt-Anh cho CV/JD CNTT** — fine-tune mô hình BERT trên tập dữ liệu CV/JD tiếng Việt-Anh có nhãn thủ công, đạt F1 = 0.86 ở mức token và F1 = 0.74 ở mức span cho các nhóm thực thể skill, role, edu, exp.
+
+4. **Market Intelligence Dashboard** — xây dựng dashboard phân tích thị trường tuyển dụng với 33 insight (top skill, salary distribution, work-mode trend, role demand) dựa trên dữ liệu snapshot ~1500 JD crawl từ ITviec và TopCV, hỗ trợ dedup cross-source qua `job_group_id`.
+
+Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các công cụ hiện có (ChatGPT, LinkedIn, TopCV) chưa làm được: coi CV như một tài liệu sống cần cập nhật theo thị trường, không phải file tĩnh viết một lần rồi để đó. Hệ thống có thể được triển khai tại Career Center của các trường đại học để hỗ trợ sinh viên CNTT Việt Nam theo dõi, cải thiện CV và định hướng học tập trong suốt quá trình học và đi tìm việc.
 
 **VII. Cấu trúc đồ án**
 
@@ -148,15 +156,15 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề khá rõ
 
 **CHƯƠNG 2: Cơ sở lý thuyết**
 
-2.1. Skill Graph và Knowledge Graph trong Career Intelligence
+2.1. Multi-Criteria Decision Making và đánh giá CV đa tiêu chí
 
-2.2. Learning Path Optimization — cơ sở toán học và thuật toán
+2.2. Skill Graph và Learning Path Optimization — cơ sở toán học và thuật toán
 
-2.3. Temporal Skill Demand Analysis từ dữ liệu tuyển dụng
+2.3. Named Entity Recognition song ngữ Việt-Anh với BERT
 
-2.4. Web Crawling và xử lý dữ liệu JD thực tế
+2.4. Market Intelligence và phân tích nhu cầu thị trường tuyển dụng
 
-2.5. Pipeline trích xuất và chuẩn hóa kỹ năng từ CV/JD (NER, Skill Matching)
+2.5. Web Crawling, xử lý JD thực tế và cross-source deduplication
 
 2.6. Các công nghệ và công cụ sử dụng
 
@@ -170,11 +178,11 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề khá rõ
 
 &nbsp;&nbsp;&nbsp;&nbsp;3.1.3. Phân tích các bài toán cần giải quyết
 
-3.2. Thiết kế CV Freshness Score
+3.2. Thiết kế Multi-criteria CV Freshness Framework
 
-&nbsp;&nbsp;&nbsp;&nbsp;3.2.1. Đề xuất công thức Freshness Score
+&nbsp;&nbsp;&nbsp;&nbsp;3.2.1. 8 chiều đánh giá CV (Skill, Experience, Project, Education, Achievement, Language, Completeness, Market Alignment)
 
-&nbsp;&nbsp;&nbsp;&nbsp;3.2.2. Phương pháp validate công thức
+&nbsp;&nbsp;&nbsp;&nbsp;3.2.2. Công thức tổng hợp Freshness Score và phương pháp validate
 
 3.3. Thiết kế Learning Path Optimizer
 
@@ -182,29 +190,31 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề khá rõ
 
 &nbsp;&nbsp;&nbsp;&nbsp;3.3.2. Thuật toán Greedy, Dijkstra và Dynamic Programming
 
-&nbsp;&nbsp;&nbsp;&nbsp;3.3.3. Thiết kế bộ benchmark đánh giá
+&nbsp;&nbsp;&nbsp;&nbsp;3.3.3. Thiết kế bộ benchmark 50 test cases
 
-3.4. Thiết kế pipeline crawl JD và time-series database
+3.4. Thiết kế pipeline NER fine-tuned BERT cho CV/JD song ngữ
 
-3.5. Thiết kế CV Health Dashboard
+3.5. Thiết kế pipeline crawl JD và cross-source deduplication (`job_group_id`)
 
-3.6. Thiết kế kiến trúc tổng thể và cơ sở dữ liệu
+3.6. Thiết kế Market Intelligence Dashboard với 33 insight
+
+3.7. Thiết kế kiến trúc tổng thể và cơ sở dữ liệu
 
 **CHƯƠNG 4: Xây dựng và Thực nghiệm hệ thống**
 
 4.1. Môi trường phát triển và triển khai
 
-4.2. Xây dựng JD Crawler và time-series data pipeline
+4.2. Xây dựng JD Crawler ITviec + TopCV và pipeline cross-source dedup
 
-4.3. Xây dựng CV Freshness Engine và kết quả validate
+4.3. Fine-tune và đánh giá NER song ngữ (F1 token-level / span-level)
 
-4.4. Xây dựng Learning Path Optimizer và kết quả benchmark 3 thuật toán
+4.4. Xây dựng Multi-criteria CV Freshness Engine và kết quả validate
 
-4.5. Xây dựng CV Health Dashboard (Frontend)
+4.5. Xây dựng Learning Path Optimizer và kết quả benchmark 3 thuật toán
 
-4.6. Pipeline trích xuất kỹ năng (NER, Skill Matching) hỗ trợ hệ thống
+4.6. Xây dựng Market Intelligence Dashboard (33 insight)
 
-4.7. Thiết kế và kết quả thực nghiệm người dùng
+4.7. Tích hợp frontend CV Health Dashboard end-to-end
 
 **Kết luận và Kiến nghị**
 
@@ -257,22 +267,22 @@ Thời gian và nội dung công việc theo tuần:
 |     |     |     |
 | --- | --- | --- |
 | **Thời gian** | **Nội dung công việc** | **Ghi chú** |
-| Tuần 1 (02/03–08/03) | Nhận đề tài, gặp GVHD xác định mục tiêu và phạm vi. Khảo sát nhu cầu thực tế của ứng viên CNTT Việt Nam. Tổng hợp tài liệu nền về skill graph và learning path recommendation. | |
-| Tuần 2 (09/03–15/03) | Xây dựng đề cương chi tiết. Tổng hợp tài liệu nâng cao về temporal skill analysis. Thiết kế kiến trúc tổng thể của hệ thống. | Nộp đề cương GVHD |
-| Tuần 3 (16/03–22/03) | Chuẩn bị nền dữ liệu: thu thập CV mẫu, xây dựng pipeline NER song ngữ Việt-Anh để trích xuất kỹ năng. Khởi tạo schema database PostgreSQL và ChromaDB. | |
-| Tuần 4 (23/03–29/03) | Tiếp tục huấn luyện và đánh giá pipeline NER trên tập validation. Bắt đầu xây dựng skill ontology IT (REQUIRES, LEADS_TO, RELATED_TO, PART_OF). | |
+| Tuần 1 (02/03–08/03) | Nhận đề tài, gặp GVHD xác định mục tiêu và phạm vi. Khảo sát nhu cầu thực tế của sinh viên CNTT Việt Nam. Tổng hợp tài liệu nền về skill graph và learning path recommendation. | |
+| Tuần 2 (09/03–15/03) | Xây dựng đề cương chi tiết. Tổng hợp tài liệu nâng cao về MCDM và NER bilingual. Thiết kế kiến trúc tổng thể của hệ thống. | Nộp đề cương GVHD |
+| Tuần 3 (16/03–22/03) | Chuẩn bị nền dữ liệu: thu thập CV mẫu, gán nhãn corpus NER song ngữ Việt-Anh (~500 câu). Khởi tạo schema database PostgreSQL và ChromaDB. | |
+| Tuần 4 (23/03–29/03) | Fine-tune mô hình BERT cho NER CV/JD, đánh giá F1 token-level và span-level. Bắt đầu xây dựng skill ontology IT (REQUIRES, LEADS_TO, RELATED_TO, PART_OF). | Mốc NER |
 | Tuần 5 (30/03–05/04) | Hoàn thiện ontology (~500 entries). Implement Skill Matching Engine để chuẩn hóa kỹ năng giữa CV và JD. | |
 | Tuần 6 (06/04–12/04) | Tích hợp pipeline tiền xử lý (NER + Skill Matching) thành dịch vụ chung. Khởi tạo frontend React và các component upload CV cơ bản. | |
 | Tuần 7 (13/04–19/04) | Hoàn thiện nền dữ liệu, kiểm thử pipeline tiền xử lý trên CV và JD mẫu. Viết Chương 1 báo cáo (tổng quan). | |
-| Tuần 8 (20/04–26/04) | Xây dựng JD Crawler (Selenium + BeautifulSoup) cho ITviec và TopCV. Bắt đầu chạy crawler tích lũy dữ liệu. | Crawl ~200 JD/ngày |
-| Tuần 9 (27/04–03/05) | Hoàn thiện crawler, chạy ổn định. Thiết kế schema time-series database (skill_trends, real_jds). Viết Chương 2 báo cáo (cơ sở lý thuyết). | |
-| Tuần 10 (04/05–10/05) | Thiết kế công thức **CV Freshness Score** (trend_weight, recency, importance). Bổ sung trường `cost` (learning weeks) vào ontology. Bắt đầu implement CVFreshnessEngine. | Mốc trọng tâm |
-| Tuần 11 (11/05–17/05) | Hoàn thiện CVFreshnessEngine. Validate công thức Freshness Score: so sánh giữa 10 CV "cập nhật" và 10 CV "lỗi thời" tạo thủ công. Thiết kế bộ benchmark 50 test cases cho Learning Path Optimizer. | |
+| Tuần 8 (20/04–26/04) | Xây dựng JD Crawler cho ITviec và TopCV (cloudscraper + AJAX endpoint). Triển khai cross-source dedup qua `job_group_id`. | |
+| Tuần 9 (27/04–03/05) | Hoàn thiện crawler. Snapshot ~1500 JD và xây dựng pipeline structured extraction (min_exp, seniority, work_mode, degree). Viết Chương 2 báo cáo (cơ sở lý thuyết). | Snapshot JD |
+| Tuần 10 (04/05–10/05) | Thiết kế **Multi-criteria CV Freshness Framework** với 8 chiều đánh giá (Skill, Experience, Project, Education, Achievement, Language, Completeness, Market Alignment). Bắt đầu implement CVFreshnessEngine. | Mốc trọng tâm |
+| Tuần 11 (11/05–17/05) | Hoàn thiện CVFreshnessEngine. Validate khung 8 chiều: so sánh giữa 10 CV "cập nhật" và 10 CV "lỗi thời" tạo thủ công. Thiết kế bộ benchmark 50 test cases cho Learning Path Optimizer. | |
 | Tuần 12 (18/05–24/05) | Implement **Learning Path Optimizer**: thuật toán Greedy (ROI) và Dijkstra trên skill graph có trọng số. Chạy thử trên benchmark, đánh giá kết quả ban đầu. | |
 | Tuần 13 (25/05–31/05) | Implement thuật toán Dynamic Programming. Chạy benchmark đầy đủ so sánh 3 thuật toán trên 50 test cases (số JD unlock, runtime, optimality gap). Viết Chương 3 báo cáo. | |
-| Tuần 14 (01/06–07/06) | Xây dựng API endpoints (`/health-score`, `/skill-alerts`, `/learning-path`, `/opportunity-window`). BackgroundTask recompute Freshness khi CV thay đổi. Setup cron job crawler trong Docker Compose. | |
-| Tuần 15 (08/06–14/06) | Xây dựng **CV Health Dashboard** frontend: Freshness gauge + time-series chart, Learning Path visualization, Skill alert cards, Opportunity Window. Tích hợp end-to-end toàn hệ thống. | |
-| Tuần 16 (15/06–21/06) | Pilot test với 5 người dùng, thu feedback và fix bug. Khảo sát 10 recruiter đánh giá Freshness Score. Chạy user study chính thức với 20–30 người dùng. | User study chính |
+| Tuần 14 (01/06–07/06) | Xây dựng API endpoints (`/health-score`, `/skill-alerts`, `/learning-path`, `/opportunity-window`). BackgroundTask recompute Freshness khi CV thay đổi. Setup cron job crawler daily trong Docker Compose. | |
+| Tuần 15 (08/06–14/06) | Xây dựng **CV Health Dashboard** frontend: Freshness gauge 8 chiều, Learning Path visualization, Skill alert cards, Opportunity Window. Tích hợp end-to-end toàn hệ thống. | |
+| Tuần 16 (15/06–21/06) | Xây dựng **Market Intelligence Dashboard** với 33 insight (top skill, salary distribution, work-mode trend, role demand, company-level analytics qua `COUNT(DISTINCT job_group_id)`). | Mốc Market Intel |
 | Tuần 17 (22/06–28/06) | Phân tích và tổng hợp kết quả thực nghiệm. Viết Chương 4 báo cáo. Hoàn thiện Kết luận, Tài liệu tham khảo, Phụ lục. Kiểm tra tỷ lệ trùng lặp (≤ 30%). Sửa theo phản hồi GVHD. | |
 | Tuần 18 (29/06–05/07) | Duyệt đồ án với GVHD. Chuẩn bị slide thuyết trình và demo hệ thống end-to-end. Bảo vệ đồ án tốt nghiệp. | Bảo vệ |
 

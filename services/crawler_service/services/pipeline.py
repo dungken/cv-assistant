@@ -106,10 +106,12 @@ class CrawlPipeline:
         out: list[tuple[RawJD, str]] = []
         rich = getattr(self.crawler, "crawl_category_rich", None)
 
-        # Prefer the AJAX `fetch_description` enrichment path when the crawler
-        # supports it (ITviec): listing cards give us salary + skills + location,
-        # then the /content endpoint gives us the description text. This sidesteps
-        # the Cloudflare 403 wall on the full detail page.
+        # Detail enrichment via AJAX endpoints (no Cloudflare 403 on listing
+        # rich + AJAX path). Each crawler exposes one of:
+        #   - fetch_full_jd_signal(url) → richest (desc + salary + work_mode + location)
+        #   - fetch_description(url)    → just description text
+        # We prefer the richer one when both exist.
+        fetch_full = getattr(self.crawler, "fetch_full_jd_signal", None)
         fetch_desc = getattr(self.crawler, "fetch_description", None)
         for cat in categories:
             if len(out) >= cap:
@@ -118,16 +120,35 @@ class CrawlPipeline:
                 cat_jds: list[RawJD]
                 if callable(rich):
                     cat_jds = rich(cat, max_pages=max_pages)
-                    if self.fetch_details and callable(fetch_desc):
-                        for jd in cat_jds:
-                            if len(out) + sum(1 for j in cat_jds if j is jd or jd.description) >= cap:
-                                break
+                    if self.fetch_details and (callable(fetch_full) or callable(fetch_desc)):
+                        # Cap the per-category enrichment so a single category
+                        # doesn't burn our cross-category budget.
+                        remaining = cap - len(out)
+                        for jd in cat_jds[:remaining]:
                             if jd.description:
-                                continue  # already populated
-                            desc = fetch_desc(jd.url)
-                            if desc:
-                                jd.description = desc
-                            self.crawler.client.polite_sleep() if hasattr(self.crawler, "client") else None
+                                continue
+                            if callable(fetch_full):
+                                details = fetch_full(jd.url) or {}
+                                jd.description = details.get("description") or ""
+                                # Overwrite ONLY when the new value is non-empty —
+                                # this preserves listing-card values when the
+                                # detail-page lookup fails (e.g. CF 403 on salary).
+                                if details.get("salary_min") is not None:
+                                    jd.salary_min = details["salary_min"]
+                                if details.get("salary_max") is not None:
+                                    jd.salary_max = details["salary_max"]
+                                if details.get("salary_currency"):
+                                    jd.salary_currency = details["salary_currency"]
+                                if details.get("work_mode") and not jd.exp_level:
+                                    # exp_level is unrelated; we re-derive work_mode
+                                    # in pipeline._build_processed from listing badge
+                                    pass
+                            else:
+                                desc = fetch_desc(jd.url)
+                                if desc:
+                                    jd.description = desc
+                            if hasattr(self.crawler, "client"):
+                                self.crawler.client.polite_sleep()
                 elif self.fetch_details:
                     urls = self.crawler.crawl_listing(cat, max_pages=max_pages)
                     cat_jds = []
@@ -248,6 +269,29 @@ class CrawlPipeline:
                 structured.work_mode = enriched.work_mode or structured.work_mode
                 parse_version = "rule+ner-v1"
 
+        # Fallback: when description-based extraction didn't run (e.g. TopCV
+        # Cloudflare blocks the detail page), use the structured fields the
+        # crawler lifted directly from the listing card.
+        final_min_exp = (structured.min_exp if structured else None) or raw.min_exp_listing
+        final_max_exp = (structured.max_exp if structured else None) or raw.max_exp_listing
+        final_degree = (structured.degree_required if structured else None) or raw.degree_listing
+        # Seniority — if rule/LLM didn't set it, derive from exp_level lifted
+        # from the listing title (e.g. "Senior Backend Developer" → senior).
+        final_seniority = structured.seniority if structured else None
+        if final_seniority is None and raw.exp_level in {"junior", "mid", "senior", "lead", "fresher"}:
+            final_seniority = "junior" if raw.exp_level == "fresher" else raw.exp_level
+
+        # Mark parsed_at when we ANY structured signal landed (LLM/rule OR
+        # listing-card extraction), so downstream eval can tell the difference
+        # between "never parsed" and "parsed but empty".
+        has_any_signal = (
+            structured is not None
+            or final_min_exp is not None
+            or final_max_exp is not None
+            or final_degree is not None
+            or final_seniority is not None
+        )
+
         return ProcessedJD(
             jd_key=key,
             raw=raw,
@@ -256,16 +300,16 @@ class CrawlPipeline:
             role_group=role_group,
             first_seen=now,
             last_seen=now,
-            min_exp=structured.min_exp if structured else None,
-            max_exp=structured.max_exp if structured else None,
-            seniority=structured.seniority if structured else None,
+            min_exp=final_min_exp,
+            max_exp=final_max_exp,
+            seniority=final_seniority,
             skills_required=structured.skills_required if structured else [],
             skills_preferred=structured.skills_preferred if structured else [],
-            degree_required=structured.degree_required if structured else None,
+            degree_required=final_degree,
             work_mode=structured.work_mode if structured else None,
             description_summary=structured.description_summary if structured else None,
-            parsed_at=now if structured else None,
-            parse_version=parse_version if structured else None,
+            parsed_at=now if has_any_signal else None,
+            parse_version=(parse_version if structured else "listing-v1") if has_any_signal else None,
             job_group_id=compute_job_group_id(raw.company, raw.title) or None,
         )
 

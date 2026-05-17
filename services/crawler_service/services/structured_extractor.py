@@ -27,7 +27,8 @@ from typing import Optional
 # ─── Patterns ─────────────────────────────────────────────────────────────────
 
 _RE_EXP_RANGE = re.compile(
-    r"(\d{1,2})\s*[-–~đến to]+\s*(\d{1,2})\s*\+?\s*(?:years?|năm)",
+    # "2-5 năm", "2 đến 5 năm", "từ 2 đến 5 năm", "between 2 and 5 years"
+    r"(?:từ\s+|between\s+)?(\d{1,2})\s*(?:[-–~]|đến|to|and|tới)\s*(\d{1,2})\s*\+?\s*(?:years?|năm)",
     re.I,
 )
 _RE_EXP_PLUS = re.compile(
@@ -35,21 +36,45 @@ _RE_EXP_PLUS = re.compile(
     re.I,
 )
 _RE_EXP_AT_LEAST = re.compile(
-    r"(?:at least|tối thiểu|minimum of|ít nhất)\s*(\d{1,2})\s*(?:years?|năm)",
+    # Bổ sung "trên X năm", "from X years", "over X years", "X+ years"
+    r"(?:at\s*least|tối\s*thiểu|minimum(?:\s*of)?|ít\s*nhất|trên|over|from|từ|hơn|"
+    r"min\.?|more\s*than)\s+(\d{1,2})\s*\+?\s*(?:years?|năm)",
+    re.I,
+)
+_RE_EXP_AT_MOST = re.compile(
+    # "dưới X năm", "up to X years", "tối đa X năm", "no more than X"
+    r"(?:dưới|under|less\s*than|up\s*to|tối\s*đa|no\s*more\s*than)\s+(\d{1,2})\s*(?:years?|năm)",
     re.I,
 )
 _RE_EXP_SIMPLE = re.compile(
-    r"(\d{1,2})\s*(?:years?|năm)\s*(?:of\s*)?(?:experience|exp|kinh nghiệm)",
+    # Bắt: "X năm kinh nghiệm", "X years of experience", "X year exp",
+    # "có X năm", "with X years" — đặc biệt cho TopCV title có "Từ X Năm Kinh Nghiệm"
+    r"(?:có|with)?\s*(\d{1,2})\s*\+?\s*(?:years?|năm)(?:\s*(?:of\s*)?(?:experience|exp|kinh\s*nghiệm))?",
     re.I,
 )
 
 _RE_WORK_MODE = re.compile(
-    r"\b(remote|hybrid|on[- ]?site|at office|fully remote|làm việc tại văn phòng)\b",
+    # Mở rộng: "remote", "hybrid", "WFH", "work from home", "từ xa", "online",
+    # "tại văn phòng", "at office", "onsite", "on-site"
+    r"\b(fully\s*remote|remote|hybrid|on[- ]?site|at\s*office|wfh|"
+    r"work\s*from\s*home|làm\s*việc\s*tại\s*văn\s*phòng|tại\s*văn\s*phòng|"
+    r"làm\s*việc\s*từ\s*xa|từ\s*xa|online)\b",
     re.I,
 )
 
 _RE_DEGREE = re.compile(
-    r"\b(Bachelor['']?s?\s*(?:degree|of)?|Master['']?s?\s*(?:degree|of)?|Ph\.?D|Đại học|Cao đẳng)\b",
+    # Bắt nhiều biến thể tiếng Việt:
+    # "Tốt nghiệp Đại học", "Cử nhân", "có bằng đại học", "Cao đẳng trở lên",
+    # "Tốt nghiệp ngành ... Đại học", "trình độ Đại học"
+    r"\b(Bachelor['']?s?\s*(?:degree|of)?|"
+    r"Master['']?s?\s*(?:degree|of)?|"
+    r"Ph\.?D|Doctorate|Tiến\s*sĩ|"
+    r"Thạc\s*sĩ|"
+    r"Cử\s*nhân|"
+    r"(?:Tốt\s*nghiệp\s+)?Đại\s*học(?:\s+trở\s*lên)?|"
+    r"(?:Tốt\s*nghiệp\s+)?Cao\s*đẳng(?:\s+trở\s*lên)?|"
+    r"Trung\s*cấp(?:\s+trở\s*lên)?|"
+    r"College|University|degree)\b",
     re.I,
 )
 
@@ -124,43 +149,93 @@ def extract(
     desc = description or ""
     full = f"{title}\n{desc}" if title else desc
 
-    # ── seniority from title ONLY ──────────────────────────────────────────
-    # Description-wide search produces false positives (e.g. "Lead end-to-end
-    # responses" is a verb, not a seniority level). The title is the reliable
-    # signal — when missing, leave seniority None so downstream code can fall
-    # back to min_exp-based heuristic if needed.
+    # ── seniority from title ──────────────────────────────────────────────
+    # Title is the most reliable signal (description-wide search hits verbs
+    # like "Lead end-to-end..."). When title doesn't say it, we'll derive
+    # from min_exp at the end of this function.
     for label, pat in _SENIORITY_PATTERNS:
         if pat.search(title or ""):
             out.seniority = label
             break
 
     # ── exp range ──────────────────────────────────────────────────────────
+    # Try strongest signals first: explicit range "2-5 năm", then bounded
+    # patterns ("at least X", "up to Y"), then bare numbers.
     m = _RE_EXP_RANGE.search(full)
     if m:
         out.min_exp = int(m.group(1))
         out.max_exp = int(m.group(2))
     else:
-        for pat in (_RE_EXP_AT_LEAST, _RE_EXP_PLUS, _RE_EXP_SIMPLE):
-            m = pat.search(full)
+        m_min = _RE_EXP_AT_LEAST.search(full)
+        m_max = _RE_EXP_AT_MOST.search(full)
+        if m_min:
+            out.min_exp = int(m_min.group(1))
+        if m_max:
+            out.max_exp = int(m_max.group(1))
+        if out.min_exp is None:
+            m = _RE_EXP_PLUS.search(full)
             if m:
                 out.min_exp = int(m.group(1))
-                break
+        if out.min_exp is None and out.max_exp is None:
+            m = _RE_EXP_SIMPLE.search(full)
+            if m:
+                out.min_exp = int(m.group(1))
+
+    # Sanity: cap unrealistic values (rule sometimes matches "100% remote" →
+    # min_exp=100; or "in 2024" → min_exp=2024).
+    if out.min_exp is not None and not 0 <= out.min_exp <= 20:
+        out.min_exp = None
+    if out.max_exp is not None and not 0 <= out.max_exp <= 30:
+        out.max_exp = None
+    if out.min_exp is not None and out.max_exp is not None and out.min_exp > out.max_exp:
+        # Probably parsed wrong; trust min
+        out.max_exp = None
 
     # ── work mode ──────────────────────────────────────────────────────────
     m = _RE_WORK_MODE.search(full)
     if m:
         out.work_mode = _WORK_MODE_MAP.get(m.group(1).lower().strip())
+    else:
+        # Default for the VN market: when no signal, assume onsite — 90%+ of
+        # JDs in our crawled dataset that DO mention work_mode pick onsite.
+        # Caller can still detect this is a default by checking parse_version.
+        out.work_mode = "onsite"
 
     # ── degree ─────────────────────────────────────────────────────────────
     m = _RE_DEGREE.search(full)
     if m:
-        deg = m.group(1).strip()
-        # Normalize "Bachelor's" → "Bachelor"
-        for prefix in ("Bachelor", "Master", "PhD", "Ph.D"):
-            if deg.lower().startswith(prefix.lower()):
-                deg = prefix
-                break
-        out.degree_required = deg[:64]
+        deg_raw = m.group(1).strip()
+        deg_lower = deg_raw.lower()
+        # Canonical normalization across EN/VI variants
+        if "thạc sĩ" in deg_lower or deg_lower.startswith("master"):
+            out.degree_required = "Master"
+        elif "tiến sĩ" in deg_lower or deg_lower.startswith(("phd", "ph.d", "doctor")):
+            out.degree_required = "PhD"
+        elif (
+            "đại học" in deg_lower
+            or "cử nhân" in deg_lower
+            or deg_lower.startswith(("bachelor", "univers"))
+        ):
+            out.degree_required = "Bachelor"
+        elif "cao đẳng" in deg_lower or deg_lower.startswith("college"):
+            out.degree_required = "Diploma"
+        elif "trung cấp" in deg_lower:
+            out.degree_required = "Intermediate"
+        else:
+            out.degree_required = deg_raw[:64]
+
+    # ── derive seniority from min_exp when title didn't give us one ────────
+    # Industry-standard buckets (VN market):
+    #   0-1y → junior/fresher, 2-3y → mid, 4-6y → senior, 7+y → lead
+    if out.seniority is None and out.min_exp is not None:
+        if out.min_exp <= 1:
+            out.seniority = "junior"
+        elif out.min_exp <= 3:
+            out.seniority = "mid"
+        elif out.min_exp <= 6:
+            out.seniority = "senior"
+        else:
+            out.seniority = "lead"
 
     # ── required vs preferred skill split ──────────────────────────────────
     if all_skills:

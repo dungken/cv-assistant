@@ -61,11 +61,16 @@ class TopCVCrawler(IJDCrawler):
         # as of 2026-05 blocks headless Chrome consistently. See README.md.
         # When False, skills are extracted from title via ontology matching
         # in pipeline.py — recovers ~78% of skills (avg 1.2 skills/JD).
+        # Sleep tuned for the AJAX `/job-view-detail` endpoint which is not
+        # CF-protected — the ~3-6s default was overkill and made enrichment
+        # take 10x longer than necessary.
         self.client = PoliteHttpClient(
             extra_headers={
                 "X-Crawler-Contact": settings.crawl_user_agent,
                 "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-            }
+            },
+            sleep_min=0.3,
+            sleep_max=0.8,
         )
         # When True, use Selenium to fetch each detail page for description text.
         # ~3-5s per JD; required to get skills since listing cards lack them.
@@ -157,26 +162,67 @@ class TopCVCrawler(IJDCrawler):
         return jds
 
     def crawl_detail(self, url: str) -> Optional[RawJD]:
-        """Fetch a single detail page via Selenium. Returns RawJD with description filled."""
-        html = self._fetch_detail_html(url)
+        """Legacy entry point — superseded by listing rich + fetch_description.
+
+        TopCV's standalone detail page sits behind Cloudflare Turnstile, so
+        the full-page Selenium path is no longer used. The pipeline calls
+        crawl_category_rich() for structured fields and fetch_description()
+        for the description text via the AJAX `/job-view-detail` endpoint.
+        """
+        return None
+
+    def fetch_description(self, url: str) -> Optional[str]:
+        """Fetch description text via TopCV's AJAX `/job-view-detail` endpoint.
+
+        Discovered via the in-page "quick view" panel: clicking a job card on
+        the listing fires `GET /job-view-detail?id=<job_id>`, which returns
+        a small JSON envelope with the rendered HTML for the right pane.
+        This endpoint is NOT protected by Cloudflare Turnstile (the standalone
+        detail page is), so we can crawl descriptions at ~0.3s per JD.
+        """
+        import json as _json
+        job_id = self._extract_job_id(url)
+        if not job_id:
+            return None
+        api_url = f"{self.base_url}/job-view-detail?id={job_id}"
+        try:
+            body = self._get(api_url, ajax=True)
+            payload = _json.loads(body)
+        except Exception as e:
+            logger.warning("topcv fetch_description failed id=%s: %s", job_id, e)
+            return None
+        if payload.get("status") != "success":
+            return None
+        html = (payload.get("data") or {}).get("html_job_detail") or ""
         if not html:
             return None
         soup = BeautifulSoup(html, "html.parser")
-        title = soup.select_one("h1.job-detail__info--title")
-        if not title:
+        # The body of interest is .box-job-info; it contains 3-4 sections
+        # ("Mô tả công việc", "Yêu cầu ứng viên", "Quyền lợi", "Thời gian làm việc")
+        # plus the company info card. Concatenate the content-tab blocks plus
+        # their headings so downstream NER can use section context.
+        parts: list[str] = []
+        info = soup.select_one(".box-job-info")
+        if info:
+            for el in info.find_all(["h3", "div"], recursive=True):
+                if el.name == "h3":
+                    parts.append(el.get_text(" ", strip=True))
+                elif "content-tab" in (el.get("class") or []):
+                    parts.append(el.get_text(" ", strip=True))
+        text = "\n\n".join(p for p in parts if p)
+        return text or None
+
+    @staticmethod
+    def _extract_job_id(url: str) -> Optional[str]:
+        """Pull the numeric job_id out of a TopCV detail URL.
+
+        Pattern: https://www.topcv.vn/viec-lam/<slug>/<job_id>.html[?...]
+        """
+        if not url:
             return None
-        desc = self._extract_description(soup)
-        # Build a minimal RawJD (caller typically already has more data from listing)
-        return RawJD(
-            source=self.source_name,
-            source_id=url.split("/")[-1].replace(".html", ""),
-            title=title.get_text(strip=True),
-            company=None,
-            description=desc,
-            skills_raw=[],
-            posted_date=date.today(),
-            url=url,
-        )
+        import re as _re
+        m = _re.search(r"/(\d+)\.html", url)
+        return m.group(1) if m else None
 
     # ── detail enrichment via Selenium ──────────────────────────────
 
@@ -376,6 +422,9 @@ class TopCVCrawler(IJDCrawler):
                 posted_date=posted_date,
                 url=url,
                 role_hint=role_slug,
+                min_exp_listing=min_exp,
+                max_exp_listing=max_exp,
+                degree_listing=degree,
             )
         except Exception as e:
             logger.warning("card parse failed: %s", e)
@@ -455,7 +504,15 @@ class TopCVCrawler(IJDCrawler):
 
     # ── utilities ───────────────────────────────────────────────────
 
-    def _get(self, url: str) -> str:
+    def _get(self, url: str, ajax: bool = False) -> str:
+        if ajax:
+            # TopCV's job-view-detail XHR endpoint expects the standard AJAX
+            # signals; without them it can return the full page wrapper or
+            # an HTML error stub instead of JSON.
+            return self.client.get(url, headers={
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest",
+            })
         return self.client.get(url)
 
     def _polite_sleep(self) -> None:
