@@ -720,6 +720,49 @@ export interface MarketIntelDashboard {
     }[];
     top_locations: { location: string; cnt: number }[];
     heatmap: { skill: string; role_group: string; cnt: number }[];
+    daily_trend: { day: string; cnt: number }[];
+    top_companies: { company: string; cnt: number }[];
+    exp_histogram: { bucket: string; cnt: number }[];
+    degree_distribution: { degree_norm: string; cnt: number }[];
+    skill_pairs: { skill_a: string; skill_b: string; cnt: number }[];
+    skill_premium: {
+        top_premium: { skill: string; cnt: number; median_salary: number; premium_pct: number }[];
+        lowest_paid: { skill: string; cnt: number; median_salary: number; premium_pct: number }[];
+    };
+    skill_velocity: {
+        trending_up: { skill: string; recent_cnt: number; prev_cnt: number; delta_abs: number; delta_pct: number | null }[];
+        trending_down: { skill: string; recent_cnt: number; prev_cnt: number; delta_abs: number; delta_pct: number | null }[];
+    };
+    companies_by_skill: Record<string, { company: string; cnt: number }[]>;
+    remote_by_skill: { skill: string; total: number; flexible: number; pct: number }[];
+    role_salary: { role_group: string; cnt: number; median_mid: number | null; p25: number | null; p75: number | null }[];
+    edu_salary: { degree_norm: string; cnt: number; median_salary: number | null }[];
+    geo_salary: { city: string; cnt: number; median_salary: number | null; p25: number | null; p75: number | null }[];
+    skill_clusters: { skills: string[]; size: number; label: string }[];
+    skills_by_exp: Record<string, { skill: string; cnt: number }[]>;
+    hidden_gems: { skill: string; cnt: number; median_salary: number; is_gem: boolean }[];
+    skill_quadrants: { skill: string; cnt: number; median_salary: number; is_gem: boolean }[];
+    salary_curve: { exp: string; overall_median: number | null; [roleKey: string]: any }[];
+    skill_specificity: { skill: string; cnt: number; pct: number; tier: 'core' | 'common' | 'specialized' }[];
+    hot_companies: { company: string; recent_cnt: number; prev_cnt: number; delta_abs: number }[];
+    combo_salary: {
+        skill_a: string; skill_b: string;
+        both_median: number; both_cnt: number;
+        a_median: number | null; b_median: number | null;
+        combo_premium_pct: number;
+    }[];
+    english_premium: {
+        with_english: { cnt: number; median_salary: number };
+        without_english: { cnt: number; median_salary: number };
+        premium_pct: number;
+    } | null;
+    day_of_week: { day: string; dow: number; cnt: number }[];
+    outdated_skills: { skill: string; w1: number; w2: number; w3: number; w4: number }[];
+    niche_champions: { company: string; niche_skill_jds: number }[];
+    skill_network: {
+        nodes: { skill: string; cnt: number }[];
+        edges: { skill_a: string; skill_b: string; cnt: number }[];
+    };
     options: { sources: string[]; role_groups: string[]; seniorities: string[] };
 }
 

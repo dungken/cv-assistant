@@ -274,57 +274,105 @@ class TopCVCrawler(IJDCrawler):
             if not job_id:
                 return None
 
+            # Title — prefer the tooltip's `data-original-title` (full text;
+            # the visible <span> truncates long titles to "...")
             title_link = card.select_one("h3.title a")
             if not title_link:
                 return None
             url = title_link.get("href", "").split("?")[0]
-            title = title_link.get_text(strip=True)
+            title_span = title_link.select_one("span[data-original-title]")
+            title = (
+                title_span.get("data-original-title", "").strip()
+                if title_span else title_link.get_text(strip=True)
+            )
             if not title:
                 return None
 
+            # Company — same tooltip pattern
             company_el = card.select_one("a.company span.company-name")
-            company = company_el.get_text(strip=True) if company_el else None
+            company = None
+            if company_el:
+                company = (
+                    company_el.get("data-original-title", "").strip()
+                    or company_el.get_text(strip=True)
+                )
 
-            # Salary — visible on TopCV (unlike ITviec)
+            # Salary — prefer label.title-salary; strip the leading icon
             salary_el = card.select_one("label.title-salary, label.salary span")
-            salary_text = salary_el.get_text(strip=True) if salary_el else None
+            salary_text = salary_el.get_text(" ", strip=True) if salary_el else None
             salary_min, salary_max, currency = self._parse_salary(salary_text)
 
-            # Location
-            loc_el = card.select_one("span.city-text, label.address span")
-            location = loc_el.get_text(strip=True) if loc_el else None
+            # Location — full location may include multiple cities; the tooltip
+            # data-original-title carries the HTML list, so we extract <li> text
+            location = self._extract_location(card)
 
-            # Skill tags (TopCV uses .tag-required-skills or similar; check defensively)
-            skills_raw = [
+            # Tag overflow `[data-original-title]` holds the comma-separated CSV
+            # of all the non-visible tags: category name, benefits, degree,
+            # language requirements, age range, etc.  We split it into
+            # structured fields below.
+            tag_overflow = []
+            for el in card.select(".box-icon .tag .remaining-items, .box-icon .tag-quickview .remaining-items"):
+                csv = el.get("data-original-title", "")
+                if csv:
+                    tag_overflow.extend([t.strip() for t in csv.split(",") if t.strip()])
+            # Visible tags (.item-tag) — short labels like "3 năm kinh nghiệm",
+            # category names, technology badges
+            visible_tags = [
                 el.get_text(strip=True)
-                for el in card.select(".tag-required-skills li, .skill-required-tag, .tag-job-skill")
-                if el.get_text(strip=True)
+                for el in card.select(".box-icon .tag .item-tag, .box-icon .tag .item-tag a")
+                if el.get_text(strip=True) and "..." not in el.get_text()
             ]
-            skills_raw = list(dict.fromkeys(skills_raw))
+            all_tags = list(dict.fromkeys(visible_tags + tag_overflow))
 
-            # Posted time — TopCV often has "Cập nhật N giờ trước" or similar
-            posted_el = card.select_one(".job-update-at, .created-at, .label-time")
-            posted_date = self._parse_posted_date(
-                posted_el.get_text(strip=True) if posted_el else None
+            # Min/max experience — `label.exp span` is the source of truth
+            # ("3 năm", "Không yêu cầu", "Không cần kinh nghiệm").
+            exp_el = card.select_one("label.exp span")
+            min_exp, max_exp = self._parse_exp_years(
+                exp_el.get_text(strip=True) if exp_el else None
             )
 
-            # TopCV listings don't expose role badges like ITviec, so we lift
-            # the role from the category being crawled. role_hint flows through
-            # the pipeline and ends up populating jd_raw.role.
+            # Degree — pulled from the tag overflow ("Đại Học trở lên",
+            # "Cao Đẳng trở lên", "Thạc sĩ trở lên")
+            degree = self._extract_degree(all_tags)
+
+            # Skills — TopCV doesn't expose real tech skill chips in the
+            # listing card. The "tags" are mostly categories + benefits +
+            # degree + language requirements, NOT skills. So we leave
+            # skills_raw empty and let the downstream pipeline lift them
+            # from the title (e.g. "Senior Java Developer" → ["Java"]) via
+            # the ontology matcher.
+            skills_raw: list[str] = []
+
+            # Posted time — label.label-update text says "1 tuần trước" /
+            # "2 ngày trước"; the tooltip data-original-title says "Cập nhật
+            # 2 phút trước" (live updated timestamp).
+            posted_el = card.select_one("label.label-update")
+            posted_text = posted_el.get_text(" ", strip=True) if posted_el else None
+            posted_date = self._parse_posted_date(posted_text)
+
+            # role_hint comes from the listing-page category being crawled
             role_slug, _ = CATEGORY_TO_ROLE.get(category, (category, None))
+
+            # Seniority preference: explicit "Không yêu cầu" in exp_el wins,
+            # then title heuristic (Senior/Junior/Intern).
+            exp_text = exp_el.get_text(strip=True).lower() if exp_el else ""
+            if "không" in exp_text:
+                exp_level = "fresher"
+            else:
+                exp_level = self._parse_exp_level(title)
 
             return RawJD(
                 source=self.source_name,
                 source_id=job_id,
                 title=title,
                 company=company,
-                description="",  # not fetchable from listing
+                description="",  # not fetchable from listing (Cloudflare)
                 skills_raw=skills_raw,
                 salary_min=salary_min,
                 salary_max=salary_max,
                 salary_currency=currency,
                 location=location,
-                exp_level=self._parse_exp_level(title),
+                exp_level=exp_level,
                 posted_date=posted_date,
                 url=url,
                 role_hint=role_slug,
@@ -332,6 +380,78 @@ class TopCVCrawler(IJDCrawler):
         except Exception as e:
             logger.warning("card parse failed: %s", e)
             return None
+
+    # ── new helpers for the richer listing parse ───────────────────
+
+    @staticmethod
+    def _extract_location(card) -> Optional[str]:
+        """Pull location text from `label.address`. Prefer the full HTML
+        in `data-original-title` (it's a <ul> of cities) over the truncated
+        `.city-text` (which says "Hồ Chí Minh (mới) & Hà Nội" but cuts off
+        when there are 3+ cities)."""
+        addr = card.select_one("label.address[data-original-title]")
+        if addr:
+            html = addr.get("data-original-title", "")
+            if html:
+                inner = BeautifulSoup(html, "html.parser")
+                lis = [li.get_text(strip=True) for li in inner.select("li")]
+                if lis:
+                    return " & ".join(lis)
+        loc_el = card.select_one("span.city-text, label.address span")
+        if loc_el:
+            return loc_el.get_text(strip=True)
+        return None
+
+    @staticmethod
+    def _parse_exp_years(text: Optional[str]) -> tuple[Optional[int], Optional[int]]:
+        """Parse `label.exp span` text into (min_exp, max_exp).
+
+        Examples:
+          'Không yêu cầu' / 'Không cần kinh nghiệm' → (0, None)
+          'Dưới 1 năm' → (0, 1)
+          '3 năm' → (3, None)
+          '3 - 5 năm' → (3, 5)
+          'Trên 5 năm' → (5, None)
+        """
+        if not text:
+            return None, None
+        t = text.lower().strip()
+        if "không" in t:
+            return 0, None
+        if "dưới" in t:
+            m = re.search(r"(\d+)", t)
+            return (0, int(m.group(1))) if m else (0, None)
+        if "trên" in t:
+            m = re.search(r"(\d+)", t)
+            return (int(m.group(1)), None) if m else (None, None)
+        nums = [int(n) for n in re.findall(r"\d+", t)]
+        if not nums:
+            return None, None
+        if len(nums) == 1:
+            return nums[0], None
+        return min(nums[:2]), max(nums[:2])
+
+    @staticmethod
+    def _extract_degree(tags: list[str]) -> Optional[str]:
+        """Find a degree level inside the TopCV tag list.
+
+        TopCV writes degrees as 'Đại Học trở lên', 'Cao Đẳng trở lên',
+        'Thạc sĩ trở lên'. We strip the 'trở lên' suffix and normalize
+        the case-mismatched variants to canonical capitalization.
+        """
+        for tag in tags:
+            tl = tag.lower()
+            if "thạc sĩ" in tl or "master" in tl:
+                return "Thạc sĩ"
+            if "tiến sĩ" in tl or "phd" in tl:
+                return "Tiến sĩ"
+            if "đại học" in tl or "bachelor" in tl:
+                return "Đại học"
+            if "cao đẳng" in tl or "college" in tl:
+                return "Cao đẳng"
+            if "trung cấp" in tl:
+                return "Trung cấp"
+        return None
 
     # ── utilities ───────────────────────────────────────────────────
 

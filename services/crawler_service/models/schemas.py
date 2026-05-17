@@ -47,6 +47,10 @@ class ProcessedJD(BaseModel):
     parsed_at: Optional[datetime] = None
     parse_version: Optional[str] = None
 
+    # Cross-source dedup tracking — shared by records of the same JOB across
+    # multiple sources (e.g. same opening on ITviec + TopCV).
+    job_group_id: Optional[str] = None
+
 
 class CrawlerRunResult(BaseModel):
     run_id: str

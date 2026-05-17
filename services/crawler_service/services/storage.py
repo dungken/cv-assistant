@@ -93,6 +93,7 @@ class JDStorage:
                     description_summary=jd.description_summary,
                     parsed_at=jd.parsed_at,
                     parse_version=jd.parse_version,
+                    job_group_id=jd.job_group_id,
                 )
                 # On conflict: refresh last_seen + re-enrich if we parsed this run.
                 # When parsed_at is set, also overwrite parsed columns so a later
@@ -111,6 +112,10 @@ class JDStorage:
                         "parsed_at": jd.parsed_at,
                         "parse_version": jd.parse_version,
                     })
+                # job_group_id always refreshed when present (cheap to compute,
+                # idempotent — same (company, title) → same hash)
+                if jd.job_group_id:
+                    update_set["job_group_id"] = jd.job_group_id
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["jd_key"], set_=update_set,
                 )

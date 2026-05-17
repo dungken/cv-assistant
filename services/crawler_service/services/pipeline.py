@@ -9,7 +9,7 @@ from services.crawler_service.models.database import CrawlerLog
 from services.crawler_service.models.schemas import ProcessedJD, RawJD
 from services.crawler_service.services.base_crawler import IJDCrawler
 from services.crawler_service.services.db_session import get_session
-from services.crawler_service.services.deduplicator import compute_jd_key
+from services.crawler_service.services.deduplicator import compute_jd_key, compute_job_group_id
 from services.crawler_service.services.enricher import JDEnricher
 from services.crawler_service.services.llm_extractor import LLMJDExtractor
 from services.crawler_service.services.structured_extractor import extract as rule_extract
@@ -106,12 +106,29 @@ class CrawlPipeline:
         out: list[tuple[RawJD, str]] = []
         rich = getattr(self.crawler, "crawl_category_rich", None)
 
+        # Prefer the AJAX `fetch_description` enrichment path when the crawler
+        # supports it (ITviec): listing cards give us salary + skills + location,
+        # then the /content endpoint gives us the description text. This sidesteps
+        # the Cloudflare 403 wall on the full detail page.
+        fetch_desc = getattr(self.crawler, "fetch_description", None)
         for cat in categories:
             if len(out) >= cap:
                 break
             try:
                 cat_jds: list[RawJD]
-                if self.fetch_details or not callable(rich):
+                if callable(rich):
+                    cat_jds = rich(cat, max_pages=max_pages)
+                    if self.fetch_details and callable(fetch_desc):
+                        for jd in cat_jds:
+                            if len(out) + sum(1 for j in cat_jds if j is jd or jd.description) >= cap:
+                                break
+                            if jd.description:
+                                continue  # already populated
+                            desc = fetch_desc(jd.url)
+                            if desc:
+                                jd.description = desc
+                            self.crawler.client.polite_sleep() if hasattr(self.crawler, "client") else None
+                elif self.fetch_details:
                     urls = self.crawler.crawl_listing(cat, max_pages=max_pages)
                     cat_jds = []
                     for u in urls:
@@ -123,7 +140,7 @@ class CrawlPipeline:
                         if d:
                             cat_jds.append(d)
                 else:
-                    cat_jds = rich(cat, max_pages=max_pages)
+                    cat_jds = []
             except Exception as e:
                 logger.warning("category failed cat=%s: %s", cat, e)
                 continue
@@ -249,6 +266,7 @@ class CrawlPipeline:
             description_summary=structured.description_summary if structured else None,
             parsed_at=now if structured else None,
             parse_version=parse_version if structured else None,
+            job_group_id=compute_job_group_id(raw.company, raw.title) or None,
         )
 
     def _write_log(self, run_id, started, finished, status, count, error) -> None:

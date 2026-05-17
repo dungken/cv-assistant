@@ -135,18 +135,61 @@ class ItviecCrawler(IJDCrawler):
         logger.info("category=%s: parsed %d JDs from listing", category, len(jds))
         return jds
 
-    def crawl_detail(self, url: str) -> Optional[RawJD]:
-        """Fetch a single JD detail page. Used when description text is needed.
+    def fetch_description(self, url: str) -> Optional[str]:
+        """Fetch only the description text via ITviec's AJAX `/content` endpoint.
 
-        Most fields are already available from crawl_category_rich; this is a fallback.
+        ITviec's full-page detail (`/it-jobs/<slug>?lab_feature=preview_jd_page`)
+        is aggressively rate-limited by Cloudflare (403 after ~20 requests). The
+        AJAX endpoint at `/it-jobs/<slug>/content?job_index=0&locale=en` returns
+        the right-hand pane HTML (description, skills, location) and is NOT
+        rate-limited the same way — 0.4s per fetch.
+
+        We use this only to enrich the description field. All structured
+        fields (salary, location, skills_raw, posted_date) come from the
+        listing card via crawl_category_rich, which the AJAX endpoint hides
+        behind a login wall.
         """
+        slug = self._extract_slug(url)
+        if not slug:
+            return None
+        content_url = f"{self.base_url}/it-jobs/{slug}/content?job_index=0&locale=en"
         try:
-            html = self._get(url)
+            html = self._get(content_url)
         except Exception as e:
-            logger.warning("detail fetch failed url=%s: %s", url, e)
+            logger.warning("content fetch failed slug=%s: %s", slug, e)
             return None
         soup = BeautifulSoup(html, "html.parser")
-        return self._parse_detail_page(soup, url)
+        job_content = soup.select_one("section.job-content")
+        if not job_content:
+            return None
+        text = job_content.get_text(" ", strip=True)
+        return text or None
+
+    def crawl_detail(self, url: str) -> Optional[RawJD]:
+        """Legacy detail-page entry point — now delegates to the listing parser.
+
+        The pipeline calls this when `fetch_details=True`. Because the full
+        detail page is Cloudflare-blocked, we instead rely on the listing
+        cards (already parsed in crawl_category_rich) and just enrich them
+        with description via fetch_description(). The pipeline's standard
+        path uses crawl_category_rich() and then merges descriptions.
+
+        Kept for interface compatibility; new code should call
+        crawl_category_rich() + fetch_description() directly.
+        """
+        return None
+
+    @staticmethod
+    def _extract_slug(url: str) -> Optional[str]:
+        """Pull the slug out of `https://itviec.com/it-jobs/<slug>?...` URLs."""
+        if not url:
+            return None
+        marker = "/it-jobs/"
+        if marker not in url:
+            return None
+        tail = url.split(marker, 1)[1]
+        slug = tail.split("?")[0].split("/")[0].strip("/")
+        return slug or None
 
     def health_check(self) -> bool:
         """Verify listing page still parses correctly."""
@@ -189,20 +232,29 @@ class ItviecCrawler(IJDCrawler):
     @staticmethod
     def _infer_role_from_card(card) -> Optional[str]:
         """Return the ITviec role slug shown on the card (e.g. 'backend-developer',
-        'data-analyst'). This is the slug from the role badge link — the only
-        a[href^=/it-jobs/] that has a 'title' attribute and no '?click_source'.
+        'data-analyst').
 
-        We store the raw slug rather than mapping to a coarser bucket so the
-        analytics layer can group flexibly later (SQL CASE or Python helper).
+        Heuristic: the role badge link points to a short slug like
+        `/it-jobs/backend-developer` (with a `title` attribute), while the JD
+        permalink has a long slug ending in a numeric id like
+        `/it-jobs/senior-backend-engineer-...-company-3014?lab_feature=...`.
+        We pick the link whose path-only portion is short (≤ 3 dash segments)
+        and does NOT end in a numeric suffix — that's the role taxonomy entry.
         """
+        import re as _re
         for a in card.select('a[href^="/it-jobs/"]'):
             href = a.get("href", "")
-            if "?click_source=" in href:
+            path = href.replace("/it-jobs/", "").split("?")[0].strip("/")
+            if not path:
                 continue
-            if not a.get("title"):
+            # Skip the JD permalink itself (ends with numeric id like "-3014")
+            if _re.search(r"-\d{3,}$", path):
                 continue
-            slug = href.replace("/it-jobs/", "").split("?")[0]
-            return slug or None
+            # Role slugs are short (1-3 dash segments): "backend-developer",
+            # "ux-ui-designer", "data-analyst"
+            if path.count("-") > 3:
+                continue
+            return path
         return None
 
     def _parse_card(self, card, category: str) -> Optional[RawJD]:

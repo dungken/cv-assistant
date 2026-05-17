@@ -46,8 +46,8 @@ def main() -> None:
     )
     ap.add_argument("--max-jds-itviec", type=int, default=1000)
     ap.add_argument("--max-jds-topcv", type=int, default=500)
-    ap.add_argument("--max-jds-uit", type=int, default=300,
-        help="UIT forum (Discourse) — set to 0 to skip.")
+    ap.add_argument("--max-jds-uit", type=int, default=0,
+        help="UIT forum (Discourse) — disabled by default (event posts pollute the dataset).")
     ap.add_argument(
         "--enrich-inline",
         action="store_true",

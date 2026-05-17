@@ -52,11 +52,18 @@ class JDRaw(Base):
     parsed_at = Column(DateTime)                       # when JDParser ran; NULL = not yet
     parse_version = Column(String(16))                 # bump when parser changes
 
+    # ── Cross-source dedup tracking ─────────────────────────────────────────
+    # Records sharing the same (company, title) across multiple sources
+    # share a job_group_id. Use COUNT(DISTINCT job_group_id) for "unique JOBs"
+    # and COUNT(*) for "unique listings".
+    job_group_id = Column(String(16))
+
     __table_args__ = (
         Index("idx_jd_posted", "posted_date"),
         Index("idx_jd_role", "role"),
         Index("idx_jd_seniority", "seniority"),
         Index("idx_jd_parsed", "parsed_at"),
+        Index("idx_jd_group", "job_group_id"),
     )
 
 

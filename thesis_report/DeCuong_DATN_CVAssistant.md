@@ -25,88 +25,102 @@
 
 **I. Tên đề tài**
 
-Nghiên cứu và Xây dựng Hệ thống CV Health Intelligence — Theo dõi Sức khỏe CV Theo Thị trường Thực tế và Tối ưu Lộ trình Học Kỹ năng cho Ứng viên CNTT tại Việt Nam
+Nghiên cứu và Xây dựng Hệ thống CV Health Intelligence cho Sinh viên CNTT Việt Nam: Đánh giá Đa tiêu chí, Tối ưu Lộ trình Học và Phân tích Thị trường Tuyển dụng
 
 **II. Giới thiệu**
 
-Thị trường tuyển dụng CNTT tại Việt Nam thay đổi rất nhanh, kỹ năng "hot" hôm nay có thể không còn được nhà tuyển dụng quan tâm sau vài tháng. Theo khảo sát của ITviec (2025), hơn 60% ứng viên CNTT không biết kỹ năng nào trên CV của mình đang mất giá, và hơn 70% không có lộ trình rõ ràng để cải thiện hồ sơ xin việc.
+Thị trường tuyển dụng CNTT tại Việt Nam thay đổi rất nhanh, kỹ năng "hot" hôm nay có thể không còn được nhà tuyển dụng quan tâm sau vài tháng. Theo khảo sát của ITviec (2025), hơn 60% ứng viên CNTT không biết kỹ năng nào trên CV của mình đang mất giá, và hơn 70% không có lộ trình rõ ràng để cải thiện hồ sơ xin việc. Riêng với sinh viên CNTT chuẩn bị tốt nghiệp, khoảng cách giữa CV của bản thân và yêu cầu thực tế của thị trường còn lớn hơn do thiếu kinh nghiệm thực chiến và thiếu công cụ tự đánh giá khách quan.
 
-Các công cụ hiện có như LinkedIn, TopCV hay ChatGPT, Gemini đều có hạn chế: ChatGPT/Gemini có thể phân tích CV nhưng không có dữ liệu thị trường Việt Nam, không theo dõi CV theo thời gian, và gợi ý học tập chỉ dựa trên "cảm tính" của model. LinkedIn có market insights nhưng không cá nhân hóa theo từng CV cụ thể. Chưa có công cụ nào cho người dùng biết CV của họ đang "khỏe" hay "yếu" so với thị trường, và chỉ ra con đường ngắn nhất để cải thiện.
+Các công cụ hiện có như LinkedIn, TopCV hay ChatGPT, Gemini đều có hạn chế: ChatGPT/Gemini có thể phân tích CV nhưng không có dữ liệu thị trường Việt Nam, không theo dõi CV theo thời gian, và gợi ý học tập chỉ dựa trên "cảm tính" của model. LinkedIn có market insights nhưng không cá nhân hóa theo từng CV cụ thể và không tập trung vào nhóm sinh viên/fresher. Các báo cáo thị trường (TopDev, VietnamWorks) chỉ cung cấp số liệu tổng quát, không phân tích đa chiều hay đưa ra gợi ý cá nhân hóa. Chưa có công cụ nào cho sinh viên biết CV của họ đang "khỏe" hay "yếu" so với thị trường, đánh giá toàn diện trên nhiều tiêu chí (không chỉ skill mà còn project, education, achievement…), và chỉ ra con đường ngắn nhất để cải thiện.
 
-Đề tài xây dựng hệ thống **CV Health Intelligence** trong 18 tuần (03/2026 – 07/2026), tập trung vào hai bài toán chính:
+Đề tài xây dựng hệ thống **CV Health Intelligence** trong 18 tuần (03/2026 – 07/2026), tập trung vào **bốn đóng góp chính**:
 
-- **CV Freshness Score:** Công thức tính điểm "sức khỏe" CV dựa trên dữ liệu JD crawl hàng ngày từ ITviec/TopCV. Dashboard cho người dùng theo dõi điểm số theo thời gian và nhận cảnh báo khi kỹ năng tăng/giảm demand.
+- **(1) Multi-criteria CV Freshness Score:** Đề xuất khung đánh giá CV đa tiêu chí gồm 8 dimension (Skill Freshness, Experience Depth, Project Quality, Education Strength, Achievement Signal, Language, CV Completeness, Market Alignment) với trọng số tinh chỉnh riêng cho audience sinh viên CNTT Việt Nam. Mỗi dimension có sub-metrics đo lường được, công thức tổng hợp tường minh.
 
-- **Learning Path Optimizer:** Bài toán tìm lộ trình học kỹ năng tối ưu trên skill graph, so sánh 3 thuật toán Greedy, Dijkstra và Dynamic Programming. Kết quả là gợi ý thứ tự học kỹ năng giúp người dùng mở khóa được nhiều JD nhất trong thời gian cho trước.
+- **(2) Learning Path Optimizer:** Hình thức hóa bài toán tìm lộ trình học kỹ năng tối ưu trên skill graph, so sánh 3 thuật toán Greedy (ROI-based), Dijkstra (state-space) và Dynamic Programming (Budgeted Maximum Coverage). Kết quả là gợi ý thứ tự học kỹ năng giúp người dùng mở khóa được nhiều JD nhất trong thời gian cho trước.
 
-Để hai bài toán trên có thể vận hành, hệ thống cần một pipeline trích xuất và chuẩn hóa kỹ năng từ CV và JD, bao gồm NER song ngữ Việt-Anh, Skill Matching Engine và skill ontology. Các thành phần này được xây dựng như nền dữ liệu, không phải trọng tâm đóng góp của đề tài.
+- **(3) NER song ngữ Việt-Anh fine-tuned cho CV/JD CNTT:** Mô hình BERT-base fine-tune cho 20+ entity labels chuyên biệt domain CV CNTT Việt Nam (PER, ORG, DATE, LOC, SKILL, DEGREE, MAJOR, JOB_TITLE, PROJECT, CERT,...). Đạt F1 = 0.86 trên test set thủ công, F1 = 0.74 trên span-level evaluation 100 CV synthetic.
+
+- **(4) Market Intelligence Dashboard:** Tổng hợp 33 insight đa chiều từ ~1.500 JD thực thu thập từ ITviec và TopCV — bao gồm Skill Premium Index, Skill Velocity (14d), Hidden Gems Quadrant, Skill Clustering (Jaccard + Union-Find), English Premium, Career ROI Salary Curve, Skill Network Graph. Cung cấp bối cảnh thị trường để CV Freshness Score và Learning Path Optimizer hoạt động có ý nghĩa thực tiễn.
 
 Mục tiêu cụ thể:
 
-- Xây dựng pipeline crawl JD thực từ ITviec/TopCV và lưu trữ skill demand theo thời gian.
-- Đề xuất và validate công thức **CV Freshness Score** — chỉ số định lượng mức độ cập nhật của CV theo thị trường.
+- Xây dựng pipeline crawl JD thực từ ITviec/TopCV, snapshot ~1.500 JD active trong 45 ngày, lưu trữ skill demand theo thời gian.
+- Đề xuất và validate **Multi-criteria CV Freshness Framework** (8 dimension) cho audience sinh viên CNTT Việt Nam.
 - Hình thức hóa bài toán **Learning Path Optimization** trên skill graph, so sánh 3 thuật toán trên bộ benchmark từ dữ liệu thực.
-- Xây dựng **CV Health Dashboard** hiển thị Freshness Score, skill alerts, learning path và opportunity window.
-- Đánh giá hệ thống qua user study với 20–30 người dùng thực.
+- Fine-tune mô hình **NER BERT** cho CV/JD CNTT song ngữ, đo F1 token-level + span-level trên test set thủ công.
+- Xây dựng **CV Health Dashboard + Market Intelligence Dashboard** với 33 insight phân tích thị trường + per-user analytics.
 
-Phạm vi: ứng viên CNTT tại Việt Nam (Backend, Frontend, Data, DevOps, AI Engineer), dữ liệu từ ITviec và TopCV. Đề tài không bao gồm các ngành ngoài CNTT và không triển khai production công khai.
+Phạm vi: sinh viên/ứng viên CNTT năm 3–4 và fresher (0–1 năm kinh nghiệm) tại Việt Nam (Backend, Frontend, Data, DevOps, AI Engineer), dữ liệu từ ITviec và TopCV. Đề tài không bao gồm các ngành ngoài CNTT, không triển khai production công khai, và không bao gồm user study quy mô lớn (limitation tự nhiên của khung thời gian).
 
 **III. Cơ sở lý thuyết**
 
-**1. Skill Graph và Knowledge Graph**
+**1. Multi-criteria Decision Making (MCDM) cho đánh giá CV**
 
-Knowledge Graph (KG) là đồ thị có hướng biểu diễn tri thức, với các nút là thực thể và cạnh là quan hệ có nhãn. Trong bài toán kỹ năng nghề nghiệp, skill graph mô tả các quan hệ: REQUIRES (A là điều kiện tiên quyết của B), LEADS_TO (học A dẫn đến học B), RELATED_TO (A và B có thể thay thế nhau). Theo Murugavel & Bhuvaneswari (2023), gợi ý nghề nghiệp dựa trên KG cho kết quả tốt hơn collaborative filtering nhờ khả năng suy luận theo quan hệ. Đề tài xây dựng skill graph kỹ năng CNTT khoảng 500 nodes và 250+ edges, gắn thêm trọng số học tập để dùng cho thuật toán tối ưu lộ trình.
+Đánh giá CV là bài toán đa tiêu chí cố hữu — một CV có thể mạnh về kỹ năng nhưng yếu về kinh nghiệm, hoặc ngược lại. Các phương pháp MCDM kinh điển như Weighted Sum Model (Saaty, 1980) và Analytic Hierarchy Process (AHP) cung cấp khung lý thuyết để tổng hợp nhiều tiêu chí thành một chỉ số duy nhất với trọng số có thể tùy chỉnh theo audience. Đề tài đề xuất khung Multi-criteria CV Freshness Score gồm 8 dimension (Skill Freshness, Experience Depth, Project Quality, Education Strength, Achievement Signal, Language Proficiency, CV Completeness, Market Alignment) với trọng số tinh chỉnh riêng cho sinh viên CNTT Việt Nam (ưu tiên Project Quality và Skill Freshness, giảm Experience Depth do nhóm này ít kinh nghiệm thực chiến).
 
-**2. Learning Path Optimization**
+**2. Skill Graph và Learning Path Optimization**
 
-Bài toán tìm lộ trình học tối ưu có thể quy về bài toán tối ưu tổ hợp trên đồ thị có trọng số. Các thuật toán Dijkstra, A* và Dynamic Programming đã được dùng nhiều trong các hệ thống gợi ý lộ trình học. Bài toán maximize coverage với budget constraint là biến thể của Knapsack Problem, có nền tảng lý thuyết rõ ràng để so sánh thuật toán. Greedy thường cho giải pháp gần tối ưu trong thời gian ngắn, phù hợp với yêu cầu phản hồi nhanh của hệ thống.
+Knowledge Graph (KG) là đồ thị có hướng biểu diễn tri thức, với các nút là thực thể và cạnh là quan hệ có nhãn. Trong bài toán kỹ năng nghề nghiệp, skill graph mô tả các quan hệ REQUIRES, LEADS_TO, RELATED_TO, PART_OF. Theo Murugavel & Bhuvaneswari (2023), gợi ý nghề nghiệp dựa trên KG cho kết quả tốt hơn collaborative filtering nhờ khả năng suy luận theo quan hệ. Bài toán tìm lộ trình học tối ưu trên skill graph quy về bài toán tối ưu tổ hợp với ràng buộc budget — biến thể của Knapsack Problem. Đề tài cài đặt và so sánh ba thuật toán: Greedy (ROI-based) với tỷ lệ xấp xỉ (1−1/e) ≈ 0.63 theo Khuller et al. (1999), Dijkstra trên state-space graph, và Dynamic Programming bitmask cho lời giải tối ưu (O(2^n) khi |candidates| ≤ 20).
 
-**3. Phân tích xu hướng kỹ năng theo thời gian**
+**3. Named Entity Recognition (NER) song ngữ Việt-Anh**
 
-Phân tích xu hướng kỹ năng từ dữ liệu tuyển dụng là hướng đang được quan tâm, nhờ dữ liệu JD ngày càng dồi dào trên các nền tảng trực tuyến. Skill demand có thể thay đổi đáng kể trong 3–6 tháng ở ngành CNTT. Phân tích time-series trên tần suất skill xuất hiện trong JD cung cấp tín hiệu hữu ích về xu hướng thị trường. Đề tài áp dụng kỹ thuật này cho thị trường CNTT Việt Nam.
+NER là bài toán trích xuất các thực thể có tên (Named Entity) từ văn bản không cấu trúc. CV và JD CNTT Việt Nam có đặc thù song ngữ Việt-Anh, đan xen tự do (vd: "Có kinh nghiệm về React.js và NodeJS"), khiến các mô hình NER monolingual không phù hợp. Đề tài fine-tune mô hình BERT-base cho 20+ entity labels chuyên biệt domain CV CNTT (PER, ORG, DATE, LOC, SKILL, DEGREE, MAJOR, JOB_TITLE, PROJECT, CERT,...), train trên ~1.000 CV synthetic được auto-label, đạt F1 = 0.86 trên test set thủ công 71 entities và F1 = 0.74 trên span-level evaluation 100 CV. Đây là một trong những đóng góp chính của đề tài, có thể tái sử dụng cho các hệ thống CV/JD parsing tiếng Việt khác.
 
-**4. NER và Skill Matching cho CV/JD (thành phần nền)**
+**4. Phân tích xu hướng kỹ năng và Market Intelligence**
 
-Để Freshness Score và Learning Path Optimizer hoạt động, hệ thống cần một bước trích xuất và chuẩn hóa kỹ năng từ CV và JD. Đề tài dùng mBERT fine-tuned cho NER song ngữ Việt-Anh và Skill Matching Engine 3 tầng (exact match → ontology match → semantic match với Sentence-BERT) để xử lý phần này. Các kỹ thuật này không phải đóng góp mới của đề tài, được tham chiếu như công cụ tiền xử lý dữ liệu.
+Phân tích xu hướng kỹ năng từ dữ liệu tuyển dụng là hướng đang được quan tâm, nhờ dữ liệu JD ngày càng dồi dào. Đề tài mở rộng hướng này thành **Market Intelligence Dashboard** với 33 insight đa chiều, bao gồm các phân tích chuyên sâu: Skill Premium Index (skill nào trả lương cao hơn median thị trường), Skill Velocity (so sánh 14d vs 14d trước để phát hiện trend), Hidden Gems Quadrant (skill ít cạnh tranh nhưng lương cao), Skill Clustering bằng Jaccard similarity + Union-Find, English Premium (mức lương khi yêu cầu tiếng Anh), Career ROI Salary Curve theo bucket kinh nghiệm, Skill Network Graph (force-directed visualization). Các phân tích này được tính SQL-side trên ~1.500 JD thu thập, cache 5 phút, cung cấp bối cảnh thị trường để Freshness Score và Learning Path Optimizer hoạt động có ý nghĩa thực tiễn.
 
 **5. Web Crawling và lưu trữ dữ liệu**
 
-Web crawling là kỹ thuật thu thập dữ liệu tự động từ các trang web. Đề tài dùng Selenium cho nội dung dynamic và BeautifulSoup cho HTML parsing để crawl JD từ ITviec/TopCV cho mục đích nghiên cứu, có tuân thủ robots.txt. ChromaDB được dùng để lưu trữ embedding vector của JD theo thời gian, hỗ trợ truy vấn semantic.
+Web crawling là kỹ thuật thu thập dữ liệu tự động từ các trang web. Đề tài dùng cloudscraper để vượt qua Cloudflare challenge của ITviec và Selenium cho nội dung dynamic của TopCV, BeautifulSoup cho HTML parsing, tuân thủ robots.txt cho mục đích nghiên cứu học thuật. JD được làm giàu bằng pipeline rule-based extractor (regex VN+EN) kết hợp tùy chọn LLM overlay (Groq llama-3.1-8b, pluggable provider hỗ trợ Ollama local) để trích xuất 8 trường: seniority, min/max_exp, degree, work_mode, skills_required/preferred, salary range. ChromaDB lưu embedding vector JD; PostgreSQL lưu structured fields cho time-series analytics.
 
 **6. Dashboard và Data Visualization**
 
-Dashboard cần trực quan hóa nhiều loại dữ liệu: time-series chart cho skill trend, gauge chart cho Freshness Score, graph visualization cho learning path. Recharts là thư viện chart cho React, có sẵn các component này. Nguyên tắc thiết kế dashboard của Few (2006) được tham khảo để dashboard truyền đạt thông tin hiệu quả.
+Dashboard cần trực quan hóa nhiều loại dữ liệu: time-series chart cho skill trend, gauge chart cho Freshness Score, network graph cho skill clustering, scatter quadrant cho Hidden Gems, heatmap cho skill × role. Đề tài sử dụng Recharts (cho chart kinh điển) kết hợp custom SVG (cho Skill Network Graph và Hidden Gems Quadrant). Nguyên tắc thiết kế dashboard của Few (2006) được tham khảo, bổ sung 3 nguyên tắc riêng cho analytics dashboard: insight-first naming, progressive disclosure, compare mode.
 
 **IV. Phương pháp nghiên cứu**
 
-**Tìm hiểu tài liệu:** Đọc các bài báo, paper liên quan đến skill graph, learning path recommendation, temporal skill analysis từ các nguồn như ACL, RecSys, KSE, IJCAI. Xem xu hướng nghiên cứu hiện tại và xác định hướng tiếp cận phù hợp cho thị trường CNTT Việt Nam.
+**Tìm hiểu tài liệu:** Đọc các bài báo, paper liên quan đến Multi-criteria Decision Making, skill graph, learning path recommendation, NER song ngữ, temporal skill analysis từ các nguồn như ACL, RecSys, KSE, IJCAI, EMNLP. Xem xu hướng nghiên cứu hiện tại và xác định hướng tiếp cận phù hợp cho thị trường CNTT Việt Nam và audience sinh viên.
 
-**Thu thập dữ liệu:** Viết crawler lấy JD từ ITviec và TopCV (~200 JD/ngày). JD được parse để lấy ra skills, role, mức lương, location. Lưu vào ChromaDB theo ngày để có dữ liệu time-series.
+**Thu thập dữ liệu:** Viết crawler lấy JD từ ITviec (cloudscraper vượt Cloudflare) và TopCV (Selenium dynamic content), snapshot ~1.500 JD active trong 45 ngày. JD được parse qua pipeline rule-based extractor (regex VN+EN) kết hợp LLM overlay tùy chọn để trích xuất 8 trường structured. Lưu vào PostgreSQL (structured + time-series) và ChromaDB (semantic embeddings).
 
-**CV Freshness Score:** Đề xuất công thức tính dựa trên trend_weight, recency và độ quan trọng của skill. Validate bằng cách: (1) so sánh score giữa CV "cập nhật" và CV "lỗi thời" tạo thủ công; (2) khảo sát 10 recruiter đánh giá xem score có hợp lý không.
+**Multi-criteria CV Freshness Score:** Đề xuất khung đánh giá 8 dimension với trọng số tinh chỉnh cho sinh viên CNTT (ưu tiên Project Quality 22%, Skill Freshness 18%, Education 12%, giảm Experience Depth xuống 10%). Validate bằng: (1) so sánh score giữa CV "tốt" và CV "yếu" tạo thủ công; (2) ablation study — bỏ từng dimension và đo độ thay đổi score; (3) consistency check — cùng CV qua nhiều version phải có score nhất quán.
 
-**Learning Path Optimizer:** Cài đặt 3 thuật toán Greedy, Dijkstra, DP. Tạo bộ 50 test case có sẵn lời giải tối ưu. So sánh các thuật toán về số JD mở khóa được sau N tuần và thời gian chạy.
+**Learning Path Optimizer:** Cài đặt 3 thuật toán Greedy (ROI-based), Dijkstra (state-space search), Dynamic Programming (bitmask brute-force cho |candidates| ≤ 20). Tạo bộ benchmark 50 test cases có lời giải tối ưu được pre-compute. So sánh các thuật toán về (a) số JD unlock sau N tuần, (b) wall-clock runtime, (c) optimality gap so với DP.
 
-**Xây dựng hệ thống:** Phát triển theo từng tuần (sprint ngắn). Các module độc lập tích hợp qua kiến trúc microservices để có thể làm song song và test riêng từng phần.
+**NER fine-tune:** Generate 1.000 CV synthetic IT bằng LLM (Llama 3.2 1B trên Colab T4), auto-label bằng rule-based annotator dựa trên dictionary skill 474 entries và regex patterns. Train BERT-base 20+ entity labels (PER, ORG, DATE, LOC, SKILL, DEGREE, MAJOR, JOB_TITLE, PROJECT, CERT,…) trên Google Colab. Đánh giá ba mức: (i) token-level F1 trên silver labels 200 mẫu (phát hiện tokenization mismatch); (ii) token-level F1 trên manual annotation 71 entities — đạt 0.86; (iii) span-level F1 trên 100 CV thủ công — đạt 0.74.
 
-**Đánh giá người dùng:** User study với 20–30 người (sinh viên CNTT năm 3–4 và kỹ sư 0–3 năm kinh nghiệm). Đo: (1) Freshness Score có hữu ích không (thang Likert 1–5); (2) lộ trình học được gợi ý có khả thi không; (3) SUS score; (4) người dùng có muốn quay lại sử dụng không.
+**Market Intelligence Dashboard:** Tổng hợp 33 insight đa chiều bằng SQL aggregation trên jd_raw, gồm 5 nhóm: Overview KPIs, Demand Analytics, Salary Insights, Temporal & Trend, Relationship Insights. Triển khai cache TTL 5 phút server-side. Validate bằng so chiếu với các báo cáo thị trường công khai (TopDev, ITviec annual report) cho các insight cơ bản.
+
+**Xây dựng hệ thống:** Phát triển theo từng tuần (sprint ngắn). Các module độc lập tích hợp qua kiến trúc microservices (crawler_service, skill_service, ner_service, api_gateway .NET, frontend React) để có thể làm song song và test riêng từng phần.
+
+**Đánh giá hệ thống:** Do giới hạn thời gian, đề tài không thực hiện user study quy mô lớn (≥20 người) — limitation tự nhiên được nêu rõ trong báo cáo. Thay vào đó, đánh giá hệ thống dựa trên: (1) benchmark định lượng 3 thuật toán Learning Path trên 50 test cases; (2) F1 NER trên test set thủ công; (3) accuracy pipeline JD extraction trên 99 gold labels; (4) demo case study với 3-5 CV thật để minh họa workflow end-to-end.
 
 **V. Kết quả dự kiến**
 
-Hệ thống CV Health Intelligence chạy được end-to-end với các chức năng:
-- Pipeline crawl JD tự động hàng ngày từ ITviec/TopCV (~200 JD/ngày)
-- Dashboard hiển thị CV Freshness Score, trend chart và skill alerts
-- Learning Path Optimizer với visualization lộ trình học
-- Opportunity Window: JD mới phù hợp trong 7 ngày gần nhất
-- Thông báo trong app khi market thay đổi đáng kể
-- Email digest hàng tuần tóm tắt thay đổi
+Hệ thống CV Health Intelligence chạy được end-to-end với các thành phần:
 
-Phần đóng góp đo được:
-- Công thức CV Freshness Score có validate và so sánh với baseline (score random, score chỉ dựa trên ATS)
-- Bảng so sánh 3 thuật toán Learning Path Optimization trên 50 test case: kỳ vọng Greedy đạt ≥ 80% kết quả tối ưu của DP với thời gian O(n) so với O(2^n)
-- Bộ dữ liệu skill demand time-series cho thị trường CNTT Việt Nam
+**Sản phẩm phần mềm:**
+- Pipeline crawl JD ITviec + TopCV (snapshot ~1.500 JD trong 45 ngày, hỗ trợ cron daily idempotent với UPSERT theo URL key)
+- CV Health Dashboard: Freshness Score 8 dimension, Learning Path visualization, Skill alerts, Opportunity Window
+- Market Intelligence Dashboard: 33 insight đa chiều (KPIs, Skill Premium, Velocity, Hidden Gems, Clustering, English Premium, Salary Curve, Network Graph, …)
+- NER service: BERT fine-tune CV/JD song ngữ với 20+ entity labels
+- Pluggable LLM extractor (Rule mặc định, Ollama/Groq tùy chọn) cho JD enrichment
 
-Kết quả user study kỳ vọng: SUS score ≥ 68 (mức trên trung bình), usefulness rating ≥ 3.5/5.0, ≥ 70% người dùng thấy lộ trình học được gợi ý là khả thi và hữu ích.
+**Phần đóng góp đo được:**
+
+1. **Multi-criteria CV Freshness Framework** — 8 dimension với trọng số tinh chỉnh cho sinh viên CNTT. Validate qua: (a) ablation study đo độ ảnh hưởng từng dimension; (b) consistency check trên các phiên bản CV; (c) 3-5 case study CV thật minh họa workflow end-to-end.
+
+2. **Bảng benchmark 3 thuật toán Learning Path Optimization** trên 50 test cases: kỳ vọng Greedy đạt ≥ 80% lời giải tối ưu của DP với độ phức tạp O(n) so với O(2^n); Dijkstra cho lời giải tối ưu tương đương DP với độ phức tạp thấp hơn trên skill graph thưa.
+
+3. **Mô hình NER fine-tune cho CV/JD CNTT Việt Nam** — đạt F1 ≈ 0.86 trên test set thủ công 71 entities, F1 ≈ 0.74 trên span-level evaluation 100 CV synthetic. Per-entity breakdown chi tiết cho 9 entity types phổ biến (SKILL, ORG, DATE, JOB_TITLE, LOC, DEGREE, MAJOR, PER, CERT).
+
+4. **Bộ dữ liệu skill demand cho thị trường CNTT Việt Nam** — ~1.500 JD thực với 30+ structured fields, đính kèm pipeline reproduce được. Có thể tái sử dụng cho các nghiên cứu tiếp theo về labor market analytics.
+
+5. **Báo cáo Data Quality** — Layer 1 (completeness) và Layer 2 (validity) cho jd_raw, đo coverage và sanity checks trên từng nguồn. Layer 3 đo accuracy pipeline trích xuất trên 99 gold labels manual với 95% Wilson CI.
+
+**Lưu ý phạm vi đánh giá:** Do giới hạn khung thời gian, đề tài không bao gồm user study quy mô lớn (≥20 người dùng) — limitation được nêu rõ trong báo cáo. Đánh giá hệ thống dựa trên các metric định lượng (F1, accuracy, optimality gap, runtime) thay vì SUS/usefulness rating chủ quan.
 
 **VI. Đóng góp của đề tài**
 
