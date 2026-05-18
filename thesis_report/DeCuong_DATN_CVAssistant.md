@@ -124,15 +124,15 @@ Hệ thống CV Health Intelligence chạy được end-to-end với các thành
 
 **VI. Đóng góp của đề tài**
 
-Về mặt khoa học, đề tài có bốn đóng góp chính:
+Về mặt khoa học, đề tài có ba đóng góp chính:
 
 1. **Multi-criteria CV Freshness Framework** — đề xuất khung đánh giá CV theo 8 chiều (Skill, Experience, Project, Education, Achievement, Language, Completeness, Market Alignment) cùng công thức tổng hợp định lượng mức độ cập nhật của CV so với thị trường tuyển dụng CNTT Việt Nam.
 
 2. **Learning Path Optimizer với benchmark 3 thuật toán** — hình thức hóa bài toán tối ưu lộ trình học trên skill graph và so sánh thực nghiệm Greedy, Dijkstra, Dynamic Programming trên 50 test cases sinh viên CNTT, đo các tiêu chí: số JD unlock được, runtime, optimality gap.
 
-3. **NER song ngữ Việt-Anh cho CV/JD CNTT** — fine-tune mô hình BERT trên tập dữ liệu CV/JD tiếng Việt-Anh có nhãn thủ công, đạt F1 = 0.86 ở mức token và F1 = 0.74 ở mức span cho các nhóm thực thể skill, role, edu, exp.
+3. **Market Intelligence Dashboard** — xây dựng dashboard phân tích thị trường tuyển dụng với 33 insight (top skill, salary distribution, work-mode trend, role demand) dựa trên dữ liệu snapshot ~1500 JD crawl từ ITviec và TopCV, hỗ trợ cross-source deduplication qua `job_group_id` và filter switch giữa nguồn ITviec/TopCV/cả hai.
 
-4. **Market Intelligence Dashboard** — xây dựng dashboard phân tích thị trường tuyển dụng với 33 insight (top skill, salary distribution, work-mode trend, role demand) dựa trên dữ liệu snapshot ~1500 JD crawl từ ITviec và TopCV, hỗ trợ dedup cross-source qua `job_group_id`.
+Hỗ trợ cho ba đóng góp trên, đề tài đồng thời xây dựng **Bilingual Skill Extraction & Matching Pipeline** (NER mBERT song ngữ Việt-Anh + Ontology IT 500 entries + Cascade matching 3 tầng Exact/Ontology/SBERT) — đóng vai trò thành phần tiền xử lý CV/JD, đảm bảo input chất lượng cho cả ba đóng góp khoa học. Pipeline được đánh giá đa tầng (span-level F1 trên 100 CV, end-to-end cascade trên test suite) và trình bày chi tiết trong Chương 3.
 
 Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các công cụ hiện có (ChatGPT, LinkedIn, TopCV) chưa làm được: coi CV như một tài liệu sống cần cập nhật theo thị trường, không phải file tĩnh viết một lần rồi để đó. Hệ thống có thể được triển khai tại Career Center của các trường đại học để hỗ trợ sinh viên CNTT Việt Nam theo dõi, cải thiện CV và định hướng học tập trong suốt quá trình học và đi tìm việc.
 
@@ -140,7 +140,7 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các
 
 **CHƯƠNG 1: Tổng quan**
 
-1.1. Tình hình nghiên cứu trong và ngoài nước về career recommendation và skill analysis
+1.1. Tình hình nghiên cứu trong và ngoài nước về đánh giá CV, learning path và market intelligence cho thị trường tuyển dụng CNTT
 
 1.2. Lý do chọn đề tài và bối cảnh thực tiễn
 
@@ -154,19 +154,65 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các
 
 1.4. Đối tượng và phạm vi đề tài
 
+1.5. Đóng góp của đề tài
+
 **CHƯƠNG 2: Cơ sở lý thuyết**
 
 2.1. Multi-Criteria Decision Making và đánh giá CV đa tiêu chí
 
+&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. Bài toán đánh giá đa tiêu chí và hạn chế của single-score
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. Các phương pháp MCDM kinh điển (Weighted Sum, AHP, TOPSIS)
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. Ứng dụng MCDM vào đánh giá CV trong HR
+
 2.2. Skill Graph và Learning Path Optimization — cơ sở toán học và thuật toán
 
-2.3. Named Entity Recognition song ngữ Việt-Anh với BERT
+&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. Skill Graph: cấu trúc, các loại quan hệ và metadata
 
-2.4. Market Intelligence và phân tích nhu cầu thị trường tuyển dụng
+&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. Hình thức hóa Learning Path Optimization
 
-2.5. Web Crawling, xử lý JD thực tế và cross-source deduplication
+&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. Thuật toán Greedy (ROI-based) và Budgeted Maximum Coverage
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.2.4. Thuật toán Dijkstra trên weighted skill graph
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.2.5. Dynamic Programming và lời giải tối ưu
+
+2.3. Market Intelligence và phân tích nhu cầu thị trường tuyển dụng
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.3.1. Các phương pháp phân tích JD theo thời gian
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.3.2. Cross-source deduplication: bài toán và giải pháp hash-based
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.3.3. Information Dashboard Design cho thị trường tuyển dụng
+
+2.4. Web Crawling và xử lý JD thực tế
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.4.1. Các phương pháp crawl web (HTTP request, Selenium, AJAX endpoint)
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.4.2. Xử lý Cloudflare bot protection (cloudscraper)
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.4.3. Pipeline parse JD: listing + detail enrichment
+
+2.5. Pipeline tiền xử lý CV/JD: NER bilingual, Ontology, Sentence-BERT cascade
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.5.1. Named Entity Recognition và mô hình BERT đa ngôn ngữ (mBERT)
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.5.2. Skill Ontology và các quan hệ chuẩn hóa kỹ năng
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.5.3. Sentence-BERT và semantic similarity matching
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.5.4. Cascade Matching nhiều tầng: thiết kế và trade-off
 
 2.6. Các công nghệ và công cụ sử dụng
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.6.1. Backend: FastAPI, PostgreSQL, ChromaDB
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.6.2. NLP/ML: HuggingFace Transformers, Sentence-Transformers
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.6.3. Frontend: React, Recharts, TailwindCSS
+
+&nbsp;&nbsp;&nbsp;&nbsp;2.6.4. DevOps: Docker Compose, cron, APScheduler
 
 **CHƯƠNG 3: Phân tích và Thiết kế hệ thống**
 
@@ -192,11 +238,17 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các
 
 &nbsp;&nbsp;&nbsp;&nbsp;3.3.3. Thiết kế bộ benchmark 50 test cases
 
-3.4. Thiết kế pipeline NER fine-tuned BERT cho CV/JD song ngữ
+3.4. Thiết kế pipeline crawl JD và cross-source deduplication (`job_group_id`)
 
-3.5. Thiết kế pipeline crawl JD và cross-source deduplication (`job_group_id`)
+3.5. Thiết kế Market Intelligence Dashboard với 33 insight (filter switch ITviec/TopCV/all)
 
-3.6. Thiết kế Market Intelligence Dashboard với 33 insight
+3.6. Thiết kế Skill Extraction & Matching Pipeline (NER mBERT + Ontology 500 entries + Cascade 3 tầng)
+
+&nbsp;&nbsp;&nbsp;&nbsp;3.6.1. NER mBERT fine-tune cho CV/JD song ngữ Việt-Anh
+
+&nbsp;&nbsp;&nbsp;&nbsp;3.6.2. Skill Ontology IT 500 entries (REQUIRES, LEADS_TO, RELATED_TO, PART_OF)
+
+&nbsp;&nbsp;&nbsp;&nbsp;3.6.3. Cascade Matching: Exact → Ontology → Sentence-BERT cosine
 
 3.7. Thiết kế kiến trúc tổng thể và cơ sở dữ liệu
 
@@ -206,13 +258,19 @@ Về mặt thực tiễn, hệ thống giải quyết một vấn đề mà các
 
 4.2. Xây dựng JD Crawler ITviec + TopCV và pipeline cross-source dedup
 
-4.3. Fine-tune và đánh giá NER song ngữ (F1 token-level / span-level)
+4.3. Xây dựng Skill Extraction & Matching Pipeline và đánh giá đa tầng
+
+&nbsp;&nbsp;&nbsp;&nbsp;4.3.1. Fine-tune mBERT cho NER song ngữ Việt-Anh
+
+&nbsp;&nbsp;&nbsp;&nbsp;4.3.2. Đánh giá span-level NER trên 100 CV (per-entity F1)
+
+&nbsp;&nbsp;&nbsp;&nbsp;4.3.3. Đánh giá end-to-end Cascade Matching trên test suite
 
 4.4. Xây dựng Multi-criteria CV Freshness Engine và kết quả validate
 
 4.5. Xây dựng Learning Path Optimizer và kết quả benchmark 3 thuật toán
 
-4.6. Xây dựng Market Intelligence Dashboard (33 insight)
+4.6. Xây dựng Market Intelligence Dashboard (33 insight, filter switch nguồn)
 
 4.7. Tích hợp frontend CV Health Dashboard end-to-end
 
@@ -269,10 +327,10 @@ Thời gian và nội dung công việc theo tuần:
 | **Thời gian** | **Nội dung công việc** | **Ghi chú** |
 | Tuần 1 (02/03–08/03) | Nhận đề tài, gặp GVHD xác định mục tiêu và phạm vi. Khảo sát nhu cầu thực tế của sinh viên CNTT Việt Nam. Tổng hợp tài liệu nền về skill graph và learning path recommendation. | |
 | Tuần 2 (09/03–15/03) | Xây dựng đề cương chi tiết. Tổng hợp tài liệu nâng cao về MCDM và NER bilingual. Thiết kế kiến trúc tổng thể của hệ thống. | Nộp đề cương GVHD |
-| Tuần 3 (16/03–22/03) | Chuẩn bị nền dữ liệu: thu thập CV mẫu, gán nhãn corpus NER song ngữ Việt-Anh (~500 câu). Khởi tạo schema database PostgreSQL và ChromaDB. | |
-| Tuần 4 (23/03–29/03) | Fine-tune mô hình BERT cho NER CV/JD, đánh giá F1 token-level và span-level. Bắt đầu xây dựng skill ontology IT (REQUIRES, LEADS_TO, RELATED_TO, PART_OF). | Mốc NER |
-| Tuần 5 (30/03–05/04) | Hoàn thiện ontology (~500 entries). Implement Skill Matching Engine để chuẩn hóa kỹ năng giữa CV và JD. | |
-| Tuần 6 (06/04–12/04) | Tích hợp pipeline tiền xử lý (NER + Skill Matching) thành dịch vụ chung. Khởi tạo frontend React và các component upload CV cơ bản. | |
+| Tuần 3 (16/03–22/03) | Chuẩn bị nền dữ liệu: sinh corpus CV synthetic Việt-Anh có kiểm soát, gán nhãn BIO bằng rule-based silver standard. Khởi tạo schema database PostgreSQL và ChromaDB. | |
+| Tuần 4 (23/03–29/03) | Fine-tune mBERT cho NER CV/JD song ngữ. Bắt đầu xây dựng Skill Ontology IT (REQUIRES, LEADS_TO, RELATED_TO, PART_OF). | Infrastructure |
+| Tuần 5 (30/03–05/04) | Hoàn thiện ontology (~500 entries). Implement Cascade Matching Engine 3 tầng (Exact → Ontology → SBERT) để chuẩn hóa kỹ năng giữa CV và JD. | |
+| Tuần 6 (06/04–12/04) | Tích hợp pipeline tiền xử lý (NER + Cascade Matching) thành dịch vụ chung. Đánh giá đa tầng: span-level F1 trên 100 CV, end-to-end cascade trên test suite. | |
 | Tuần 7 (13/04–19/04) | Hoàn thiện nền dữ liệu, kiểm thử pipeline tiền xử lý trên CV và JD mẫu. Viết Chương 1 báo cáo (tổng quan). | |
 | Tuần 8 (20/04–26/04) | Xây dựng JD Crawler cho ITviec và TopCV (cloudscraper + AJAX endpoint). Triển khai cross-source dedup qua `job_group_id`. | |
 | Tuần 9 (27/04–03/05) | Hoàn thiện crawler. Snapshot ~1500 JD và xây dựng pipeline structured extraction (min_exp, seniority, work_mode, degree). Viết Chương 2 báo cáo (cơ sở lý thuyết). | Snapshot JD |

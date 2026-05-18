@@ -98,7 +98,13 @@ class JDStorage:
                 # On conflict: refresh last_seen + re-enrich if we parsed this run.
                 # When parsed_at is set, also overwrite parsed columns so a later
                 # crawl picks up a better parse if the parser was upgraded.
+                # IMPORTANT: only overwrite description/parse_version when this
+                # run actually fetched a non-empty description — a listing-only
+                # crawl must not blank out enriched data from a previous detail crawl.
                 update_set = {"last_seen": now}
+                if jd.raw.description:
+                    update_set["description"] = jd.raw.description
+                    update_set["parse_version"] = jd.parse_version
                 if jd.parsed_at is not None:
                     update_set.update({
                         "min_exp": jd.min_exp,
@@ -110,7 +116,6 @@ class JDStorage:
                         "work_mode": jd.work_mode,
                         "description_summary": jd.description_summary,
                         "parsed_at": jd.parsed_at,
-                        "parse_version": jd.parse_version,
                     })
                 # job_group_id always refreshed when present (cheap to compute,
                 # idempotent — same (company, title) → same hash)

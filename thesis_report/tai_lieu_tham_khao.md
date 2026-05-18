@@ -40,6 +40,12 @@
 
 <a id="ref-20"></a>**[20]** Sarwar, B., Karypis, G., Konstan, J., Riedl, J. (2001). "Item-based collaborative filtering recommendation algorithms". *Proceedings of WWW 2001*, pp. 285–295.
 
+<a id="ref-21"></a>**[21]** Saaty, T.L. (1980). *The Analytic Hierarchy Process: Planning, Priority Setting, Resource Allocation*. McGraw-Hill, New York.
+
+<a id="ref-22"></a>**[22]** Hwang, C.-L., Yoon, K. (1981). *Multiple Attribute Decision Making: Methods and Applications*. Springer-Verlag, Berlin Heidelberg.
+
+<a id="ref-23"></a>**[23]** Triantaphyllou, E. (2000). *Multi-Criteria Decision Making Methods: A Comparative Study*. Kluwer Academic Publishers, Dordrecht.
+
 ---
 
 [← Mở đầu](./mo_dau.md) | [→ Chương 1](./chuong1/1.1_tong_quan_cong_trinh.md)

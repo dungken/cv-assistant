@@ -32,7 +32,7 @@ export DATABASE_URL="postgresql://skill_user:skill_password@localhost:5434/skill
 export CHROMA_HOST="localhost"
 export CHROMA_PORT="8003"
 
-if .venv/bin/python -m services.crawler_service.scripts.run_once_crawl >> "$LOG_FILE" 2>&1; then
+if .venv/bin/python -m services.crawler_service.scripts.run_once_crawl --fetch-details >> "$LOG_FILE" 2>&1; then
     echo "$today" > "$STAMP_FILE"
     echo "===== Crawl OK: $(date) =====" >> "$LOG_FILE"
 else
