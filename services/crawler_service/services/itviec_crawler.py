@@ -572,7 +572,6 @@ class ItviecCrawler(IJDCrawler):
             salary_currency = None
             base_sal = ld.get("baseSalary") if isinstance(ld.get("baseSalary"), dict) else None
             if base_sal:
-                salary_currency = base_sal.get("currency")
                 sv = base_sal.get("value") or {}
                 if isinstance(sv, dict):
                     smin = sv.get("minValue")
@@ -581,6 +580,10 @@ class ItviecCrawler(IJDCrawler):
                         salary_min = int(smin)
                     if isinstance(smax, (int, float)) and smax > 0:
                         salary_max = int(smax)
+                # Only set currency when we actually extracted salary value.
+                # Without a value, currency is meaningless and pollutes Market Intel.
+                if salary_min is not None or salary_max is not None:
+                    salary_currency = base_sal.get("currency")
             # Fallback: parse salary text from HTML card ("1,000 - 1,800 USD")
             if salary_min is None and salary_max is None:
                 sal_el = soup.select_one(".salary .ips-2.fw-500, span.salary")
