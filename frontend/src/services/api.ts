@@ -769,13 +769,12 @@ export interface MarketIntelDashboard {
 
 // ─── Tuần 15: CV Health Intelligence dashboard ────────────────────────────────
 //
-// Maps to the 6 backend endpoints built in Tuần 14:
+// Maps to 5 backend endpoints:
 //   POST /cv/me                    upsertCv()
 //   GET  /health-score             getHealthScore()
 //   GET  /freshness/history        getFreshnessHistory()
 //   GET  /skill-alerts             getSkillAlerts()
 //   GET  /opportunity-window       getOpportunities()
-//   POST /learning-path/me         getLearningPathMe()
 
 export interface CvHealthSkill {
     name: string;
@@ -874,28 +873,6 @@ export interface OpportunityWindowResponse {
     items: OpportunityJD[];
 }
 
-export interface PathStep {
-    order: number;
-    skill: string;
-    cost_weeks: number;
-    reason: string;
-    jd_unlocked_after_this: string[];
-}
-
-export interface LearningPathResponse {
-    algorithm: string;
-    total_weeks: number;
-    jd_unlocked_count: number;
-    jd_unlocked_total: number;
-    coverage_percent: number;
-    steps: PathStep[];
-    runtime_ms: number;
-    // Map jd_key → { label, url } so the dashboard never has to show raw
-    // hashes. Populated by /learning-path/me; absent on the stateless
-    // /learning-path endpoint.
-    jd_labels?: Record<string, { label: string; url?: string | null }>;
-}
-
 export const cvHealthApi = {
     upsertCv: (
         userId: string,
@@ -942,18 +919,6 @@ export const cvHealthApi = {
                 limit: opts?.limit ?? 10,
                 min_match: opts?.minMatch ?? 0.5,
             },
-        }),
-
-    getLearningPathMe: (
-        userId: string,
-        opts?: { budgetWeeks?: number; algorithm?: 'greedy' | 'dijkstra' | 'dp'; days?: number; maxJds?: number },
-    ) =>
-        api.post<LearningPathResponse>(`${SKILL_BASE}/learning-path/me`, {
-            user_id: userId,
-            budget_weeks: opts?.budgetWeeks ?? 12,
-            algorithm: opts?.algorithm ?? 'greedy',
-            days: opts?.days ?? 30,
-            max_jds: opts?.maxJds ?? 50,
         }),
 };
 

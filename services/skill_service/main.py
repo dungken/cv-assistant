@@ -24,15 +24,11 @@ from services.skill_service.models.schemas import (
     BookmarkRequest, ProgressUpdateRequest, Course, LearningRoadmap,
     ATSScoreRequest, ATSScoreResponse, MarketOverviewResponse,
     FreshnessRequest, FreshnessResponse, SkillContributionItem,
-    LearningPathRequest, LearningPathResponse, PathStepResponse, JDLabel,
     CVUpsertRequest, CVUpsertResponse,
     HealthScoreResponse, SkillAlertsResponse, AlertItem,
     OpportunityWindowResponse, OpportunityJDItem,
-    LearningPathMeRequest,
     FreshnessHistoryResponse, FreshnessHistoryPoint,
 )
-from services.skill_service.services.learning_path import LearningPathOptimizer
-from services.skill_service.services.lp_benchmark import JD as LP_JD, TestCase as LP_TestCase
 from services.skill_service.services.freshness_engine import (
     CVSkillInput, record_history_and_alert,
 )
@@ -79,7 +75,6 @@ _ontology = None
 _ats_engine = None
 _market_analyzer = None
 _freshness_engine = None
-_lp_optimizer = None
 
 def get_ontology() -> SkillOntology:
     """Singleton ontology instance."""
@@ -126,12 +121,6 @@ def get_freshness_engine() -> CVFreshnessEngine:
     if _freshness_engine is None:
         _freshness_engine = CVFreshnessEngine(get_ontology())
     return _freshness_engine
-
-def get_lp_optimizer() -> LearningPathOptimizer:
-    global _lp_optimizer
-    if _lp_optimizer is None:
-        _lp_optimizer = LearningPathOptimizer(get_ontology())
-    return _lp_optimizer
 
 def get_course_service() -> CourseService:
     """Dependency injection for CourseService."""
@@ -289,40 +278,6 @@ def update_progress(request: ProgressUpdateRequest, course_service: CourseServic
     course_service.update_progress(request.course_id, request.progress, request.user_id)
     return {"status": "success"}
 
-@app.post("/learning-path", response_model=LearningPathResponse)
-def learning_path(
-    request: LearningPathRequest,
-    optimizer: LearningPathOptimizer = Depends(get_lp_optimizer),
-):
-    """Tuần 12 — Learning Path Optimizer (chuong3/3.3)."""
-    tc = LP_TestCase(
-        test_id="api",
-        description="",
-        role=request.role,
-        S_user=request.cv_skills,
-        JDs=[LP_JD(id=j.id, required=j.required) for j in request.jds],
-        budget=request.budget_weeks,
-    )
-    try:
-        result, explained = optimizer.optimize(tc, algorithm=request.algorithm)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("learning_path failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    coverage = (
-        100.0 * explained.jd_unlocked_count / max(explained.jd_unlocked_total, 1)
-    )
-    return LearningPathResponse(
-        algorithm=explained.algorithm,
-        total_weeks=explained.total_weeks,
-        jd_unlocked_count=explained.jd_unlocked_count,
-        jd_unlocked_total=explained.jd_unlocked_total,
-        coverage_percent=round(coverage, 2),
-        steps=[PathStepResponse(**s.__dict__) for s in explained.steps],
-        runtime_ms=round(1000 * result.runtime_s, 3),
-    )
 
 
 @app.post("/cv/freshness", response_model=FreshnessResponse)
@@ -522,86 +477,6 @@ def opportunity_window(
     return OpportunityWindowResponse(
         user_id=user_id, role=cv.target_role, days=days,
         items=[OpportunityJDItem(**o.__dict__) for o in opps],
-    )
-
-
-@app.post("/learning-path/me", response_model=LearningPathResponse)
-def learning_path_me(
-    request: LearningPathMeRequest,
-    optimizer: LearningPathOptimizer = Depends(get_lp_optimizer),
-    db = Depends(get_db),
-):
-    """User-facing variant of /learning-path: builds the JD target set
-    automatically from recent crawl data instead of requiring the client to
-    pass it (§3.3.1 step "Xác định tập JD mục tiêu")."""
-    cv = cv_store.get_cv(db, request.user_id)
-    if cv is None:
-        raise HTTPException(status_code=404, detail=f"No CV stored for user_id={request.user_id}")
-    skill_names = [s["name"] for s in cv.skills_with_recency]
-    # Pull recent JDs that aren't already easily satisfied (ATS too high) nor
-    # too far out of reach (ATS too low). The opportunity helper computes a
-    # coverage ratio we can reuse here.
-    opps = find_opportunities(
-        db=db, cv_skills=skill_names, target_role=cv.target_role,
-        cv_years=cv.years_experience,
-        cv_location=cv.preferred_location,
-        cv_work_modes=cv.preferred_work_modes or None,
-        days=request.days, limit=request.max_jds, min_match=0.4,
-    )
-    # Filter:
-    # - Drop "too easy" JDs (composite ≥ 0.85 — user can already apply)
-    # - Drop JDs where the experience gap is too large (cv_years < min_exp - 2):
-    #   no amount of learning skill fixes "needs 5y, you have 1y". This
-    #   aligns the optimizer with real hiring constraints (§3.1).
-    def _exp_reachable(o):
-        if cv.years_experience is None or o.min_exp is None:
-            return True
-        return float(cv.years_experience) >= float(o.min_exp) - 2.0
-    target_opps = [o for o in opps if o.match_score < 0.85 and _exp_reachable(o)]
-    if not target_opps:
-        raise HTTPException(
-            status_code=422,
-            detail="No JDs in the target window (0.4 ≤ coverage < 0.85). "
-                   "Try widening `days` or check crawler data freshness.",
-        )
-
-    # Feed only *required* skills to the optimizer — those are the actual
-    # blockers. Preferred skills are nice-to-have and shouldn't drive what we
-    # tell the user to learn. (matched + missing_required = full required set.)
-    tc = LP_TestCase(
-        test_id=f"me-{request.user_id}",
-        description=f"User {request.user_id} → {cv.target_role}",
-        role=cv.target_role,
-        S_user=skill_names,
-        JDs=[
-            LP_JD(id=o.jd_key, required=list({*o.matched_skills, *o.missing_required}))
-            for o in target_opps
-        ],
-        budget=request.budget_weeks,
-    )
-    try:
-        result, explained = optimizer.optimize(tc, algorithm=request.algorithm)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    coverage = 100.0 * explained.jd_unlocked_count / max(explained.jd_unlocked_total, 1)
-    # Build human labels + URLs for every jd_key the optimizer might mention
-    # so the frontend can render clickable links instead of raw 16-char hashes.
-    jd_labels = {
-        o.jd_key: JDLabel(
-            label=f"{o.title} — {o.company}" if o.company else o.title,
-            url=o.url,
-        )
-        for o in target_opps
-    }
-    return LearningPathResponse(
-        algorithm=explained.algorithm,
-        total_weeks=explained.total_weeks,
-        jd_unlocked_count=explained.jd_unlocked_count,
-        jd_unlocked_total=explained.jd_unlocked_total,
-        coverage_percent=round(coverage, 2),
-        steps=[PathStepResponse(**s.__dict__) for s in explained.steps],
-        runtime_ms=round(1000 * result.runtime_s, 3),
-        jd_labels=jd_labels,
     )
 
 

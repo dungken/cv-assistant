@@ -8,15 +8,15 @@ Các công cụ hỗ trợ sinh viên hiện có chưa giải quyết được v
 
 Khoảng trống công cụ này dẫn đến tình trạng phổ biến: sinh viên viết CV một lần, gửi đi nhiều nơi, không biết tại sao bị từ chối, không biết kỹ năng nào của mình đã lỗi thời, và không biết nên học gì tiếp theo. CV trở thành một "tài liệu chết" thay vì một hồ sơ sống được cập nhật theo thị trường.
 
-Từ thực tiễn trên, đề tài đề xuất xây dựng hệ thống **CV Health Intelligence cho Sinh viên CNTT Việt Nam** với ba đóng góp khoa học: (1) **Multi-criteria CV Freshness Framework** đánh giá CV theo 8 chiều; (2) **Learning Path Optimizer** so sánh thực nghiệm Greedy, Dijkstra, Dynamic Programming trên skill graph; (3) **Market Intelligence Dashboard** với 33 insight trên snapshot ~1500 JD crawl từ ITviec và TopCV có cross-source deduplication. Chi tiết các đóng góp được trình bày trong [Chương 1 — Tổng quan](./chuong1/1.1_tong_quan_cong_trinh.md).
+Từ thực tiễn trên, đề tài đề xuất xây dựng hệ thống **CV Health Intelligence cho Sinh viên CNTT Việt Nam** với hai đóng góp khoa học: (1) **Multi-criteria CV Freshness Framework** đánh giá CV theo 8 chiều, validate qua phân biệt fresh/stale, Cohen's d separation và monotonic build-up; (2) **Market Intelligence Dashboard** với 33 insight trên snapshot ~1500 JD crawl từ ITviec và TopCV có cross-source deduplication. Chi tiết các đóng góp được trình bày trong [Chương 1 — Tổng quan](./chuong1/1.1_tong_quan_cong_trinh.md).
 
 ### 2. Bố cục báo cáo
 
 Ngoài phần Mở đầu, Kết luận và Tài liệu tham khảo, báo cáo được tổ chức thành 4 chương:
 
 - **[Chương 1](./chuong1/1.1_tong_quan_cong_trinh.md): Tổng quan** — Tình hình nghiên cứu liên quan, bối cảnh thực tiễn, mục tiêu, đối tượng, phạm vi và đóng góp của đề tài.
-- **[Chương 2](./chuong2/2.1_mcdm_danh_gia_cv.md): Cơ sở lý thuyết** — Multi-Criteria Decision Making, Skill Graph và Learning Path Optimization, Market Intelligence, pipeline tiền xử lý CV/JD song ngữ.
-- **[Chương 3](./chuong3/3.1_phan_tich_yeu_cau.md): Phân tích và Thiết kế hệ thống** — Phân tích yêu cầu, thiết kế ba đóng góp khoa học chính và infrastructure hỗ trợ.
+- **[Chương 2](./chuong2/2.1_mcdm_danh_gia_cv.md): Cơ sở lý thuyết** — Multi-Criteria Decision Making, Market Intelligence, pipeline tiền xử lý CV/JD song ngữ.
+- **[Chương 3](./chuong3/3.1_phan_tich_yeu_cau.md): Phân tích và Thiết kế hệ thống** — Phân tích yêu cầu, thiết kế hai đóng góp khoa học chính và infrastructure hỗ trợ.
 - **Chương 4: Xây dựng và Thực nghiệm** — Cài đặt, đánh giá đa tầng và kết quả thực nghiệm.
 
 ---

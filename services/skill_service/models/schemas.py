@@ -267,41 +267,7 @@ class FreshnessResponse(BaseModel):
     cold_start: bool = False
 
 
-# ─── Tuần 12: Learning Path Optimizer ─────────────────────────────────────────
-
-class LearningPathJD(BaseModel):
-    id: str
-    required: List[str]
-
-class LearningPathRequest(BaseModel):
-    cv_skills: List[str]
-    role: str = "backend"
-    jds: List[LearningPathJD]
-    budget_weeks: int = 12
-    algorithm: str = "greedy"  # greedy | dijkstra
-
-class PathStepResponse(BaseModel):
-    order: int
-    skill: str
-    cost_weeks: int
-    reason: str
-    jd_unlocked_after_this: List[str]
-
-class JDLabel(BaseModel):
-    label: str            # "Title — Company"
-    url: Optional[str] = None
-
-class LearningPathResponse(BaseModel):
-    algorithm: str
-    total_weeks: int
-    jd_unlocked_count: int
-    jd_unlocked_total: int
-    coverage_percent: float
-    steps: List[PathStepResponse]
-    runtime_ms: float
-    # Tuần 14 — for the /me variant we also send a mapping of jd_key → label
-    # + clickable url so the dashboard can render hyperlinks instead of raw IDs.
-    jd_labels: Dict[str, JDLabel] = {}
+# ─── Learning Path Optimizer — DEPRECATED, moved to _deprecated/learning_path/ ──
 
 
 # ─── Tuần 14: user-state endpoints ────────────────────────────────────────────
@@ -384,14 +350,6 @@ class OpportunityWindowResponse(BaseModel):
     role: Optional[str] = None
     days: int
     items: List[OpportunityJDItem] = []
-
-class LearningPathMeRequest(BaseModel):
-    user_id: str
-    budget_weeks: int = 12
-    algorithm: str = "greedy"
-    days: int = 30        # use JDs posted in last N days as targets
-    max_jds: int = 50     # cap JDs fed to optimizer
-
 
 class FreshnessHistoryPoint(BaseModel):
     snapshot_date: str

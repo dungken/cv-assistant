@@ -18,6 +18,7 @@ Reads `skill_trends` written by the crawler aggregator (per-week buckets via
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
@@ -403,3 +404,424 @@ _ROLE_TO_DOMAINS: dict[str, set[str]] = {
     "fullstack": {"Frontend Development", "Backend Development", "Web Development"},
     "mobile": {"Mobile"},
 }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Multi-criteria CV Freshness Framework — 8 chiều (chuong3/3.2)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Freshness = Σ_d ω_d · s_d   với   Σ ω_d = 1   (Weighted Sum Model — §3.2.3)
+#
+# Tám chiều (mỗi s_d ∈ [0, 100]):
+#   1. Skill           — tái dùng CVFreshnessEngine.compute() (skill_trends + ontology)
+#   2. Experience      — years_exp / years_target · relevance
+#   3. Project         — num_projects / N* · skill_density
+#   4. Education        — DEGREE base ± MAJOR
+#   5. Achievement     — regex/keyword count
+#   6. Language        — regex TOEIC/IELTS/level
+#   7. Completeness    — đếm section bắt buộc
+#   8. Market Alignment — |S_CV ∩ top-K JD| / K
+
+# ─── Dimension constants (defaults match chuong3/3.2) ─────────────────────────
+
+PROJECT_TARGET = 3            # N* — chuẩn portfolio fresher (§3.2.2 chiều 3)
+PROJECT_SKILL_BENCHMARK = 5  # skill/project để skill_density = 1.0
+
+MARKET_ALIGN_TOP_K = 10      # K — top-K skill role (§3.2.2 chiều 8)
+
+# Chiều 4 — Education base score theo DEGREE (§3.2.2)
+DEGREE_BASE_SCORE: dict[str, float] = {
+    "phd": 100.0,
+    "doctor": 100.0,
+    "master": 90.0,
+    "bachelor": 80.0,
+    "engineer": 80.0,      # Kỹ sư ≈ Bachelor
+    "diploma": 60.0,
+    "associate": 60.0,     # Cao đẳng
+    "college": 60.0,
+}
+DEGREE_DEFAULT_SCORE = 40.0  # "Khác"
+MAJOR_ADJUST = 10.0          # ±10 theo MAJOR liên quan domain IT
+
+# Major liên quan IT (boost +10); ngoài danh sách & không rõ → -10/0
+_IT_MAJOR_KEYWORDS = (
+    "computer", "software", "information", "công nghệ thông tin", "khoa học máy tính",
+    "kỹ thuật phần mềm", "hệ thống thông tin", "data", "artificial intelligence",
+    "trí tuệ nhân tạo", "an toàn thông tin", "cyber", "it", "cntt", "điện tử",
+    "automation", "tự động hóa", "toán tin",
+)
+
+# Chiều 5 — Achievement: keyword → điểm/item (cap 100)
+ACHIEVEMENT_PATTERNS: list[tuple[str, float]] = [
+    (r"\b(olympiad|olympic)\b", 20.0),
+    (r"\bhackathon\b", 15.0),
+    (r"\b(award|giải nhất|giải nhì|giải ba|giải thưởng|prize|winner|champion)\b", 15.0),
+    (r"\b(scholarship|học bổng)\b", 15.0),
+    (r"\b(aws|azure|gcp|google cloud)\s*(certified|certification|certificate)?\b", 15.0),
+    (r"\b(certified|certification|chứng chỉ)\b", 10.0),
+    (r"\b(publication|paper|báo khoa học|patent|sáng chế)\b", 20.0),
+    (r"\b(open[- ]?source|contributor|maintainer)\b", 10.0),
+]
+
+# Chiều 6 — Language scoring (§3.2.2 chiều 6)
+LANG_NATIVE = 100.0
+LANG_ADVANCED = 80.0
+LANG_INTERMEDIATE = 60.0
+LANG_BASIC = 40.0
+LANG_NONE = 30.0
+
+# Chiều 7 — Completeness section weights (§3.2.2 chiều 7) — Σ = 100
+COMPLETENESS_WEIGHTS: dict[str, float] = {
+    "contact": 20.0,
+    "summary": 10.0,
+    "education": 15.0,
+    "experience": 25.0,
+    "skills": 20.0,
+    "projects": 10.0,
+}
+
+# Số năm kinh nghiệm mục tiêu theo seniority (years_target — chiều 2)
+SENIORITY_TARGET_YEARS: dict[str, float] = {
+    "junior": 1.0,
+    "fresher": 0.5,
+    "mid": 3.0,
+    "senior": 5.0,
+    "lead": 8.0,
+}
+DEFAULT_TARGET_YEARS = 3.0
+
+
+# ─── Trọng số ω_d theo (role, seniority) — Bảng 3.2 ───────────────────────────
+# Key = seniority. Tổng mỗi profile = 1.00. Bảng 3.2 nêu 3 cột tiêu biểu
+# (Backend junior / Frontend mid / Data Engineer senior); ở đây tổng quát hoá
+# theo seniority vì pattern trọng số chủ yếu phụ thuộc seniority.
+
+DIMENSION_ORDER = (
+    "skill", "experience", "project", "education",
+    "achievement", "language", "completeness", "market_alignment",
+)
+
+WEIGHT_PROFILES: dict[str, dict[str, float]] = {
+    # junior/fresher — nhấn Project (portfolio bù kinh nghiệm), Experience thấp
+    "junior": {
+        "skill": 0.25, "experience": 0.10, "project": 0.20, "education": 0.10,
+        "achievement": 0.05, "language": 0.05, "completeness": 0.10,
+        "market_alignment": 0.15,
+    },
+    # mid — Experience nhích lên, Education giảm
+    "mid": {
+        "skill": 0.25, "experience": 0.15, "project": 0.20, "education": 0.05,
+        "achievement": 0.05, "language": 0.05, "completeness": 0.10,
+        "market_alignment": 0.15,
+    },
+    # senior/lead — Experience cao nhất, Project + Completeness giảm
+    "senior": {
+        "skill": 0.25, "experience": 0.25, "project": 0.10, "education": 0.10,
+        "achievement": 0.05, "language": 0.05, "completeness": 0.05,
+        "market_alignment": 0.15,
+    },
+}
+# Alias seniority → profile
+_SENIORITY_TO_PROFILE = {
+    "fresher": "junior", "junior": "junior", "intern": "junior",
+    "mid": "mid", "middle": "mid", "intermediate": "mid",
+    "senior": "senior", "lead": "senior", "principal": "senior", "staff": "senior",
+}
+
+
+def weights_for(seniority: Optional[str]) -> dict[str, float]:
+    """Trả về dict trọng số ω_d cho seniority (mặc định junior)."""
+    profile = _SENIORITY_TO_PROFILE.get((seniority or "junior").lower(), "junior")
+    return dict(WEIGHT_PROFILES[profile])
+
+
+# ─── Input / output ───────────────────────────────────────────────────────────
+
+
+@dataclass
+class CVProfileInput:
+    """Toàn bộ thông tin CV cần cho 8 chiều. Các trường ngoài `skills` đều
+    optional — chiều nào thiếu input sẽ rơi về baseline thay vì lỗi."""
+    skills: list[CVSkillInput] = field(default_factory=list)
+    role: str = "backend"
+    seniority: str = "junior"
+
+    # Chiều 2 — Experience
+    years_experience: Optional[float] = None
+    past_job_titles: list[str] = field(default_factory=list)
+
+    # Chiều 3 — Project
+    num_projects: int = 0
+    project_skill_counts: list[int] = field(default_factory=list)  # #skill mỗi project
+
+    # Chiều 4 — Education
+    degree: Optional[str] = None     # "Bachelor" / "Master" / "Cao đẳng" / ...
+    major: Optional[str] = None
+
+    # Chiều 5 / 6 — Achievement / Language (raw text scan)
+    achievement_text: str = ""
+    language_text: str = ""
+
+    # Chiều 7 — Completeness (section nào có mặt)
+    has_contact: bool = False
+    has_summary: bool = False
+    has_education: bool = False
+    has_experience: bool = False
+    has_skills: bool = False
+    has_projects: bool = False
+
+
+@dataclass
+class DimensionScore:
+    name: str
+    score: float          # s_d ∈ [0, 100]
+    weight: float         # ω_d
+    weighted: float       # ω_d · s_d
+    detail: str = ""      # giải thích ngắn cho dashboard
+
+
+@dataclass
+class MultiCriteriaResult:
+    score: float                       # Freshness tổng ∈ [0, 100]
+    role: str
+    seniority: str
+    snapshot_date: date
+    dimensions: list[DimensionScore] = field(default_factory=list)
+    skill_result: Optional[FreshnessResult] = None  # chi tiết chiều Skill
+    cold_start: bool = False
+
+
+# ─── Engine ────────────────────────────────────────────────────────────────────
+
+
+class MultiCriteriaFreshnessEngine:
+    """8-chiều Weighted Sum Model. Compose CVFreshnessEngine cho chiều Skill +
+    Market Alignment (cần skill_trends), tự tính 6 chiều còn lại."""
+
+    def __init__(self, ontology: SkillOntology, skill_engine: Optional[CVFreshnessEngine] = None):
+        self.ontology = ontology
+        self.skill_engine = skill_engine or CVFreshnessEngine(ontology)
+
+    # ── chiều 1: Skill ──
+    def _dim_skill(
+        self, db: Session, profile: CVProfileInput, snapshot_date: date, today_year: int
+    ) -> tuple[float, FreshnessResult]:
+        res = self.skill_engine.compute(
+            db=db, cv_skills=profile.skills, role=profile.role,
+            snapshot_date=snapshot_date, today_year=today_year,
+        )
+        return res.score, res
+
+    # ── chiều 2: Experience ──
+    def _dim_experience(self, profile: CVProfileInput) -> tuple[float, str]:
+        if profile.years_experience is None:
+            return 50.0, "không rõ số năm KN → baseline 50"
+        target = SENIORITY_TARGET_YEARS.get(
+            (profile.seniority or "").lower(), DEFAULT_TARGET_YEARS
+        )
+        coverage = min(1.0, profile.years_experience / target) if target > 0 else 1.0
+        relevance = self._relevance_factor(profile)
+        score = 100.0 * coverage * relevance
+        return score, (
+            f"{profile.years_experience:.1f}/{target:.0f} năm "
+            f"(coverage={coverage:.2f}, relevance={relevance:.2f})"
+        )
+
+    def _relevance_factor(self, profile: CVProfileInput) -> float:
+        """∈ [0.5, 1.0] — 1.0 nếu job title cũ khớp role mục tiêu, 0.5 nếu không."""
+        if not profile.past_job_titles:
+            return 0.75  # không có title → trung tính
+        role_tokens = set(re.split(r"[\s_/]+", profile.role.lower()))
+        domains = {d.lower() for d in _ROLE_TO_DOMAINS.get(profile.role.lower(), set())}
+        domain_tokens = set()
+        for d in domains:
+            domain_tokens.update(d.split())
+        keys = role_tokens | domain_tokens
+        for title in profile.past_job_titles:
+            t = title.lower()
+            if any(k and k in t for k in keys):
+                return 1.0
+        return 0.5
+
+    # ── chiều 3: Project ──
+    def _dim_project(self, profile: CVProfileInput) -> tuple[float, str]:
+        if profile.num_projects <= 0:
+            return 0.0, "không có project"
+        count_factor = min(1.0, profile.num_projects / PROJECT_TARGET)
+        if profile.project_skill_counts:
+            avg_skills = sum(profile.project_skill_counts) / len(profile.project_skill_counts)
+        else:
+            avg_skills = PROJECT_SKILL_BENCHMARK * 0.6  # default mật độ trung bình
+        density = min(1.0, avg_skills / PROJECT_SKILL_BENCHMARK)
+        score = 100.0 * count_factor * density
+        return score, (
+            f"{profile.num_projects} project (count_factor={count_factor:.2f}, "
+            f"skill_density={density:.2f})"
+        )
+
+    # ── chiều 4: Education ──
+    def _dim_education(self, profile: CVProfileInput) -> tuple[float, str]:
+        if not profile.degree:
+            return 40.0, "không rõ bằng cấp → 40"
+        base = DEGREE_DEFAULT_SCORE
+        deg_l = profile.degree.lower()
+        for key, val in DEGREE_BASE_SCORE.items():
+            if key in deg_l:
+                base = val
+                break
+        adjust = 0.0
+        note = ""
+        if profile.major:
+            major_l = profile.major.lower()
+            if any(k in major_l for k in _IT_MAJOR_KEYWORDS):
+                adjust = MAJOR_ADJUST
+                note = f", major IT (+{MAJOR_ADJUST:.0f})"
+            else:
+                adjust = -MAJOR_ADJUST
+                note = f", major ngoài IT (-{MAJOR_ADJUST:.0f})"
+        score = max(0.0, min(100.0, base + adjust))
+        return score, f"{profile.degree} (base={base:.0f}{note})"
+
+    # ── chiều 5: Achievement ──
+    def _dim_achievement(self, profile: CVProfileInput) -> tuple[float, str]:
+        text_l = (profile.achievement_text or "").lower()
+        if not text_l.strip():
+            return 0.0, "không có thành tích"
+        total = 0.0
+        hits = 0
+        for pat, pts in ACHIEVEMENT_PATTERNS:
+            n = len(re.findall(pat, text_l))
+            if n:
+                total += pts * n
+                hits += n
+        score = min(100.0, total)
+        return score, f"{hits} thành tích/chứng chỉ phát hiện"
+
+    # ── chiều 6: Language ──
+    def _dim_language(self, profile: CVProfileInput) -> tuple[float, str]:
+        text_l = (profile.language_text or "").lower()
+        if not text_l.strip():
+            return LANG_NONE, "không có thông tin ngoại ngữ → 30"
+
+        # IELTS x.y
+        m = re.search(r"ielts\s*[:\-]?\s*(\d(?:\.\d)?)", text_l)
+        if m:
+            band = float(m.group(1))
+            if band >= 7.0:
+                return LANG_NATIVE, f"IELTS {band}"
+            if band >= 6.0:
+                return LANG_ADVANCED, f"IELTS {band}"
+            return LANG_INTERMEDIATE, f"IELTS {band}"
+        # TOEIC nnn
+        m = re.search(r"toeic\s*[:\-]?\s*(\d{3,4})", text_l)
+        if m:
+            sc = int(m.group(1))
+            if sc >= 800:
+                return LANG_NATIVE, f"TOEIC {sc}"
+            if sc >= 600:
+                return LANG_ADVANCED, f"TOEIC {sc}"
+            if sc >= 450:
+                return LANG_INTERMEDIATE, f"TOEIC {sc}"
+            return LANG_BASIC, f"TOEIC {sc}"
+        # Keyword level
+        if re.search(r"\b(native|fluent|bản ngữ|thành thạo)\b", text_l):
+            return LANG_NATIVE, "native/fluent"
+        if re.search(r"\b(advanced|nâng cao|tốt)\b", text_l):
+            return LANG_ADVANCED, "advanced"
+        if re.search(r"\b(intermediate|trung cấp|khá)\b", text_l):
+            return LANG_INTERMEDIATE, "intermediate"
+        if re.search(r"\b(basic|cơ bản|beginner)\b", text_l):
+            return LANG_BASIC, "basic"
+        return LANG_NONE, "không phân loại được mức"
+
+    # ── chiều 7: Completeness ──
+    def _dim_completeness(self, profile: CVProfileInput) -> tuple[float, str]:
+        present = {
+            "contact": profile.has_contact,
+            "summary": profile.has_summary,
+            "education": profile.has_education,
+            "experience": profile.has_experience,
+            "skills": profile.has_skills,
+            "projects": profile.has_projects,
+        }
+        score = sum(COMPLETENESS_WEIGHTS[k] for k, ok in present.items() if ok)
+        missing = [k for k, ok in present.items() if not ok]
+        score = min(100.0, score)
+        return score, ("đủ section" if not missing else f"thiếu: {', '.join(missing)}")
+
+    # ── chiều 8: Market Alignment ──
+    def _dim_market_alignment(
+        self, db: Session, profile: CVProfileInput, snapshot_date: date
+    ) -> tuple[float, str]:
+        current, _freq, _cold = self.skill_engine._load_trend_data(
+            db, profile.role, snapshot_date
+        )
+        if not current:
+            return 0.0, "chưa có market snapshot"
+        top_k = [
+            sk for sk, _ in sorted(current.items(), key=lambda kv: -kv[1])[:MARKET_ALIGN_TOP_K]
+        ]
+        top_set = {s.lower() for s in top_k}
+        cv_canon = {
+            self.ontology.canonical.get(s.name.lower(), s.name).lower()
+            for s in profile.skills
+        }
+        hit = len(cv_canon & top_set)
+        score = 100.0 * hit / MARKET_ALIGN_TOP_K
+        return score, f"{hit}/{MARKET_ALIGN_TOP_K} top-skill role có trong CV"
+
+    # ── public ──
+    def compute(
+        self,
+        db: Session,
+        profile: CVProfileInput,
+        snapshot_date: Optional[date] = None,
+        today_year: Optional[int] = None,
+        weights: Optional[dict[str, float]] = None,
+    ) -> MultiCriteriaResult:
+        snapshot_date = snapshot_date or date.today()
+        today_year = today_year or snapshot_date.year
+        w = weights or weights_for(profile.seniority)
+
+        s1, skill_res = self._dim_skill(db, profile, snapshot_date, today_year)
+        s2, d2 = self._dim_experience(profile)
+        s3, d3 = self._dim_project(profile)
+        s4, d4 = self._dim_education(profile)
+        s5, d5 = self._dim_achievement(profile)
+        s6, d6 = self._dim_language(profile)
+        s7, d7 = self._dim_completeness(profile)
+        s8, d8 = self._dim_market_alignment(db, profile, snapshot_date)
+
+        raw = {
+            "skill": (s1, f"{len(profile.skills)} skill"),
+            "experience": (s2, d2),
+            "project": (s3, d3),
+            "education": (s4, d4),
+            "achievement": (s5, d5),
+            "language": (s6, d6),
+            "completeness": (s7, d7),
+            "market_alignment": (s8, d8),
+        }
+
+        dims: list[DimensionScore] = []
+        total = 0.0
+        for name in DIMENSION_ORDER:
+            score, detail = raw[name]
+            score = max(0.0, min(100.0, score))
+            omega = w.get(name, 0.0)
+            weighted = omega * score
+            total += weighted
+            dims.append(DimensionScore(
+                name=name, score=round(score, 2), weight=round(omega, 4),
+                weighted=round(weighted, 3), detail=detail,
+            ))
+
+        return MultiCriteriaResult(
+            score=round(max(0.0, min(100.0, total)), 2),
+            role=profile.role,
+            seniority=profile.seniority,
+            snapshot_date=snapshot_date,
+            dimensions=dims,
+            skill_result=skill_res,
+            cold_start=skill_res.cold_start,
+        )

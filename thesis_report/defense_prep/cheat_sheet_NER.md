@@ -4,7 +4,7 @@
 >
 > **Nguyên tắc chung**:
 > - Trả lời ngắn, dứt khoát (2-4 câu/câu hỏi).
-> - Redirect về **3 đóng góp khoa học chính** (Multi-criteria, Learning Path, Market Intel) — NER chỉ là infrastructure.
+> - Redirect về **2 đóng góp khoa học chính** (Multi-criteria, Market Intel) — NER chỉ là infrastructure.
 > - Không bao giờ nhắc số "1 CV thật" — chỉ nói "100 CV span-level evaluation".
 > - Chủ động ghi hạn chế trong báo cáo Chương 4 → hội đồng ít moi.
 
@@ -14,7 +14,7 @@
 
 ### Câu mở đầu khi nói về NER
 
-> "Pipeline NER + Skill Extraction là **thành phần infrastructure**, không phải đóng góp khoa học chính của em. Đóng góp chính của em là 3 trụ: Multi-criteria CV Freshness Framework 8 chiều, Learning Path Optimizer benchmark 3 thuật toán, và Market Intelligence Dashboard 33 insight. Pipeline NER chỉ cần đạt chất lượng đủ tốt để phục vụ 3 đóng góp này."
+> "Pipeline NER + Skill Extraction là **thành phần infrastructure**, không phải đóng góp khoa học chính của em. Đóng góp chính của em là 2 trụ: Multi-criteria CV Freshness Framework 8 chiều và Market Intelligence Dashboard 33 insight. Pipeline NER chỉ cần đạt chất lượng đủ tốt để phục vụ 2 đóng góp này."
 
 → **Set expectation** ngay từ đầu: NER không phải nơi em muốn được đánh giá cao.
 
@@ -43,7 +43,7 @@
 > - DEGREE = 0.94, MAJOR = 0.89 (Education dimension)
 > - DATE = 0.78, JOB_TITLE = 0.65 (Experience dimension)
 >
-> Các entity yếu là CERT (0.36) và PER (0.62) — đều là metadata phụ, không nằm trong critical path của 3 đóng góp khoa học."
+> Các entity yếu là CERT (0.36) và PER (0.62) — đều là metadata phụ, không nằm trong critical path của 2 đóng góp khoa học."
 
 **Key points**: redirect "F1 thấp" → "F1 cao ở entity quan trọng nhất".
 
@@ -62,18 +62,17 @@
 
 ---
 
-### Q4: "NER F1 thấp ở LOC/CERT, vậy 3 đóng góp khoa học có còn tin cậy không?"
+### Q4: "NER F1 thấp ở LOC/CERT, vậy 2 đóng góp khoa học có còn tin cậy không?"
 
 **Trả lời**:
-> "Em đã verify khả năng tác động của NER yếu lên 3 đóng góp:
+> "Em đã verify khả năng tác động của NER yếu lên 2 đóng góp:
 >
 > - **Multi-criteria Framework** chỉ phụ thuộc các entity F1 ≥ 0.81 trong critical path: SKILL (4/8 chiều), DEGREE/MAJOR (Education), DATE/JOB_TITLE (Experience). LOC, CERT, PER là metadata phụ — không vào công thức tính 8 chiều.
-> - **Learning Path Optimizer** chỉ dùng SKILL (F1 = 0.81) làm node của skill graph — không cần entity khác.
 > - **Market Intel Dashboard** crawl JD qua structured fields từ ITviec/TopCV (salary, location, company từ listing card), không qua NER mBERT.
 >
-> Vì vậy F1 NER tổng = 0.79 không phản ánh chất lượng 3 đóng góp khoa học. Các entity em **thật sự cần** đều ≥ 0.81."
+> Vì vậy F1 NER tổng = 0.79 không phản ánh chất lượng 2 đóng góp khoa học. Các entity em **thật sự cần** đều ≥ 0.81."
 
-**Key points**: chứng minh độ độc lập của 3 đóng góp với NER yếu.
+**Key points**: chứng minh độ độc lập của 2 đóng góp với NER yếu.
 
 ---
 
@@ -82,7 +81,7 @@
 **Trả lời**:
 > "Em có demo thực tế trên app — em có thể demo live ngay nếu hội đồng muốn. Pipeline extract đúng skill list từ CV cá nhân của em và bạn UTC2. Đây là evidence định tính bổ sung cho con số F1 = 0.79 span-level trên 100 CV synthetic.
 >
-> Em thừa nhận eval thống kê trên CV thật quy mô lớn (50-100 CV gán nhãn thủ công) là hướng phát triển ưu tiên. Trong scope đồ án 18 tuần, em ưu tiên 3 đóng góp khoa học chính."
+> Em thừa nhận eval thống kê trên CV thật quy mô lớn (50-100 CV gán nhãn thủ công) là hướng phát triển ưu tiên. Trong scope đồ án 18 tuần, em ưu tiên 2 đóng góp khoa học chính."
 
 **Key points**: chuẩn bị sẵn 2-3 CV thật để demo nếu được hỏi. Demo > nói suông.
 
@@ -96,7 +95,7 @@
 > - **Chuyên môn domain**: phải hiểu CV CNTT để gán đúng skill, không phải task crowdsource.
 > - **Thời gian**: ~30 phút/CV cho gán nhãn 21 nhãn BIO thận trọng → 100 CV = 50 giờ.
 >
-> Trong 18 tuần đồ án, em ưu tiên triển khai 3 đóng góp khoa học (Multi-criteria, Learning Path, Market Intel) — đây mới là contribution. NER là infrastructure, em đã có giải pháp synthetic + silver labels theo precedent của Snorkel (Stanford, weak supervision)."
+> Trong 18 tuần đồ án, em ưu tiên triển khai 2 đóng góp khoa học (Multi-criteria, Market Intel) — đây mới là contribution. NER là infrastructure, em đã có giải pháp synthetic + silver labels theo precedent của Snorkel (Stanford, weak supervision)."
 
 **Key points**: viết kế hoạch thời gian rõ ràng → giải thích trade-off.
 
@@ -175,7 +174,7 @@
 
 | Tone | Khi nào |
 |---|---|
-| **Confident** | Khi nói về 3 đóng góp khoa học (Multi-criteria, Learning Path, Market Intel) |
+| **Confident** | Khi nói về 2 đóng góp khoa học (Multi-criteria, Market Intel) |
 | **Honest** | Khi nói về hạn chế NER (CERT yếu, train+eval synthetic) |
 | **Forward-looking** | Khi nói về hướng cải tiến (annotation sprint, ensemble PhoBERT) |
 
