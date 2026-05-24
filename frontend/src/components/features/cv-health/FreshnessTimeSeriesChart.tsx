@@ -4,6 +4,7 @@ import {
     Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/Card';
+import { ChartSkeleton } from '../../ui/Skeleton';
 import type { FreshnessHistoryResponse } from '../../../services/api';
 
 interface Props {
@@ -28,9 +29,7 @@ function FreshnessTimeSeriesChartInner({ data, loading }: Props) {
             </CardHeader>
             <CardContent>
                 {loading ? (
-                    <div className="h-56 flex items-center justify-center text-text-secondary/50 text-sm">
-                        Đang tải lịch sử…
-                    </div>
+                    <ChartSkeleton height={240} />
                 ) : points.length === 0 ? (
                     <div className="h-56 flex items-center justify-center text-text-secondary/50 text-sm">
                         Chưa có lịch sử. Hãy upload CV để bắt đầu theo dõi.

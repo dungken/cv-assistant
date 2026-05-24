@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { RadialBar, RadialBarChart, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
+import { GaugeSkeleton } from '../../ui/Skeleton';
 import type { HealthScoreResponse } from '../../../services/api';
 
 interface Props {
@@ -44,9 +45,13 @@ function FreshnessGaugeInner({ data, loading }: Props) {
             </CardHeader>
             <CardContent>
                 {loading || !safeData ? (
-                    <div className="h-64 flex items-center justify-center text-text-secondary/50 text-sm">
-                        {loading ? 'Đang tính…' : 'Chưa có dữ liệu'}
-                    </div>
+                    loading ? (
+                        <GaugeSkeleton />
+                    ) : (
+                        <div className="h-64 flex items-center justify-center text-text-secondary/50 text-sm">
+                            Chưa có dữ liệu
+                        </div>
+                    )
                 ) : (
                     <div className="relative">
                         <ResponsiveContainer width="100%" height={240}>

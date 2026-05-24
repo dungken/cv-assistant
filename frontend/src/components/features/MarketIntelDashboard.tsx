@@ -68,9 +68,7 @@ export default function MarketIntelDashboardView() {
 
     return (
         <div className="relative min-h-full">
-            {/* Ambient gradient background */}
-            <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-accent-primary/10 rounded-full blur-[160px] pointer-events-none -z-10" />
-            <div className="absolute bottom-0 left-0 w-[700px] h-[700px] bg-accent-secondary/10 rounded-full blur-[160px] pointer-events-none -z-10" />
+            {/* Ambient gradient background — bỏ blur-[160px] để tránh repaint nặng khi scroll */}
 
             <div className="max-w-7xl mx-auto p-6 space-y-6">
                 <header className="pt-2">
@@ -93,7 +91,7 @@ export default function MarketIntelDashboardView() {
                 </header>
 
                 {/* Sticky filter bar */}
-                <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-canvas/80 backdrop-blur-xl border-b border-white/5">
+                <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-canvas border-b border-white/5">
                     <FiltersBar
                         filters={filters}
                         options={data.options}
@@ -508,7 +506,7 @@ function ChartCard({ title, subtitle, children, icon, action }: {
     icon?: React.ReactNode; action?: React.ReactNode;
 }) {
     return (
-        <Card className="hover:shadow-2xl hover:shadow-accent-primary/5 transition-shadow">
+        <Card>
             <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 min-w-0">
@@ -1566,7 +1564,7 @@ function SkillNetworkChart({ network }: { network: MarketIntelDashboard['skill_n
 function DarkTooltip({ active, payload, label }: any) {
     if (!active || !payload || !payload.length) return null;
     return (
-        <div className="rounded-xl bg-black/80 backdrop-blur-md border border-white/10 px-3 py-2 shadow-2xl">
+        <div className="rounded-xl bg-black/90 border border-white/10 px-3 py-2 shadow-lg">
             {label && <div className="text-text-secondary text-xs mb-1">{label}</div>}
             {payload.map((p: any, i: number) => (
                 <div key={i} className="text-xs flex items-center gap-2">

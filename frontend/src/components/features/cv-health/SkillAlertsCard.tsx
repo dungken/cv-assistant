@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
+import { ListSkeleton } from '../../ui/Skeleton';
 import type { SkillAlertsResponse } from '../../../services/api';
 
 interface Props {
@@ -33,9 +34,7 @@ function SkillAlertsCardInner({ data, loading }: Props) {
             </CardHeader>
             <CardContent>
                 {loading ? (
-                    <div className="h-24 flex items-center justify-center text-text-secondary/50 text-sm">
-                        Đang tải…
-                    </div>
+                    <ListSkeleton rows={3} />
                 ) : alerts.length === 0 ? (
                     <div className="h-24 flex items-center justify-center text-text-secondary/50 text-sm">
                         Chưa có cảnh báo nào. CV của bạn đang ổn định ✓

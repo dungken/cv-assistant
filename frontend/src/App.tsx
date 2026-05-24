@@ -81,40 +81,10 @@ export default function App() {
   const [tempTitle, setTempTitle] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
-  // Cursor spotlight position is written straight to the DOM via ref to avoid
-  // a setState-per-mousemove storm that re-rendered the whole app (charts,
-  // dashboard cards, etc.) on every pixel of motion.
-  const cursorSpotlightRef = useRef<HTMLDivElement>(null);
   const [showAllMessages, setShowAllMessages] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let frame = 0;
-    let lastX = -9999;
-    let lastY = -9999;
-    const apply = () => {
-      frame = 0;
-      const el = cursorSpotlightRef.current;
-      if (el) {
-        el.style.left = `${lastX}px`;
-        el.style.top = `${lastY}px`;
-        if (el.style.opacity !== '1') el.style.opacity = '1';
-      }
-    };
-    const handleMouseMove = (e: MouseEvent) => {
-      lastX = e.clientX;
-      lastY = e.clientY;
-      // Coalesce to rAF — at most one paint per frame instead of one per pixel.
-      if (!frame) frame = requestAnimationFrame(apply);
-    };
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light');
@@ -816,24 +786,6 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-canvas text-text-primary overflow-hidden font-sans transition-colors duration-500">
-      {/* Fixed cursor spotlight — position updated via ref to avoid full-app
-          re-renders on every mousemove. */}
-      <div
-        ref={cursorSpotlightRef}
-        className="fixed pointer-events-none z-[1]"
-        style={{
-          width: 700,
-          height: 700,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, rgba(var(--accent-primary), 0.12) 0%, transparent 65%)`,
-          transform: 'translate(-50%, -50%)',
-          left: -9999,
-          top: -9999,
-          opacity: 0,
-          willChange: 'left, top',
-          transition: 'left 0.12s ease-out, top 0.12s ease-out, opacity 0.3s',
-        }}
-      />
       <Sidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -899,7 +851,9 @@ export default function App() {
               </div>
             }
           />
-          <Route path="/" element={
+          {/* DATN scope: root redirects to CV Health (chat assistant deprecated) */}
+          <Route path="/" element={<Navigate to="/cv-health" replace />} />
+          <Route path="/chat-legacy" element={
             <div className="flex-1 flex flex-col overflow-hidden relative">
               {/* Full-screen ambient blobs */}
               <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-accent-primary/15 rounded-full blur-[160px] pointer-events-none z-0" />

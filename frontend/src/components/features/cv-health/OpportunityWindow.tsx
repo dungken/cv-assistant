@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
+import { ListSkeleton } from '../../ui/Skeleton';
 import type { OpportunityJD, OpportunityWindowResponse } from '../../../services/api';
 
 interface Props {
@@ -181,9 +182,7 @@ function OpportunityWindowInner({ data, loading }: Props) {
             </CardHeader>
             <CardContent>
                 {loading ? (
-                    <div className="h-24 flex items-center justify-center text-text-secondary/50 text-sm">
-                        Đang tìm cơ hội…
-                    </div>
+                    <ListSkeleton rows={3} />
                 ) : items.length === 0 ? (
                     <div className="h-24 flex items-center justify-center text-text-secondary/50 text-sm">
                         Không có JD nào phù hợp trong cửa sổ thời gian này
