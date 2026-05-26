@@ -79,9 +79,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     ];
 
     return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-transparent backdrop-blur-[6px] animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
             {/* Main Modal Container */}
-            <div className="bg-surface w-full max-w-4xl h-[640px] rounded-[32px] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] border border-[rgba(var(--border-modal))] overflow-hidden flex animate-in zoom-in-95 duration-300">
+            <div className="bg-surface w-full max-w-4xl h-[640px] rounded-[32px] shadow-2xl border border-[rgba(var(--border-modal))] overflow-hidden flex animate-in zoom-in-95 duration-200">
 
                 {/* Sidebar Navigation */}
                 <div className="w-[280px] bg-[rgba(var(--bg-modal-sidebar))] border-r border-[rgba(var(--border-secondary))] flex flex-col p-6 pr-0">

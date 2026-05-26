@@ -40,7 +40,7 @@ function SkillAlertsCardInner({ data, loading }: Props) {
                         Chưa có cảnh báo nào. CV của bạn đang ổn định ✓
                     </div>
                 ) : (
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 animate-in fade-in duration-500">
                         {alerts.map(a => (
                             <li
                                 key={a.id}

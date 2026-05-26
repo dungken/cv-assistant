@@ -35,6 +35,7 @@ function FreshnessTimeSeriesChartInner({ data, loading }: Props) {
                         Chưa có lịch sử. Hãy upload CV để bắt đầu theo dõi.
                     </div>
                 ) : (
+                    <div className="animate-in fade-in duration-500">
                     <ResponsiveContainer width="100%" height={240}>
                         <AreaChart data={points} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
                             <defs>
@@ -79,6 +80,7 @@ function FreshnessTimeSeriesChartInner({ data, loading }: Props) {
                             />
                         </AreaChart>
                     </ResponsiveContainer>
+                    </div>
                 )}
             </CardContent>
         </Card>

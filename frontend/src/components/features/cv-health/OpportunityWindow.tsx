@@ -188,7 +188,7 @@ function OpportunityWindowInner({ data, loading }: Props) {
                         Không có JD nào phù hợp trong cửa sổ thời gian này
                     </div>
                 ) : (
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 animate-in fade-in duration-500">
                         {items.map(jd => <OpportunityCard key={jd.jd_key} jd={jd} />)}
                     </ul>
                 )}

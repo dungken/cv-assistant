@@ -1,6 +1,8 @@
 #!/bin/bash
-# dev_native.sh - PRO Native/Hybrid Service Manager for Resume Assistant
-# Updated for Microservice Isolation & Virtual Environment Support
+# dev_native.sh — DATN scope service manager
+# Scope: 2 trụ cột (Multi-criteria CV Freshness + Market Intelligence Dashboard)
+# Routes: /cv-health, /market-intel
+# Services cần thiết: API Gateway, NER, Skill, Frontend
 
 # Colors
 GREEN='\033[0;32m'
@@ -9,10 +11,10 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
-NC='\033[0m' 
+NC='\033[0m'
 BOLD='\033[1m'
 
-# Setup Env Vars & Paths
+# Setup env vars & paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
@@ -23,13 +25,13 @@ if [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Determine Python Exec
+# Determine Python exec
 export SYSTEM_PYTHON="python3"
 if ! command -v python3 &> /dev/null; then
     export SYSTEM_PYTHON="python"
 fi
 
-# Setup Virtual Environment logic
+# Setup virtual environment logic
 VENV_DIR="$PROJECT_ROOT/.venv"
 if [ -d "$VENV_DIR" ]; then
     export PYTHON_EXEC="$VENV_DIR/bin/python"
@@ -41,14 +43,14 @@ fi
 
 show_banner() {
     clear
-    echo -e "${PURPLE}${BOLD}================================================${NC}"
-    echo -e "${PURPLE}${BOLD}    🚀 RESUME ASSISTANT - PRO NATIVE RUNNER 🚀    ${NC}"
-    echo -e "${PURPLE}${BOLD}================================================${NC}"
-    echo -e "${CYAN}Mode: Microservice Isolation (Hybrid Docker Infra)${NC}"
+    echo -e "${PURPLE}${BOLD}=========================================================${NC}"
+    echo -e "${PURPLE}${BOLD}    CV HEALTH INTELLIGENCE — DATN DEV RUNNER             ${NC}"
+    echo -e "${PURPLE}${BOLD}=========================================================${NC}"
+    echo -e "${CYAN}Scope: Multi-criteria Freshness + Market Intelligence${NC}"
     if [ -d "$VENV_DIR" ]; then
         echo -e "${GREEN}Env: Virtual Environment (.venv) ACTIVE${NC}"
     else
-        echo -e "${YELLOW}Env: Global Python (Recommended: run 'i' to setup venv)${NC}"
+        echo -e "${YELLOW}Env: Global Python (Recommended: option 'i' để setup venv)${NC}"
     fi
 }
 
@@ -61,33 +63,29 @@ check_container() {
 }
 
 show_status() {
-    echo -e "\n${BOLD}📊 Infrastructure Status:${NC}"
-    echo -e "  Main Postgres (Port 5433):    $(check_container "postgres_main")"
-    echo -e "  Skill Postgres (Port 5434):   $(check_container "skill_postgres")"
-    echo -e "  Skill Chroma (Port 8003):     $(check_container "skill_chromadb")"
-    echo -e "  Career Chroma (Port 8004):    $(check_container "career_chromadb")"
-    echo -e "  Chatbot Chroma (Port 8005):   $(check_container "chatbot_chromadb")"
+    echo -e "\n${BOLD}Infrastructure Status:${NC}"
+    echo -e "  Main Postgres (5433):     $(check_container "postgres_main")"
+    echo -e "  Skill Postgres (5434):    $(check_container "skill_postgres")"
+    echo -e "  Skill ChromaDB (8003):    $(check_container "skill_chromadb")"
 }
 
 show_menu() {
-    echo -e "\n${BOLD}🛠️  Management Options:${NC}"
-    echo -e "  ${YELLOW}1)${NC} Start ALL Databases (Docker Infra)"
+    echo -e "\n${BOLD}Management Options:${NC}"
+    echo -e "  ${YELLOW}1)${NC} Start ALL Databases (Postgres + ChromaDB)"
+    echo -e "  ${YELLOW}2)${NC} Stop ALL Databases"
     echo -e "  ------------------------------------------------"
-    echo -e "  ${YELLOW}2)${NC} Run API Gateway (.NET Core)"
-    echo -e "  ${YELLOW}3)${NC} Run NER Service (Python)"
-    echo -e "  ${YELLOW}4)${NC} Run Skill Service (Python + Postgres 5434)"
-    echo -e "  ${YELLOW}5)${NC} Run Career Service (Python + Chroma 8004)"
-    echo -e "  ${YELLOW}6)${NC} Run Chatbot Service (Python + Chroma 8005)"
-    echo -e "  ${YELLOW}7)${NC} Run Frontend (React/Vite)"
+    echo -e "  ${YELLOW}3)${NC} Run API Gateway (.NET Core)        — port 5000"
+    echo -e "  ${YELLOW}4)${NC} Run NER Service (Python)            — port 5005"
+    echo -e "  ${YELLOW}5)${NC} Run Skill Service (Python)          — port 5002"
+    echo -e "  ${YELLOW}6)${NC} Run Frontend (React/Vite)           — port 5173"
     echo -e "  ------------------------------------------------"
-    echo -e "  ${YELLOW}8)${NC} Stop ALL Databases"
-    echo -e "  ${YELLOW}s)${NC} Seed ALL Vector Stores (KB Initialization)"
+    echo -e "  ${YELLOW}s)${NC} Seed Knowledge Base (Skill ChromaDB)"
     echo -e "  ${YELLOW}i)${NC} Setup Venv & Install ALL Dependencies"
     echo -e "  ${YELLOW}q)${NC} Quit"
-    echo -ne "\n${BOLD}Select an option [1-8, s, i, q]: ${NC}"
+    echo -ne "\n${BOLD}Select option [1-6, s, i, q]: ${NC}"
 }
 
-# Main Loop
+# Main loop
 while true; do
     show_banner
     show_status
@@ -95,26 +93,30 @@ while true; do
     read opt
 
     case $opt in
-        1) 
-            echo -e "${BLUE}Starting All Isolated Databases...${NC}"
-            docker compose up -d postgres_main skill_postgres skill_chromadb career_chromadb chatbot_chromadb
-            echo -e "${GREEN}Infrastructure is coming online. Please wait 5-10s for Postgres to be ready.${NC}"
+        1)
+            echo -e "${BLUE}Starting databases (Postgres × 2 + Skill ChromaDB)...${NC}"
+            docker compose up -d postgres_main skill_postgres skill_chromadb
+            echo -e "${GREEN}Infrastructure online. Wait 5-10s for Postgres ready.${NC}"
             sleep 2
             ;;
-        2) 
-            echo -e "${GREEN}Starting API Gateway (.NET)...${NC}"
+        2)
+            echo -e "${RED}Stopping all DATN databases...${NC}"
+            docker compose stop postgres_main skill_postgres skill_chromadb
+            ;;
+        3)
+            echo -e "${GREEN}Starting API Gateway (.NET) on :5000...${NC}"
             export ConnectionStrings__DefaultConnection="Host=localhost;Port=5433;Database=cv_assistant;Username=postgres;Password=postgres"
             cd services/api_gateway/CvAssistant.ApiGateway.API && dotnet run
             cd ../../../
             ;;
-        3) 
-            echo -e "${GREEN}Starting NER Service...${NC}"
+        4)
+            echo -e "${GREEN}Starting NER Service on :5005 (parse CV PDF cho /cv-health upload)...${NC}"
             export PYTHONPATH=$PYTHONPATH:$(pwd)
             cd services/ner_service && $PYTHON_EXEC -m uvicorn main:app --port 5005 --reload
             cd ../..
             ;;
-        4) 
-            echo -e "${GREEN}Starting Skill Service (Isolated DB 5434)...${NC}"
+        5)
+            echo -e "${GREEN}Starting Skill Service on :5002 (Multi-criteria Freshness + Market Intel)...${NC}"
             export PYTHONPATH=$PYTHONPATH:$(pwd)
             export DATABASE_URL="postgresql://skill_user:skill_password@localhost:5434/skill_data"
             export CHROMA_HOST="localhost"
@@ -122,50 +124,20 @@ while true; do
             cd services/skill_service && $PYTHON_EXEC -m uvicorn main:app --port 5002 --reload
             cd ../..
             ;;
-        5) 
-            echo -e "${GREEN}Starting Career Service (Isolated Chroma 8004)...${NC}"
-            export PYTHONPATH=$PYTHONPATH:$(pwd)
-            export CHROMA_HOST="localhost"
-            export CHROMA_PORT="8004"
-            cd services/career_service && $PYTHON_EXEC -m uvicorn main:app --port 5003 --reload
-            cd ../..
-            ;;
-        6) 
-            echo -e "${GREEN}Starting Chatbot Service (Isolated Chroma 8005)...${NC}"
-            export PYTHONPATH=$PYTHONPATH:$(pwd)
-            export CHROMA_HOST="localhost"
-            export CHROMA_PORT="8005"
-            export CHAT_NER_URL="http://localhost:5005"
-            export CHAT_SKILL_SERVICE_URL="http://localhost:5002"
-            export CHAT_CAREER_SERVICE_URL="http://localhost:5003"
-            cd services/chatbot_service && $PYTHON_EXEC -m uvicorn main:app --port 5004 --reload
-            cd ../..
-            ;;
-        7) 
-            echo -e "${GREEN}Starting Frontend...${NC}"
+        6)
+            echo -e "${GREEN}Starting Frontend on :5173 (/cv-health + /market-intel)...${NC}"
             cd frontend && npm run dev
             cd ..
             ;;
-        8) 
-            echo -e "${RED}Stopping All Databases...${NC}"
-            docker compose stop postgres_main skill_postgres skill_chromadb career_chromadb chatbot_chromadb
-            ;;
         s)
-            echo -e "${BLUE}🌱 Seeding Knowledge Base to ALL Vector Stores...${NC}"
+            echo -e "${BLUE}Seeding Skill ChromaDB (8003) — required cho semantic search...${NC}"
             export PYTHONPATH=$PYTHONPATH:$(pwd)
-            # Skill Service Store (8003)
             $PYTHON_EXEC scripts/ingest_onet_skills.py --port 8003
             $PYTHON_EXEC scripts/setup_knowledge_base.py --port 8003
-            # Career Service Store (8004)
-            $PYTHON_EXEC scripts/setup_knowledge_base.py --port 8004
-            # Chatbot Service Store (8005)
-            $PYTHON_EXEC scripts/ingest_onet_skills.py --port 8005
-            $PYTHON_EXEC scripts/setup_knowledge_base.py --port 8005
-            echo -e "${GREEN}✅ Seeding Complete!${NC}"
+            echo -e "${GREEN}Seeding done.${NC}"
             ;;
-
         i)
-            echo -e "${BLUE}Setting up Virtual Environment...${NC}"
+            echo -e "${BLUE}Setting up virtual environment...${NC}"
             $SYSTEM_PYTHON -m venv .venv
             if [ $? -ne 0 ]; then
                 echo -e "${RED}Failed to create venv. Make sure python3-venv is installed.${NC}"
@@ -173,26 +145,30 @@ while true; do
             else
                 export PYTHON_EXEC="$VENV_DIR/bin/python"
                 export PIP_EXEC="$VENV_DIR/bin/pip"
-                echo -e "${GREEN}Venv created successfully.${NC}"
-                echo -e "${BLUE}Installing Dependencies into Venv...${NC}"
+                echo -e "${GREEN}Venv created.${NC}"
+                echo -e "${BLUE}Installing dependencies (NER + Skill service only)...${NC}"
                 $PIP_EXEC install --upgrade pip
                 $PIP_EXEC install python-dotenv pydantic-settings uvicorn fastapi
-                for req in services/*/requirements.txt; do
-                    echo -e "${CYAN}Installing from $req...${NC}"
-                    $PIP_EXEC install -r "$req"
+                # Only install for services trong DATN scope
+                for svc in ner_service skill_service crawler_service; do
+                    req="services/$svc/requirements.txt"
+                    if [ -f "$req" ]; then
+                        echo -e "${CYAN}Installing from $req...${NC}"
+                        $PIP_EXEC install -r "$req"
+                    fi
                 done
-                echo -e "${GREEN}Setup complete! You are now using .venv.${NC}"
+                echo -e "${GREEN}Setup complete. .venv ready.${NC}"
             fi
             ;;
-        q) 
-            echo -e "${PURPLE}Happy coding! Goodbye.${NC}"
-            exit 0 
+        q)
+            echo -e "${PURPLE}Goodbye.${NC}"
+            exit 0
             ;;
-        *) 
-            echo -e "${RED}Invalid option!${NC}" 
+        *)
+            echo -e "${RED}Invalid option!${NC}"
             ;;
     esac
 
-    echo -ne "\n${YELLOW}Service stopped. Press ENTER to return to menu...${NC}"
+    echo -ne "\n${YELLOW}Service stopped. Press ENTER để quay lại menu...${NC}"
     read
 done

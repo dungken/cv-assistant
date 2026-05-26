@@ -284,6 +284,22 @@ class CVUpsertRequest(BaseModel):
     years_experience: Optional[float] = None
     preferred_location: Optional[str] = None
     preferred_work_modes: Optional[List[str]] = None
+    # Multi-criteria Freshness 8-dim fields (chuong3/3.2). All optional —
+    # backend uses sensible defaults for missing fields.
+    seniority: Optional[str] = None             # junior|mid|senior|lead
+    past_job_titles: Optional[List[str]] = None
+    num_projects: Optional[int] = None
+    project_skill_counts: Optional[List[int]] = None
+    degree: Optional[str] = None                # Bachelor|Master|PhD|Diploma|...
+    major: Optional[str] = None
+    achievement_text: Optional[str] = None
+    language_text: Optional[str] = None
+    has_contact: Optional[bool] = None
+    has_summary: Optional[bool] = None
+    has_education: Optional[bool] = None
+    has_experience: Optional[bool] = None
+    has_skills: Optional[bool] = None
+    has_projects: Optional[bool] = None
 
 class CVUpsertResponse(BaseModel):
     user_id: str
@@ -291,6 +307,29 @@ class CVUpsertResponse(BaseModel):
     skill_count: int
     updated_at: str
     recompute_scheduled: bool = True
+
+
+# ─── Multi-criteria Freshness (chuong3/3.2) — 8-dim breakdown ────────────────
+
+class DimensionScoreItem(BaseModel):
+    name: str
+    score: float
+    weight: float
+    weighted: float
+    detail: str = ""
+
+class MultiCriteriaResponse(BaseModel):
+    user_id: str
+    role: str
+    seniority: str
+    snapshot_date: str
+    score: float                                    # tổng Weighted Sum
+    dimensions: List[DimensionScoreItem] = []       # 8 dimensions
+    skill_contributions: List[SkillContributionItem] = []  # chi tiết chiều Skill
+    ideal_skills: List[str] = []
+    missing_ideal: List[str] = []
+    cold_start: bool = False
+
 
 class HealthScoreResponse(BaseModel):
     user_id: str
@@ -302,6 +341,9 @@ class HealthScoreResponse(BaseModel):
     missing_ideal: List[str] = []
     cold_start: bool = False
     history_recorded: bool = False
+    # Multi-criteria breakdown — populated when /health-score uses 8-dim engine.
+    dimensions: List[DimensionScoreItem] = []
+    seniority: Optional[str] = None
 
 class AlertItem(BaseModel):
     id: int

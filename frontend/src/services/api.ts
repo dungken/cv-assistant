@@ -797,16 +797,27 @@ export interface SkillContribution {
     contribution: number;
 }
 
+export interface DimensionScore {
+    name: string;
+    score: number;
+    weight: number;
+    weighted: number;
+    detail: string;
+}
+
 export interface HealthScoreResponse {
     user_id: string;
     role: string;
-    score: number;
+    score: number;             // tổng Weighted Sum 8 chiều
     snapshot_date: string;
     contributions: SkillContribution[];
     ideal_skills: string[];
     missing_ideal: string[];
     cold_start: boolean;
     history_recorded: boolean;
+    // Multi-criteria Freshness 8-dim breakdown (chuong3/3.2)
+    dimensions?: DimensionScore[];
+    seniority?: string | null;
 }
 
 export interface FreshnessHistoryPoint {
@@ -882,6 +893,21 @@ export const cvHealthApi = {
             yearsExperience?: number | null;
             preferredLocation?: string | null;
             preferredWorkModes?: string[] | null;
+            // Multi-criteria Freshness 8-dim profile (chuong3/3.2)
+            seniority?: string | null;
+            pastJobTitles?: string[] | null;
+            numProjects?: number | null;
+            projectSkillCounts?: number[] | null;
+            degree?: string | null;
+            major?: string | null;
+            achievementText?: string | null;
+            languageText?: string | null;
+            hasContact?: boolean | null;
+            hasSummary?: boolean | null;
+            hasEducation?: boolean | null;
+            hasExperience?: boolean | null;
+            hasSkills?: boolean | null;
+            hasProjects?: boolean | null;
         },
     ) =>
         api.post<CvUpsertResponse>(`${SKILL_BASE}/cv/me`, {
@@ -891,6 +917,20 @@ export const cvHealthApi = {
             years_experience: opts?.yearsExperience ?? null,
             preferred_location: opts?.preferredLocation ?? null,
             preferred_work_modes: opts?.preferredWorkModes ?? null,
+            seniority: opts?.seniority ?? null,
+            past_job_titles: opts?.pastJobTitles ?? null,
+            num_projects: opts?.numProjects ?? null,
+            project_skill_counts: opts?.projectSkillCounts ?? null,
+            degree: opts?.degree ?? null,
+            major: opts?.major ?? null,
+            achievement_text: opts?.achievementText ?? null,
+            language_text: opts?.languageText ?? null,
+            has_contact: opts?.hasContact ?? null,
+            has_summary: opts?.hasSummary ?? null,
+            has_education: opts?.hasEducation ?? null,
+            has_experience: opts?.hasExperience ?? null,
+            has_skills: opts?.hasSkills ?? null,
+            has_projects: opts?.hasProjects ?? null,
         }),
 
     getHealthScore: (userId: string, persist: boolean = true) =>

@@ -6,6 +6,7 @@ import {
 import { Search, RefreshCw, TrendingUp, TrendingDown, Database, Briefcase, GraduationCap, MapPin, Building2, DollarSign, Sparkles, Layers, Compass, Zap, Wifi, Gem, LineChart as LineIcon, Target, Flame, Award, Languages, CalendarDays, AlertTriangle, Crown, Network } from 'lucide-react';
 import { skillApi, type MarketIntelDashboard } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/Card';
+import { LightSelect } from '../ui/LightSelect';
 
 const PALETTE = [
     '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
@@ -389,17 +390,17 @@ function FiltersBar({
     );
 }
 
-function FilterSelect({ label, value, onChange, options, cls }: {
+function FilterSelect({ label, value, onChange, options }: {
     label: string; value: string; onChange: (v: string) => void;
-    options: { v: string; label: string }[]; cls: string;
+    options: { v: string; label: string }[]; cls?: string;
 }) {
     return (
-        <div>
-            <label className="block text-[10px] uppercase tracking-wider text-text-secondary mb-1 font-semibold">{label}</label>
-            <select className={cls} value={value} onChange={(e) => onChange(e.target.value)}>
-                {options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
-            </select>
-        </div>
+        <LightSelect
+            label={label}
+            value={value}
+            onChange={onChange}
+            options={options.map((o) => ({ value: o.v, label: o.label }))}
+        />
     );
 }
 

@@ -13,7 +13,7 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import SettingsModal from './components/common/SettingsModal';
-import Sidebar from './components/layout/Sidebar';
+import TopNav from './components/layout/TopNav';
 import MessageItem from './components/chat/MessageItem';
 import PromptBar from './components/chat/PromptBar';
 import ChatTOC from './components/chat/ChatTOC';
@@ -46,7 +46,6 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!localStorage.getItem('token'));
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password'>('login');
   const [userName, setUserName] = useState<string>(localStorage.getItem('userName') || '');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -785,50 +784,18 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-canvas text-text-primary overflow-hidden font-sans transition-colors duration-500">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        onNewChat={createNewChat}
-        sessions={sessionList}
-        currentSessionId={currentSessionId}
-        onSelectSession={selectSession}
-        onDeleteSession={deleteChat}
-        onStartEditing={startEditing}
-        onSaveTitle={saveTitle}
-        editingSessionId={editingSessionId}
-        tempTitle={tempTitle}
-        setTempTitle={setTempTitle}
-        theme={theme}
-        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+    <div className="flex flex-col h-screen bg-canvas text-text-primary overflow-hidden font-sans transition-colors duration-500">
+      <TopNav
         userName={userName}
         userRole={userRole}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onSearchToggle={() => setIsSearchMode(!isSearchMode)}
-        onOpenProfile={() => {
-          setIsMemoryPanelOpen(false);
-          setIsProfileOpen(true);
-        }}
-        onOpenCvList={() => {
-          setIsMemoryPanelOpen(false);
-          setIsCvListOpen(true);
-        }}
-        onOpenMemory={() => {
-          setIsProfileOpen(false);
-          setIsCvListOpen(false);
-          setIsMemoryPanelOpen(true);
-        }}
-        onOpenMarket={() => openArtifact('market')}
-        onOpenAdmin={() => {
-            navigate('/admin');
-        }}
+        onOpenAdmin={() => navigate('/admin')}
       />
-
 
       <main
         ref={mainRef}
-        className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-canvas transition-all duration-300"
+        className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-canvas"
       >
         <Routes>
           <Route
@@ -1024,46 +991,7 @@ export default function App() {
         defaultTab="general"
       />
 
-      {isProfileOpen && (
-        <ProfilePage
-          onClose={() => setIsProfileOpen(false)}
-          onLogout={handleLogout}
-          onProfileUpdated={({ name, language, email }) => {
-            if (name) {
-              setUserName(name);
-              localStorage.setItem('userName', name);
-            }
-            if (email) {
-              setUserEmail(email);
-              localStorage.setItem('userEmail', email);
-            }
-            if (language) {
-              i18n.changeLanguage(language);
-            }
-          }}
-        />
-      )}
 
-      {isMemoryPanelOpen && userEmail && (
-        <UserMemoryPanel
-          userId={userEmail}
-          userName={userName}
-          onProfileSynced={({ name, language, email }) => {
-            if (name) {
-              setUserName(name);
-              localStorage.setItem('userName', name);
-            }
-            if (email) {
-              setUserEmail(email);
-              localStorage.setItem('userEmail', email);
-            }
-            if (language) {
-              i18n.changeLanguage(language);
-            }
-          }}
-          onClose={() => setIsMemoryPanelOpen(false)}
-        />
-      )}
 
       <FeedbackModal 
         isOpen={isFeedbackModalOpen}

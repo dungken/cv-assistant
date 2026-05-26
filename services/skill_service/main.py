@@ -28,9 +28,11 @@ from services.skill_service.models.schemas import (
     HealthScoreResponse, SkillAlertsResponse, AlertItem,
     OpportunityWindowResponse, OpportunityJDItem,
     FreshnessHistoryResponse, FreshnessHistoryPoint,
+    MultiCriteriaResponse, DimensionScoreItem,
 )
 from services.skill_service.services.freshness_engine import (
     CVSkillInput, record_history_and_alert,
+    MultiCriteriaFreshnessEngine, CVProfileInput,
 )
 from services.skill_service.services import cv_store
 from services.skill_service.services.opportunity_window import find_opportunities
@@ -121,6 +123,42 @@ def get_freshness_engine() -> CVFreshnessEngine:
     if _freshness_engine is None:
         _freshness_engine = CVFreshnessEngine(get_ontology())
     return _freshness_engine
+
+
+_multi_engine = None
+def get_multi_engine() -> MultiCriteriaFreshnessEngine:
+    """Singleton MultiCriteriaFreshnessEngine — 8 dimensions (chuong3/3.2)."""
+    global _multi_engine
+    if _multi_engine is None:
+        _multi_engine = MultiCriteriaFreshnessEngine(get_ontology(), get_freshness_engine())
+    return _multi_engine
+
+
+def _build_profile_from_cv(cv) -> CVProfileInput:
+    """Helper: build CVProfileInput from CVRecord (cv_store)."""
+    extras = cv.profile_extras or {}
+    return CVProfileInput(
+        skills=[
+            CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year"))
+            for s in cv.skills_with_recency
+        ],
+        role=cv.target_role,
+        seniority=extras.get("seniority") or "junior",
+        years_experience=cv.years_experience,
+        past_job_titles=list(extras.get("past_job_titles") or []),
+        num_projects=int(extras.get("num_projects") or 0),
+        project_skill_counts=list(extras.get("project_skill_counts") or []),
+        degree=extras.get("degree"),
+        major=extras.get("major"),
+        achievement_text=extras.get("achievement_text") or "",
+        language_text=extras.get("language_text") or "",
+        has_contact=bool(extras.get("has_contact", True)),
+        has_summary=bool(extras.get("has_summary", False)),
+        has_education=bool(extras.get("has_education", False)),
+        has_experience=bool(extras.get("has_experience", False)),
+        has_skills=bool(extras.get("has_skills", True)),
+        has_projects=bool(extras.get("has_projects", False)),
+    )
 
 def get_course_service() -> CourseService:
     """Dependency injection for CourseService."""
@@ -309,9 +347,9 @@ def cv_freshness(
 # ─── Tuần 14: BackgroundTask for Freshness recompute ──────────────────────────
 
 def _recompute_freshness_bg(user_id: str) -> None:
-    """Background job: recompute Freshness Score for `user_id` and persist
-    history + alerts. Opens its own DB session because the request-scoped
-    session is already closed by the time this runs.
+    """Background job: recompute Multi-criteria Freshness 8 dim for `user_id`
+    + persist Skill-dim history & alerts. Opens its own DB session because the
+    request-scoped session is already closed by the time this runs.
     """
     db = SessionLocal()
     try:
@@ -319,16 +357,15 @@ def _recompute_freshness_bg(user_id: str) -> None:
         if cv is None:
             logger.warning("BG recompute: no CV for user_id=%s", user_id)
             return
-        engine = get_freshness_engine()
-        cv_inputs = [
-            CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year"))
-            for s in cv.skills_with_recency
-        ]
-        result = engine.compute(db=db, cv_skills=cv_inputs, role=cv.target_role)
-        record_history_and_alert(db=db, user_id=user_id, result=result)
+        profile = _build_profile_from_cv(cv)
+        multi_result = get_multi_engine().compute(db=db, profile=profile)
+        # Persist Skill-dimension history (existing time-series + alerts pipeline).
+        if multi_result.skill_result is not None:
+            record_history_and_alert(db=db, user_id=user_id, result=multi_result.skill_result)
         logger.info(
-            "BG recompute done user=%s role=%s score=%.2f cold_start=%s",
-            user_id, cv.target_role, result.score, result.cold_start,
+            "BG recompute done user=%s role=%s total=%.2f cold_start=%s dims=%s",
+            user_id, cv.target_role, multi_result.score, multi_result.cold_start,
+            {d.name: d.score for d in multi_result.dimensions},
         )
     except Exception as e:
         logger.error("BG recompute failed for user=%s: %s", user_id, e, exc_info=True)
@@ -347,11 +384,24 @@ def upsert_cv(
     """Insert/update the user's CV. Triggers a background Freshness recompute
     per §3.2.5 ("Sự kiện: User upload CV mới → BackgroundTask")."""
     skills = [s.dict() for s in request.skills]
+    # Collect 8-dim profile extras — only non-None fields go through so
+    # partial updates preserve previously-set keys (handled in cv_store).
+    extras: dict = {}
+    for key in (
+        "seniority", "past_job_titles", "num_projects", "project_skill_counts",
+        "degree", "major", "achievement_text", "language_text",
+        "has_contact", "has_summary", "has_education",
+        "has_experience", "has_skills", "has_projects",
+    ):
+        val = getattr(request, key, None)
+        if val is not None:
+            extras[key] = val
     rec = cv_store.upsert_cv(
         db, request.user_id, request.target_role, skills,
         years_experience=request.years_experience,
         preferred_location=request.preferred_location,
         preferred_work_modes=request.preferred_work_modes,
+        profile_extras=extras if extras else None,
     )
     background_tasks.add_task(_recompute_freshness_bg, request.user_id)
     return CVUpsertResponse(
@@ -366,38 +416,75 @@ def upsert_cv(
 def health_score(
     user_id: str = Query(...),
     persist: bool = Query(True, description="Insert into history + fire alerts"),
-    engine: CVFreshnessEngine = Depends(get_freshness_engine),
     db = Depends(get_db),
 ):
-    """Compute current Freshness Score for `user_id` using their stored CV.
-    By default also writes to history and fires an alert if the score dropped."""
+    """Compute Multi-criteria Freshness Score (8 dim) for `user_id` using
+    their stored CV. Returns total + per-dimension breakdown for the radar
+    chart. Persists Skill-dim history & fires alerts when score drops."""
     cv = cv_store.get_cv(db, user_id)
     if cv is None:
         raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
-    cv_inputs = [
-        CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year"))
-        for s in cv.skills_with_recency
-    ]
     try:
-        result = engine.compute(db=db, cv_skills=cv_inputs, role=cv.target_role)
+        profile = _build_profile_from_cv(cv)
+        result = get_multi_engine().compute(db=db, profile=profile)
     except Exception as e:
         logger.error("health-score failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
     history_recorded = False
-    if persist:
+    if persist and result.skill_result is not None:
         try:
-            record_history_and_alert(db=db, user_id=user_id, result=result)
+            record_history_and_alert(db=db, user_id=user_id, result=result.skill_result)
             history_recorded = True
         except Exception as e:
             logger.error("history record failed: %s", e, exc_info=True)
 
+    skill_res = result.skill_result
     return HealthScoreResponse(
-        user_id=user_id, role=result.role,
-        score=result.score, snapshot_date=result.snapshot_date.isoformat(),
-        contributions=[SkillContributionItem(**c.__dict__) for c in result.contributions],
-        ideal_skills=result.ideal_skills, missing_ideal=result.missing_ideal,
-        cold_start=result.cold_start, history_recorded=history_recorded,
+        user_id=user_id,
+        role=result.role,
+        score=result.score,
+        snapshot_date=result.snapshot_date.isoformat(),
+        contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
+        ideal_skills=skill_res.ideal_skills if skill_res else [],
+        missing_ideal=skill_res.missing_ideal if skill_res else [],
+        cold_start=result.cold_start,
+        history_recorded=history_recorded,
+        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        seniority=result.seniority,
+    )
+
+
+@app.get("/cv/freshness-multi", response_model=MultiCriteriaResponse)
+def cv_freshness_multi(
+    user_id: str = Query(...),
+    db = Depends(get_db),
+):
+    """Dedicated endpoint returning Multi-criteria Freshness 8-dim breakdown
+    (chuong3/3.2). Same logic as /health-score but doesn't persist history —
+    useful for live recompute previews (e.g. user editing skills inline)."""
+    cv = cv_store.get_cv(db, user_id)
+    if cv is None:
+        raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
+    try:
+        profile = _build_profile_from_cv(cv)
+        result = get_multi_engine().compute(db=db, profile=profile)
+    except Exception as e:
+        logger.error("freshness-multi failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    skill_res = result.skill_result
+    return MultiCriteriaResponse(
+        user_id=user_id,
+        role=result.role,
+        seniority=result.seniority,
+        snapshot_date=result.snapshot_date.isoformat(),
+        score=result.score,
+        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        skill_contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
+        ideal_skills=skill_res.ideal_skills if skill_res else [],
+        missing_ideal=skill_res.missing_ideal if skill_res else [],
+        cold_start=result.cold_start,
     )
 
 

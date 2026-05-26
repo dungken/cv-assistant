@@ -43,6 +43,12 @@ class UserCVDB(Base):
     years_experience = Column(Float)              # total years across all jobs; None = unknown
     preferred_location = Column(String(128))       # "HCM" / "Hà Nội" / "Đà Nẵng" / "Remote"
     preferred_work_modes = Column(JSON, default=list)  # ["onsite","hybrid","remote"]
+    # Multi-criteria Freshness 8-dim profile (Tuần 11 — chuong3/3.2).
+    # JSON shape: {seniority, past_job_titles, num_projects, project_skill_counts,
+    #              degree, major, achievement_text, language_text,
+    #              has_contact, has_summary, has_education, has_experience,
+    #              has_skills, has_projects}
+    profile_extras = Column(JSON, default=dict)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 

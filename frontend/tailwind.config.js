@@ -41,6 +41,15 @@ export default {
         '2xl': '1.75rem',
         '3xl': '2.25rem',
       },
+      keyframes: {
+        progress: {
+          '0%':   { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(350%)' },
+        },
+      },
+      animation: {
+        progress: 'progress 1.4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

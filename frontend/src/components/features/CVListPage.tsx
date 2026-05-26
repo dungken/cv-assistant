@@ -98,8 +98,8 @@ const CVListPage: React.FC<CVListPageProps> = ({ onClose, onSelect }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-canvas/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden bg-surface rounded-3xl shadow-2xl border border-white/5 flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden bg-surface rounded-3xl shadow-xl border border-white/5 flex flex-col animate-in zoom-in-95 duration-150">
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
                     <div>
@@ -145,10 +145,10 @@ const CVListPage: React.FC<CVListPageProps> = ({ onClose, onSelect }) => {
                             <p className="text-text-secondary/60 text-sm mt-1">Create your first CV using the CV Builder</p>
                         </div>
                     ) : (
-                        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-all duration-300 ${isSearching ? 'opacity-40 grayscale-[20%] scale-[0.99]' : 'opacity-100'}`}>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-opacity duration-200 ${isSearching ? 'opacity-50' : 'opacity-100'}`}>
                             {documents.map(doc => (
                                 <div key={doc.id}
-                                    className={`group bg-secondary/20 hover:bg-secondary/40 rounded-2xl p-5 transition-all cursor-pointer border border-transparent hover:border-accent-primary/20 ${selectedDoc?.id === doc.id ? 'border-accent-primary/40 bg-accent-primary/5' : ''}`}
+                                    className={`group bg-secondary/20 hover:bg-secondary/40 rounded-2xl p-5 transition-colors cursor-pointer border border-transparent hover:border-accent-primary/20 ${selectedDoc?.id === doc.id ? 'border-accent-primary/40 bg-accent-primary/5' : ''}`}
                                     onClick={() => { setSelectedDoc(doc); setShowTimeline(true); setDiffVersions(null); }}>
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 flex items-center justify-center">
@@ -156,7 +156,7 @@ const CVListPage: React.FC<CVListPageProps> = ({ onClose, onSelect }) => {
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={(e) => { e.stopPropagation(); handleOpen(doc); }}
-                                                className="p-1.5 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary hover:text-white transition-all shadow-sm"
+                                                className="p-1.5 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary hover:text-white transition-colors shadow-sm"
                                                 title="Open in Builder">
                                                 <Edit3 className="w-3.5 h-3.5" />
                                             </button>

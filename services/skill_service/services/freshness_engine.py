@@ -53,6 +53,32 @@ DEFAULT_RECENCY = 0.7  # used when CV experience date info is missing
 ALERT_DROP_THRESHOLD = 5.0  # §3.2.5 — fire alert when score drops more than this
 
 
+# Role alias mapping — frontend gửi role ngắn (vd 'backend'), `skill_trends`
+# lưu canonical từ crawler (vd 'backend-developer'). Mapping cho phép engine
+# query đúng row, tránh cold_start giả do role mismatch.
+ROLE_ALIASES_FOR_TRENDS: dict[str, list[str]] = {
+    "backend": ["backend-developer", "backend"],
+    "frontend": ["frontend-developer", "frontend"],
+    "fullstack": ["fullstack-developer", "fullstack", "backend-developer", "frontend-developer"],
+    "data": ["data-engineer", "data-scientist", "data-analyst", "data-architect", "data"],
+    "data_engineer": ["data-engineer", "data-architect", "dataops-mlops-engineer", "data"],
+    "data_scientist": ["data-scientist", "data-analyst", "data"],
+    "devops": ["devops", "devops-engineer", "devsecops-engineer", "sysops-engineer",
+               "site-reliability-engineer-sre", "cloud-engineer"],
+    "ai_engineer": ["ai-machine-learning-engineer", "ai-architect", "ai_engineer",
+                    "computer-vision-engineer", "dataops-mlops-engineer"],
+    "ml_engineer": ["ai-machine-learning-engineer", "dataops-mlops-engineer"],
+    "mobile": ["mobile-application-developer", "mobile"],
+}
+
+
+def _role_alias_list(role: str | None) -> list[str]:
+    """Return all role aliases used in skill_trends table for a given short role."""
+    if not role:
+        return []
+    return ROLE_ALIASES_FOR_TRENDS.get(role.lower(), [role])
+
+
 # ─── CV input + output dataclasses ────────────────────────────────────────────
 
 @dataclass
@@ -145,30 +171,42 @@ class CVFreshnessEngine:
     def _load_trend_data(
         self, db: Session, role: str, snapshot_date: date
     ) -> tuple[dict[str, int], dict[str, float], bool]:
-        """Returns (current_demand_by_skill, freq_norm_by_skill, cold_start)."""
-        # Current week demand (latest snapshot ≤ snapshot_date with window_days=7)
+        """Returns (current_demand_by_skill, freq_norm_by_skill, cold_start).
+
+        Aggregates across all role aliases (vd `backend` → `backend-developer`)
+        và SUM demand_count nếu skill xuất hiện ở nhiều alias.
+        """
+        aliases = _role_alias_list(role)
+        if not aliases:
+            return {}, {}, True
+
+        # Current week demand: aggregate qua tất cả role aliases ở snapshot mới nhất.
         sql_current = text(
             """
-            SELECT skill_canonical, demand_count
+            SELECT skill_canonical, SUM(demand_count) AS cnt
             FROM skill_trends
             WHERE window_days = :window
               AND snapshot_date = (
                   SELECT MAX(snapshot_date) FROM skill_trends
                   WHERE window_days = :window
                     AND snapshot_date <= :snap
-                    AND (role = :role OR (:role IS NULL AND role IS NULL))
+                    AND role = ANY(:roles)
               )
-              AND (role = :role OR (:role IS NULL AND role IS NULL))
+              AND role = ANY(:roles)
+            GROUP BY skill_canonical
             """
         )
-        role_arg = role if role else None
         rows = db.execute(
-            sql_current, {"window": TREND_WINDOW_DAYS, "snap": snapshot_date, "role": role_arg}
+            sql_current,
+            {"window": TREND_WINDOW_DAYS, "snap": snapshot_date, "roles": aliases},
         ).fetchall()
         current: dict[str, int] = {r[0]: int(r[1]) for r in rows}
 
         if not current:
-            logger.warning("freshness: no skill_trends for role=%s snap=%s", role, snapshot_date)
+            logger.warning(
+                "freshness: no skill_trends for role=%s aliases=%s snap=%s",
+                role, aliases, snapshot_date,
+            )
             return {}, {}, True
 
         # Normalize freq to [0, 1] using max demand in the snapshot.
@@ -180,13 +218,13 @@ class CVFreshnessEngine:
             """
             SELECT COUNT(DISTINCT snapshot_date) FROM skill_trends
             WHERE window_days = :window
-              AND (role = :role OR (:role IS NULL AND role IS NULL))
+              AND role = ANY(:roles)
               AND snapshot_date <= :snap
             """
         )
         n_snaps = db.execute(
             sql_history_count,
-            {"window": TREND_WINDOW_DAYS, "snap": snapshot_date, "role": role_arg},
+            {"window": TREND_WINDOW_DAYS, "snap": snapshot_date, "roles": aliases},
         ).scalar() or 0
         cold_start = n_snaps < TREND_LOOKBACK_WEEKS
 
@@ -201,14 +239,18 @@ class CVFreshnessEngine:
             return TREND_CLIP_LOW
 
         # MA over the 4 previous weekly snapshots strictly before snapshot_date.
+        # Use role aliases (vd `backend` → `backend-developer`) — sum demand
+        # across aliases per snapshot, then average.
+        aliases = _role_alias_list(role)
         sql = text(
             """
-            SELECT AVG(demand_count) FROM (
-                SELECT demand_count FROM skill_trends
+            SELECT AVG(snap_total) FROM (
+                SELECT SUM(demand_count) AS snap_total FROM skill_trends
                 WHERE skill_canonical = :sk
                   AND window_days = :window
-                  AND (role = :role OR (:role IS NULL AND role IS NULL))
+                  AND role = ANY(:roles)
                   AND snapshot_date < :snap
+                GROUP BY snapshot_date
                 ORDER BY snapshot_date DESC
                 LIMIT :k
             ) sub
@@ -219,7 +261,7 @@ class CVFreshnessEngine:
             {
                 "sk": skill,
                 "window": TREND_WINDOW_DAYS,
-                "role": role if role else None,
+                "roles": aliases,
                 "snap": snapshot_date,
                 "k": TREND_LOOKBACK_WEEKS,
             },

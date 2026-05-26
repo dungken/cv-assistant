@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     LogOut, Edit2, Trash2, Briefcase, Settings,
-    MoreVertical, Sparkles, Share2, Pin,
+    Share2, Pin,
     Menu, Shield, Activity, TrendingUp
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -213,27 +213,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                             </div>
                             <div className={cn("sidebar-content-slide flex-1 flex items-center justify-between pl-1 pr-6", isOpen ? "open opacity-100" : "closed opacity-0 pointer-events-none")}>
-                                <div className="flex flex-col min-w-0 cursor-pointer" onClick={onOpenProfile}>
+                                <div className="flex flex-col min-w-0">
                                     <div className="flex items-center gap-1.5 overflow-hidden">
-                                        <span className="text-[13px] font-bold truncate text-text-primary font-outfit uppercase tracking-tight hover:text-accent-primary transition-colors">{userName}</span>
+                                        <span className="text-[13px] font-bold truncate text-text-primary font-outfit uppercase tracking-tight">{userName}</span>
                                         {userRole === 'Admin' && (
                                             <Badge variant="outline" className="h-4 px-1 text-[8px] border-emerald-500/30 text-emerald-500/80 bg-emerald-500/5 normal-case font-bold">ADM</Badge>
                                         )}
                                     </div>
-                                    <span className="text-[9px] text-text-muted font-black uppercase tracking-[0.1em]">{userRole === 'Admin' ? 'Administrator' : 'Free tier'}</span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                     {onOpenCvList && (
-                                        <button onClick={onOpenCvList} title="My CVs" className="p-2 text-text-muted hover:text-accent-primary transition-all bg-surface/30 hover:bg-surface-hover rounded-full">
+                                        <button onClick={onOpenCvList} title="My CVs" className="p-2 text-text-muted hover:text-accent-primary transition-colors bg-surface/30 hover:bg-surface-hover rounded-full">
                                             <Briefcase className="w-4 h-4" />
                                         </button>
                                     )}
-                                    {onOpenMemory && (
-                                        <button onClick={onOpenMemory} title={t('sidebar.memory')} className="p-2 text-text-muted hover:text-accent-primary transition-all bg-surface/30 hover:bg-surface-hover rounded-full">
-                                            <Sparkles className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                    <button onClick={onLogout} className="p-2 text-text-muted hover:text-rose-500 transition-all bg-surface/30 hover:bg-surface-hover rounded-full">
+                                    <button onClick={onLogout} className="p-2 text-text-muted hover:text-rose-500 transition-colors bg-surface/30 hover:bg-surface-hover rounded-full">
                                         <LogOut className="w-4 h-4" />
                                     </button>
                                 </div>
