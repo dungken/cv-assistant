@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { UploadCloud, Loader2, ChevronDown, FileText } from 'lucide-react';
+import { UploadCloud, Loader2, ChevronDown, FileText, Eye } from 'lucide-react';
 import { cvDocumentApi, cvHealthApi, nerApi, type CvDocument } from '../../../services/api';
 import CVPreviewPanel from './CVPreviewPanel';
 
 interface Props {
     userId: string;
     onLinked: () => void;
+    onEmpty?: (isEmpty: boolean) => void;
 }
 
 const ROLES: Array<{ id: string; label: string }> = [
@@ -132,7 +133,7 @@ function extractSkills(parsed: unknown): string[] {
     return Array.from(out);
 }
 
-export default function CVPicker({ userId, onLinked }: Props) {
+export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     const [docs, setDocs] = useState<CvDocument[] | null>(null);
     const [loadingList, setLoadingList] = useState(false);
     const [listError, setListError] = useState<string | null>(null);
@@ -156,10 +157,6 @@ export default function CVPicker({ userId, onLinked }: Props) {
     const [locDropOpen, setLocDropOpen] = useState(false);
     const locDropRef = useRef<HTMLDivElement>(null);
 
-    // NER preview
-    const [preview, setPreview] = useState<{ source: 'upload' | 'select'; parsed: unknown } | null>(null);
-    const [showPreview, setShowPreview] = useState(false);
-
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (cvDropRef.current && !cvDropRef.current.contains(e.target as Node)) setCvDropOpen(false);
@@ -178,6 +175,7 @@ export default function CVPicker({ userId, onLinked }: Props) {
                 if (cancelled) return;
                 setDocs(res.data);
                 if (res.data.length > 0) setSelectedId(res.data[0].id);
+                if (onEmpty) onEmpty(res.data.length === 0);
             })
             .catch(err => {
                 if (cancelled) return;
@@ -186,25 +184,6 @@ export default function CVPicker({ userId, onLinked }: Props) {
             .finally(() => { if (!cancelled) setLoadingList(false); });
         return () => { cancelled = true; };
     }, []);
-
-    // Auto-load preview when CV selection changes
-    useEffect(() => {
-        if (!selectedId) { setPreview(null); return; }
-        let cancelled = false;
-        cvDocumentApi.getById(selectedId).then(async (docRes) => {
-            if (cancelled) return;
-            const latest = docRes.data.versions.slice().sort((a, b) => b.versionNumber - a.versionNumber)[0];
-            if (!latest) return;
-            try {
-                const verRes = await cvDocumentApi.getVersion(docRes.data.id, latest.id);
-                if (cancelled) return;
-                setPreview({ source: 'select', parsed: JSON.parse(verRes.data.dataJson) });
-            } catch { /* preview is optional */ }
-        }).catch(() => {});
-        return () => { cancelled = true; };
-    }, [selectedId]);
-
-    // handleUpload removed for Human-in-the-loop review
 
     function toggleWorkMode(mode: string) {
         setWorkModes(prev => prev.includes(mode) ? prev.filter(m => m !== mode) : [...prev, mode]);
@@ -252,7 +231,7 @@ export default function CVPicker({ userId, onLinked }: Props) {
 
     return (
         <>
-        <div className="rounded-2xl border border-white/8 bg-surface overflow-visible">
+        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-visible">
             <div className="px-5 py-4 flex items-start gap-4">
             {/* Filter groups — wrap freely */}
             <div className="flex flex-wrap gap-x-6 gap-y-4 flex-1 min-w-0">
@@ -411,16 +390,11 @@ export default function CVPicker({ userId, onLinked }: Props) {
 
                 {/* Actions — fixed right, outside wrap */}
                 <div className="flex flex-col items-end justify-start gap-2 shrink-0 pt-5">
-                    {preview && (
-                        <button type="button" onClick={() => setShowPreview(v => !v)}
-                            className={`h-8 px-3.5 rounded-xl text-sm font-semibold transition-all border ${
-                                showPreview
-                                    ? 'bg-white/10 border-white/15 text-text-primary'
-                                    : 'border-white/10 text-text-muted hover:text-text-primary hover:bg-white/5'
-                            }`}>
-                            {showPreview ? 'Ẩn NER' : 'Xem NER'}
-                        </button>
-                    )}
+                    <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
+                        disabled={!selectedId}
+                        className="h-8 px-3.5 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed text-text-primary transition-all flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" /> Xem / Sửa CV
+                    </button>
                     <button type="button" onClick={handleUseCv}
                         disabled={!selectedId || linking}
                         className="h-8 px-4 rounded-xl text-sm font-bold bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center gap-1.5">
@@ -437,27 +411,6 @@ export default function CVPicker({ userId, onLinked }: Props) {
             )}
         </div>
 
-        {/* NER Modal overlay */}
-        {showPreview && preview && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowPreview(false)}>
-                <div className="absolute inset-0 bg-black/60" />
-                <div className="relative w-full max-w-3xl max-h-[80vh] bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/60 flex flex-col overflow-hidden"
-                    onClick={e => e.stopPropagation()}>
-                    {/* Modal header */}
-                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/8 shrink-0">
-                        <span className="text-sm font-bold text-text-primary">NER Preview — {selectedDoc?.name}</span>
-                        <button type="button" onClick={() => setShowPreview(false)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/8 text-text-muted hover:text-text-primary transition-colors text-lg leading-none">
-                            ×
-                        </button>
-                    </div>
-                    {/* Modal body */}
-                    <div className="overflow-y-auto p-5">
-                        <CVPreviewPanel parsed={preview.parsed} source={preview.source} />
-                    </div>
-                </div>
-            </div>
-        )}
         </>
     );
 }

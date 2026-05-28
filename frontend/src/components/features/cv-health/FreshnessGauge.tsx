@@ -1,7 +1,9 @@
 import { memo, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts';
+import { ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { GaugeSkeleton } from '../../ui/Skeleton';
@@ -39,6 +41,7 @@ function scoreLabel(score: number): string {
 }
 
 function FreshnessGaugeInner({ data, loading }: Props) {
+    const navigate = useNavigate();
     const safeData = data && typeof data.score === 'number' ? data : null;
 
     const radarData = useMemo(() => {
@@ -171,11 +174,23 @@ function FreshnessGaugeInner({ data, loading }: Props) {
 
                         {safeData.missing_ideal.length > 0 && (
                             <div className="mt-3 text-xs text-text-secondary">
-                                <span className="font-bold uppercase tracking-widest">Skills nên học (top): </span>
-                                <span>{safeData.missing_ideal.slice(0, 5).join(', ')}</span>
-                                {safeData.missing_ideal.length > 5 && (
-                                    <span> · +{safeData.missing_ideal.length - 5}</span>
-                                )}
+                                <span className="font-bold uppercase tracking-widest block mb-2">Skills nên học (top): </span>
+                                <div className="flex flex-wrap gap-2">
+                                    {safeData.missing_ideal.slice(0, 5).map(skill => (
+                                        <button 
+                                            key={skill}
+                                            onClick={() => navigate(`/market-intel?skill=${encodeURIComponent(skill)}`)}
+                                            className="px-2 py-1 rounded bg-white/5 border border-white/10 hover:border-accent-primary hover:bg-accent-primary/10 transition-colors flex items-center gap-1 group"
+                                            title="Xem xu hướng và lương của kỹ năng này trên thị trường"
+                                        >
+                                            {skill}
+                                            <ExternalLink className="w-3 h-3 text-text-muted group-hover:text-accent-primary" />
+                                        </button>
+                                    ))}
+                                    {safeData.missing_ideal.length > 5 && (
+                                        <span className="self-center"> · +{safeData.missing_ideal.length - 5}</span>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

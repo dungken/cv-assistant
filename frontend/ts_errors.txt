@@ -1,0 +1,27 @@
+src/components/features/CVUpload.tsx(155,53): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(163,39): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(164,27): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(165,31): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(166,31): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(167,35): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(168,41): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(169,39): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(170,41): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(171,35): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(172,41): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(173,41): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(174,47): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(175,43): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(176,53): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(177,20): error TS2304: Cannot find name 'useRef'.
+src/components/features/CVUpload.tsx(203,3): error TS2304: Cannot find name 'useEffect'.
+src/components/features/CVUpload.tsx(352,51): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(353,41): error TS2304: Cannot find name 'useState'.
+src/components/features/CVUpload.tsx(354,22): error TS2304: Cannot find name 'useRef'.
+src/components/features/CVUpload.tsx(356,3): error TS2304: Cannot find name 'useEffect'.
+src/components/features/CVUpload.tsx(360,3): error TS2304: Cannot find name 'useEffect'.
+src/components/features/CVUpload.tsx(491,31): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/components/features/CVUpload.tsx(705,157): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/features/CVUpload.tsx(732,157): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/features/CVUpload.tsx(759,157): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/features/CVUpload.tsx(786,157): error TS7006: Parameter 'prev' implicitly has an 'any' type.

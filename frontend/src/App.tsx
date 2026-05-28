@@ -822,10 +822,8 @@ export default function App() {
           <Route
             path="/cv-upload"
             element={
-              <div className="flex-1 overflow-y-auto relative z-10 w-full">
-                <div className="max-w-[1600px] mx-auto w-full p-8 lg:p-12">
-                  <CVUpload />
-                </div>
+              <div className="flex-1 overflow-y-auto relative z-10">
+                <CVUpload />
               </div>
             }
           />

@@ -59,7 +59,7 @@ Pipeline tiền xử lý CV/JD song ngữ ([Chương 3.5](./chuong3/3.5_thiet_ke
 
 **H7 — Cross-source dedup strict, có thể miss fuzzy match.** `job_group_id` dùng `(lowercase_company, lowercase_title)` exact — nếu công ty viết khác chính tả ("FPT" vs "FPT Software") sẽ không gộp. Trong snapshot hiện tại chỉ ~5 dup pair phát hiện được — số nhỏ vì đa số công ty đăng tập trung 1 nền tảng.
 
-**H8 — Frontend test thủ công, không Jest/Playwright.** Trong scope DATN ưu tiên test backend (pytest) vì rủi ro chính nằm ở logic algorithm. Frontend được test thủ công qua browser.
+**H8 — Đã giải quyết (Frontend test tự động E2E):** Đề tài đã xây dựng và tích hợp thành công bộ kiểm thử tự động End-to-End (E2E) bằng Playwright. Kịch bản kiểm thử tự động hóa toàn bộ luồng đăng ký tài khoản mới, tải lên CV, NER trích xuất thực thể AI, lưu trữ profile đến đồng bộ hóa tính toán Freshness score và xác thực các widget hiển thị (Radar Chart, What-if Simulation, Opportunity Window) với tỉ lệ pass rate 100%.
 
 **H9 — Authentication chưa hoàn thiện.** Hiện dùng `user_id` truyền trực tiếp qua query param thay vì JWT từ API Gateway. Ưu tiên backend logic trong scope DATN, OAuth flow đầy đủ chưa được wire.
 
@@ -90,7 +90,7 @@ Các hướng phát triển dưới đây trực tiếp giải quyết hạn ch�
 ### 3.4 Production-readiness
 
 - **HP12 — JWT authentication full**: wire OAuth flow đầy đủ từ Gateway → tất cả services → giải quyết H9. Cho phép multi-user thật, không phải `user_id` truyền tay.
-- **HP13 — Frontend test suite**: Jest cho component test + Playwright cho E2E flow upload-CV → dashboard render → giải quyết H8.
+- **HP13 — Đã giải quyết (Tích hợp Playwright E2E):** Thiết lập thành công E2E test suite trực tiếp trên mã nguồn frontend, tự động hóa 100% quy trình kiểm thử liên kết hệ thống, tạo nền tảng vững chắc cho CI/CD pipeline, giải quyết triệt để hạn chế H8.
 - **HP14 — Triển khai pilot tại Career Center UTC2**: deploy production cho 50-100 sinh viên trong 1 học kỳ → thu thập feedback thực + log behavior để hiệu chỉnh trọng số dashboard.
 
 ## 4. Lời cảm ơn

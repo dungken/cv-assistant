@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area, CartesianGrid,
@@ -24,6 +25,9 @@ const EMPTY_FILTERS: Filters = { source: 'all', role_group: '', seniority: '' };
 
 
 export default function MarketIntelDashboardView() {
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<'overview' | 'salary' | 'trends' | 'deep'>('overview');
+    
     const [data, setData] = useState<MarketIntelDashboard | null>(null);
     const [compareData, setCompareData] = useState<MarketIntelDashboard | null>(null);
     const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -31,6 +35,14 @@ export default function MarketIntelDashboardView() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [skillSearch, setSkillSearch] = useState('');
+
+    useEffect(() => {
+        const skill = searchParams.get('skill');
+        if (skill) {
+            setSkillSearch(skill);
+            setActiveTab('trends');
+        }
+    }, [searchParams]);
 
     const fetchData = (f: Filters, _signal?: AbortSignal) =>
         skillApi.getMarketIntelDashboard({
@@ -92,7 +104,7 @@ export default function MarketIntelDashboardView() {
                 </header>
 
                 {/* Sticky filter bar */}
-                <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-canvas border-b border-white/5">
+                <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-canvas/80 backdrop-blur-md border-b border-white/5">
                     <FiltersBar
                         filters={filters}
                         options={data.options}
@@ -102,242 +114,161 @@ export default function MarketIntelDashboardView() {
                         onCompareChange={setCompareRole}
                         loading={loading}
                     />
+                    
+                    {/* Tabs Navigation */}
+                    <div className="flex gap-6 mt-4 border-b border-white/10">
+                        {[
+                            { id: 'overview', label: '📊 Tổng Quan' },
+                            { id: 'salary', label: '💰 Lương Thưởng' },
+                            { id: 'trends', label: '📈 Xu Hướng Kỹ Năng' },
+                            { id: 'deep', label: '🕸️ Phân Tích Chuyên Sâu' },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`pb-2 text-sm font-bold transition-all relative ${activeTab === tab.id ? 'text-accent-primary' : 'text-text-secondary hover:text-text-primary'}`}
+                            >
+                                {tab.label}
+                                {activeTab === tab.id && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-primary rounded-t-full" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <KpiCards data={data} compareData={compareData} />
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {activeTab === 'overview' && (
+                        <div className="space-y-6">
+                            <KpiCards data={data} compareData={compareData} />
+                            <ChartCard title="Xu hướng đăng JD 30 ngày gần nhất" subtitle="Theo dõi nhịp tuyển dụng của thị trường" icon={<TrendingUp className="w-4 h-4" />}>
+                                <DailyTrendChart rows={data.daily_trend} compareRows={compareData?.daily_trend} compareLabel={compareRole} />
+                            </ChartCard>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ChartCard title="Phân bố nhóm vai trò" subtitle="Web · Data · Mobile · DevOps · ..." icon={<Briefcase className="w-4 h-4" />}>
+                                    <RoleDistributionChart rows={data.role_distribution} />
+                                </ChartCard>
+                                <ChartCard title="Top 15 công ty tuyển nhiều nhất" subtitle="Theo số JD đang mở" icon={<Building2 className="w-4 h-4" />}>
+                                    <TopCompaniesChart rows={data.top_companies} />
+                                </ChartCard>
+                                <ChartCard title="Số năm kinh nghiệm yêu cầu" subtitle="JD nào nhận fresher?" icon={<Database className="w-4 h-4" />}>
+                                    <ExpHistogramChart rows={data.exp_histogram} />
+                                </ChartCard>
+                                <ChartCard title="Cấp độ kinh nghiệm" subtitle="Junior / Mid / Senior / Lead">
+                                    <SeniorityChart rows={data.seniority_distribution} />
+                                </ChartCard>
+                                <ChartCard title="Hình thức làm việc" subtitle="Onsite / Hybrid / Remote">
+                                    <WorkModeChart rows={data.work_mode_distribution} />
+                                </ChartCard>
+                                <ChartCard title="Yêu cầu bằng cấp" subtitle="Cử nhân / Cao đẳng / Master / ..." icon={<GraduationCap className="w-4 h-4" />}>
+                                    <DegreeChart rows={data.degree_distribution} />
+                                </ChartCard>
+                                <ChartCard title="Top 10 địa điểm tuyển dụng" subtitle="Theo số JD" icon={<MapPin className="w-4 h-4" />}>
+                                    <LocationChart rows={data.top_locations} />
+                                </ChartCard>
+                                <ChartCard title="📅 Thứ mấy đăng JD nhiều nhất?" subtitle="60 ngày gần nhất · biết khi nào nên check job board" icon={<CalendarDays className="w-4 h-4" />}>
+                                    <DayOfWeekChart rows={data.day_of_week} />
+                                </ChartCard>
+                            </div>
+                            <SourceBreakdownBar rows={data.source_breakdown} />
+                        </div>
+                    )}
 
-                {/* Daily trend (full width line chart) */}
-                <ChartCard
-                    title="Xu hướng đăng JD 30 ngày gần nhất"
-                    subtitle="Theo dõi nhịp tuyển dụng của thị trường"
-                    icon={<TrendingUp className="w-4 h-4" />}
-                >
-                    <DailyTrendChart rows={data.daily_trend} compareRows={compareData?.daily_trend} compareLabel={compareRole} />
-                </ChartCard>
+                    {activeTab === 'salary' && (
+                        <div className="space-y-6">
+                            <ChartCard title="Skill Premium Index — Skill nào trả lương cao?" subtitle="So với median salary toàn thị trường (USD) · cần ≥5 JD/skill để tính" icon={<DollarSign className="w-4 h-4" />}>
+                                <PremiumChart data={data.skill_premium} />
+                            </ChartCard>
+                            {data.english_premium && (
+                                <ChartCard title="English Premium — Tiếng Anh đáng giá bao nhiêu?" subtitle="So sánh median lương JD yêu cầu English vs không" icon={<Languages className="w-4 h-4" />}>
+                                    <EnglishPremiumHero data={data.english_premium} />
+                                </ChartCard>
+                            )}
+                            <ChartCard title="📈 Career ROI — Lương tăng theo kinh nghiệm" subtitle="Median salary qua từng cấp · các đường role khác nhau" icon={<LineIcon className="w-4 h-4" />}>
+                                <SalaryCurveChart curve={data.salary_curve} />
+                            </ChartCard>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ChartCard title="Mức lương theo cấp độ" subtitle="Median min/max · giữ nguyên đơn vị nguồn (USD/VND)">
+                                    <SalaryChart rows={data.salary_by_seniority} />
+                                </ChartCard>
+                                <ChartCard title="Lương theo nhóm vai trò" subtitle="Median ± P25-P75 (USD) · vai trò nào trả cao nhất" icon={<Briefcase className="w-4 h-4" />}>
+                                    <RoleSalaryChart rows={data.role_salary} />
+                                </ChartCard>
+                                <ChartCard title="Lương theo bằng cấp" subtitle="Median salary theo trình độ học vấn yêu cầu" icon={<GraduationCap className="w-4 h-4" />}>
+                                    <EduSalaryChart rows={data.edu_salary} />
+                                </ChartCard>
+                                <ChartCard title="Lương theo địa điểm" subtitle="3 thành phố lớn · Median + dải P25-P75 (USD)" icon={<Compass className="w-4 h-4" />}>
+                                    <GeoSalaryChart rows={data.geo_salary} />
+                                </ChartCard>
+                                <ChartCard title="🏆 Combo Skill Premium" subtitle="Lương khi có cả 2 skill vs trung bình từng skill riêng" icon={<Award className="w-4 h-4" />}>
+                                    <ComboSalaryChart rows={data.combo_salary} />
+                                </ChartCard>
+                            </div>
+                        </div>
+                    )}
 
-                {/* Velocity (full width — trending up vs down) */}
-                <ChartCard
-                    title="Kỹ năng đang nóng / nguội"
-                    subtitle="So sánh 14 ngày gần nhất với 14 ngày trước đó · skills bùng nổ tuyển dụng"
-                    icon={<Zap className="w-4 h-4" />}
-                >
-                    <VelocityChart data={data.skill_velocity} />
-                </ChartCard>
+                    {activeTab === 'trends' && (
+                        <div className="space-y-6">
+                            <ChartCard title="Kỹ năng đang nóng / nguội" subtitle="So sánh 14 ngày gần nhất với 14 ngày trước đó · skills bùng nổ tuyển dụng" icon={<Zap className="w-4 h-4" />}>
+                                <VelocityChart data={data.skill_velocity} />
+                            </ChartCard>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ChartCard title="Top kỹ năng được tuyển nhiều nhất" subtitle={`${data.top_skills.length} skills · gõ để lọc`} icon={<Search className="w-4 h-4" />} action={
+                                    <input value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} placeholder="Tìm skill..." className="text-xs rounded-lg border border-white/10 bg-surface/40 px-2 py-1 w-32 focus:border-accent-primary outline-none transition" />
+                                }>
+                                    <TopSkillsChart rows={filteredTopSkills} />
+                                </ChartCard>
+                                <ChartCard title="Skill nào dễ remote nhất?" subtitle="% JD remote hoặc hybrid · trên top 15 skills" icon={<Wifi className="w-4 h-4" />}>
+                                    <RemoteSkillChart rows={data.remote_by_skill} />
+                                </ChartCard>
+                                <ChartCard title="Skills theo từng cấp kinh nghiệm" subtitle="Fresher cần gì, Senior cần gì" icon={<Sparkles className="w-4 h-4" />}>
+                                    <SkillsByExpChart data={data.skills_by_exp} />
+                                </ChartCard>
+                                <ChartCard title="Công ty hàng đầu theo Skill" subtitle="Click skill để xem 3 công ty tuyển nhiều nhất" icon={<Building2 className="w-4 h-4" />}>
+                                    <CompaniesBySkillChart data={data.companies_by_skill} />
+                                </ChartCard>
+                                <ChartCard title="🔥 Hot Companies tháng này" subtitle="Velocity 14d cuối so với 14d trước · cty đang scale" icon={<Flame className="w-4 h-4" />}>
+                                    <HotCompaniesChart rows={data.hot_companies} />
+                                </ChartCard>
+                                <ChartCard title="⚠️ Skill đang nguội" subtitle="Skills giảm post tuyển dụng trong 2 tuần gần nhất" icon={<AlertTriangle className="w-4 h-4" />}>
+                                    <OutdatedSkillsChart rows={data.outdated_skills} />
+                                </ChartCard>
+                                <ChartCard title="👑 Niche Champions" subtitle="Công ty tuyển nhiều skill hiếm (3-25 JD/skill)" icon={<Crown className="w-4 h-4" />}>
+                                    <NicheChampionsChart rows={data.niche_champions} />
+                                </ChartCard>
+                            </div>
+                        </div>
+                    )}
 
-                {/* Premium index (full width) */}
-                <ChartCard
-                    title="Skill Premium Index — Skill nào trả lương cao?"
-                    subtitle="So với median salary toàn thị trường (USD) · cần ≥5 JD/skill để tính"
-                    icon={<DollarSign className="w-4 h-4" />}
-                >
-                    <PremiumChart data={data.skill_premium} />
-                </ChartCard>
-
-                {/* Skill clusters (full width insight cards) */}
-                <ChartCard
-                    title="Stack thực tế thị trường tuyển dụng"
-                    subtitle={`${data.skill_clusters.length} cluster · skills hay đi cùng nhau với Jaccard ≥ 0.15`}
-                    icon={<Layers className="w-4 h-4" />}
-                >
-                    <ClusterChart clusters={data.skill_clusters} />
-                </ChartCard>
-
-                {/* English Premium — single hero KPI */}
-                {data.english_premium && (
-                    <ChartCard
-                        title="English Premium — Tiếng Anh đáng giá bao nhiêu?"
-                        subtitle="So sánh median lương JD yêu cầu English vs không"
-                        icon={<Languages className="w-4 h-4" />}
-                    >
-                        <EnglishPremiumHero data={data.english_premium} />
-                    </ChartCard>
-                )}
-
-                {/* Hidden Gems Quadrant (full width scatter) */}
-                <ChartCard
-                    title="💎 Hidden Gem Skills — Ít cạnh tranh, lương cao"
-                    subtitle="Scatter: trục X = số JD (demand) · trục Y = median lương · ô trên-trái = HIDDEN GEM"
-                    icon={<Gem className="w-4 h-4" />}
-                >
-                    <QuadrantChart quadrants={data.skill_quadrants} gems={data.hidden_gems} />
-                </ChartCard>
-
-                {/* Salary curve by experience */}
-                <ChartCard
-                    title="📈 Career ROI — Lương tăng theo kinh nghiệm"
-                    subtitle="Median salary qua từng cấp · các đường role khác nhau"
-                    icon={<LineIcon className="w-4 h-4" />}
-                >
-                    <SalaryCurveChart curve={data.salary_curve} />
-                </ChartCard>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <ChartCard
-                        title="Top kỹ năng được tuyển nhiều nhất"
-                        subtitle={`${data.top_skills.length} skills · gõ để lọc`}
-                        icon={<Search className="w-4 h-4" />}
-                        action={
-                            <input
-                                value={skillSearch}
-                                onChange={(e) => setSkillSearch(e.target.value)}
-                                placeholder="Tìm skill..."
-                                className="text-xs rounded-lg border border-white/10 bg-surface/40 px-2 py-1 w-32"
-                            />
-                        }
-                    >
-                        <TopSkillsChart rows={filteredTopSkills} />
-                    </ChartCard>
-
-                    <ChartCard title="Phân bố nhóm vai trò" subtitle="Web · Data · Mobile · DevOps · ..." icon={<Briefcase className="w-4 h-4" />}>
-                        <RoleDistributionChart rows={data.role_distribution} />
-                    </ChartCard>
-
-                    <ChartCard title="Top 15 công ty tuyển nhiều nhất" subtitle="Theo số JD đang mở" icon={<Building2 className="w-4 h-4" />}>
-                        <TopCompaniesChart rows={data.top_companies} />
-                    </ChartCard>
-
-                    <ChartCard title="Số năm kinh nghiệm yêu cầu" subtitle="JD nào nhận fresher?" icon={<Database className="w-4 h-4" />}>
-                        <ExpHistogramChart rows={data.exp_histogram} />
-                    </ChartCard>
-
-                    <ChartCard title="Cấp độ kinh nghiệm" subtitle="Junior / Mid / Senior / Lead">
-                        <SeniorityChart rows={data.seniority_distribution} />
-                    </ChartCard>
-
-                    <ChartCard title="Hình thức làm việc" subtitle="Onsite / Hybrid / Remote">
-                        <WorkModeChart rows={data.work_mode_distribution} />
-                    </ChartCard>
-
-                    <ChartCard title="Yêu cầu bằng cấp" subtitle="Cử nhân / Cao đẳng / Master / ..." icon={<GraduationCap className="w-4 h-4" />}>
-                        <DegreeChart rows={data.degree_distribution} />
-                    </ChartCard>
-
-                    <ChartCard title="Top 10 địa điểm tuyển dụng" subtitle="Theo số JD" icon={<MapPin className="w-4 h-4" />}>
-                        <LocationChart rows={data.top_locations} />
-                    </ChartCard>
-
-                    <ChartCard title="Mức lương theo cấp độ" subtitle="Median min/max · giữ nguyên đơn vị nguồn (USD/VND)">
-                        <SalaryChart rows={data.salary_by_seniority} />
-                    </ChartCard>
-
-                    <ChartCard title="Cặp kỹ năng đi cùng nhau" subtitle="Skills hay xuất hiện song song trong JD">
-                        <SkillPairsChart rows={data.skill_pairs} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Lương theo nhóm vai trò"
-                        subtitle="Median ± P25-P75 (USD) · vai trò nào trả cao nhất"
-                        icon={<Briefcase className="w-4 h-4" />}
-                    >
-                        <RoleSalaryChart rows={data.role_salary} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Lương theo bằng cấp"
-                        subtitle="Median salary theo trình độ học vấn yêu cầu"
-                        icon={<GraduationCap className="w-4 h-4" />}
-                    >
-                        <EduSalaryChart rows={data.edu_salary} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Lương theo địa điểm"
-                        subtitle="3 thành phố lớn · Median + dải P25-P75 (USD)"
-                        icon={<Compass className="w-4 h-4" />}
-                    >
-                        <GeoSalaryChart rows={data.geo_salary} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Skill nào dễ remote nhất?"
-                        subtitle="% JD remote hoặc hybrid · trên top 15 skills"
-                        icon={<Wifi className="w-4 h-4" />}
-                    >
-                        <RemoteSkillChart rows={data.remote_by_skill} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Skills theo từng cấp kinh nghiệm"
-                        subtitle="Fresher cần gì, Senior cần gì"
-                        icon={<Sparkles className="w-4 h-4" />}
-                    >
-                        <SkillsByExpChart data={data.skills_by_exp} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="Công ty hàng đầu theo Skill"
-                        subtitle="Click skill để xem 3 công ty tuyển nhiều nhất"
-                        icon={<Building2 className="w-4 h-4" />}
-                    >
-                        <CompaniesBySkillChart data={data.companies_by_skill} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="🎯 Skill Specificity Tier"
-                        subtitle="Core (>30% JD) · Common (10-30%) · Specialized (<10%)"
-                        icon={<Target className="w-4 h-4" />}
-                    >
-                        <SpecificityChart rows={data.skill_specificity} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="🔥 Hot Companies tháng này"
-                        subtitle="Velocity 14d cuối so với 14d trước · cty đang scale"
-                        icon={<Flame className="w-4 h-4" />}
-                    >
-                        <HotCompaniesChart rows={data.hot_companies} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="🏆 Combo Skill Premium"
-                        subtitle="Lương khi có cả 2 skill vs trung bình từng skill riêng"
-                        icon={<Award className="w-4 h-4" />}
-                    >
-                        <ComboSalaryChart rows={data.combo_salary} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="📅 Thứ mấy đăng JD nhiều nhất?"
-                        subtitle="60 ngày gần nhất · biết khi nào nên check job board"
-                        icon={<CalendarDays className="w-4 h-4" />}
-                    >
-                        <DayOfWeekChart rows={data.day_of_week} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="⚠️ Skill đang nguội"
-                        subtitle="Skills giảm post tuyển dụng trong 2 tuần gần nhất"
-                        icon={<AlertTriangle className="w-4 h-4" />}
-                    >
-                        <OutdatedSkillsChart rows={data.outdated_skills} />
-                    </ChartCard>
-
-                    <ChartCard
-                        title="👑 Niche Champions"
-                        subtitle="Công ty tuyển nhiều skill hiếm (3-25 JD/skill)"
-                        icon={<Crown className="w-4 h-4" />}
-                    >
-                        <NicheChampionsChart rows={data.niche_champions} />
-                    </ChartCard>
+                    {activeTab === 'deep' && (
+                        <div className="space-y-6">
+                            <ChartCard title="💎 Hidden Gem Skills — Ít cạnh tranh, lương cao" subtitle="Scatter: trục X = số JD (demand) · trục Y = median lương · ô trên-trái = HIDDEN GEM" icon={<Gem className="w-4 h-4" />}>
+                                <QuadrantChart quadrants={data.skill_quadrants} gems={data.hidden_gems} />
+                            </ChartCard>
+                            <ChartCard title="Stack thực tế thị trường tuyển dụng" subtitle={`${data.skill_clusters.length} cluster · skills hay đi cùng nhau với Jaccard ≥ 0.15`} icon={<Layers className="w-4 h-4" />}>
+                                <ClusterChart clusters={data.skill_clusters} />
+                            </ChartCard>
+                            <ChartCard title="🕸️ Mạng lưới kết nối Skills" subtitle={`Force-style network · ${data.skill_network.nodes.length} skills, ${data.skill_network.edges.length} edges`} icon={<Network className="w-4 h-4" />}>
+                                <SkillNetworkChart network={data.skill_network} />
+                            </ChartCard>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ChartCard title="Cặp kỹ năng đi cùng nhau" subtitle="Skills hay xuất hiện song song trong JD">
+                                    <SkillPairsChart rows={data.skill_pairs} />
+                                </ChartCard>
+                                <ChartCard title="🎯 Skill Specificity Tier" subtitle="Core (>30% JD) · Common (10-30%) · Specialized (<10%)" icon={<Target className="w-4 h-4" />}>
+                                    <SpecificityChart rows={data.skill_specificity} />
+                                </ChartCard>
+                                <div className="lg:col-span-2">
+                                    <ChartCard title="Heatmap kỹ năng × nhóm vai trò" subtitle="Top 10 skill × Top 6 role · ô đậm = nhu cầu cao">
+                                        <Heatmap rows={data.heatmap} />
+                                    </ChartCard>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Skill Network full-width visualization */}
-                <ChartCard
-                    title="🕸️ Mạng lưới kết nối Skills"
-                    subtitle={`Force-style network · ${data.skill_network.nodes.length} skills, ${data.skill_network.edges.length} edges`}
-                    icon={<Network className="w-4 h-4" />}
-                >
-                    <SkillNetworkChart network={data.skill_network} />
-                </ChartCard>
 
-                <ChartCard
-                    title="Heatmap kỹ năng × nhóm vai trò"
-                    subtitle="Top 10 skill × Top 6 role · ô đậm = nhu cầu cao"
-                >
-                    <Heatmap rows={data.heatmap} />
-                </ChartCard>
-
-                <SourceBreakdownBar rows={data.source_breakdown} />
 
                 <footer className="text-center text-text-secondary text-xs py-4">
                     Dữ liệu cập nhật mỗi lần crawl · cache 5 phút server-side

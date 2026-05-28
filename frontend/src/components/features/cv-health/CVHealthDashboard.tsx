@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AxiosError } from 'axios';
-import { RefreshCw, Activity, AlertCircle } from 'lucide-react';
+import { RefreshCw, Activity, AlertCircle, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import {
     cvHealthApi,
@@ -31,6 +32,7 @@ function formatRelativeTime(date: Date | null): string {
 }
 
 export default function CVHealthDashboard({ userId }: Props) {
+    const navigate = useNavigate();
     const [healthScore, setHealthScore] = useState<HealthScoreResponse | null>(null);
     const [history, setHistory] = useState<FreshnessHistoryResponse | null>(null);
     const [alerts, setAlerts] = useState<SkillAlertsResponse | null>(null);
@@ -41,10 +43,12 @@ export default function CVHealthDashboard({ userId }: Props) {
     const [loadingAlerts, setLoadingAlerts] = useState(false);
     const [loadingOpps, setLoadingOpps] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [initialCheckComplete, setInitialCheckComplete] = useState(false);
 
     // Keep a copy of original data before simulation
     const [originalHealthScore, setOriginalHealthScore] = useState<HealthScoreResponse | null>(null);
 
+    const [hasUploadedCvs, setHasUploadedCvs] = useState<boolean | null>(null);
     const [noCvYet, setNoCvYet] = useState(false);
     const [globalError, setGlobalError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -109,6 +113,7 @@ export default function CVHealthDashboard({ userId }: Props) {
         setLoadingAlerts(false);
         setLoadingOpps(false);
         setRefreshing(false);
+        setInitialCheckComplete(true);
         setLastUpdated(new Date());
     }, [userId]);
 
@@ -128,7 +133,18 @@ export default function CVHealthDashboard({ userId }: Props) {
     }, []);
     void tick;
 
+    // Helper to get ambient color based on score
+    const getAmbientColor = () => {
+        if (!healthScore) return 'from-violet-500/5 to-indigo-600/5';
+        const s = healthScore.score;
+        if (s >= 75) return 'from-emerald-500/10 to-teal-600/5';
+        if (s >= 50) return 'from-blue-500/10 to-indigo-600/5';
+        if (s >= 30) return 'from-orange-500/10 to-amber-600/5';
+        return 'from-rose-500/10 to-red-600/5';
+    };
+
     return (
+        <div className="relative min-h-full transition-colors duration-1000">
         <div className="max-w-7xl mx-auto px-6 pb-6 space-y-6">
 
             {/* Header */}
@@ -173,9 +189,9 @@ export default function CVHealthDashboard({ userId }: Props) {
             )}
 
             {/* CV picker — sticky filter bar */}
-            <div className="sticky top-0 z-30 -mx-6 bg-canvas border-b border-white/5">
+            <div className={`sticky top-0 z-30 -mx-6 bg-canvas/60 backdrop-blur-xl border-b border-white/5 ${(!initialCheckComplete || hasUploadedCvs === false) ? 'hidden' : ''}`}>
                 <div className="px-6 py-3">
-                    <CVPicker userId={userId} onLinked={fetchAll} />
+                    <CVPicker userId={userId} onLinked={fetchAll} onEmpty={(empty) => setHasUploadedCvs(!empty)} />
                 </div>
                 {/* Progress bar — shown while refreshing */}
                 <div className={`h-0.5 bg-accent-primary/20 overflow-hidden transition-opacity duration-300 ${refreshing ? 'opacity-100' : 'opacity-0'}`}>
@@ -184,16 +200,47 @@ export default function CVHealthDashboard({ userId }: Props) {
             </div>
 
             {/* Metrics grid */}
-            {noCvYet ? (
-                <div className="rounded-2xl border border-accent-primary/20 bg-gradient-to-br from-accent-primary/10 to-accent-secondary/5 p-8">
-                    <h2 className="text-lg font-bold font-outfit mb-2">👋 Chọn CV để bắt đầu</h2>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                        Chấm điểm CV theo <strong>8 chiều</strong> dựa trên dữ liệu thị trường thực
-                        (~1.600 JD crawl ITviec + TopCV). Chọn CV ở trên rồi bấm <strong>Sync CV Health</strong>.
-                    </p>
+            {(!initialCheckComplete || hasUploadedCvs === null) ? (
+                <div className="flex items-center justify-center min-h-[40vh]">
+                    <Activity className="w-8 h-8 text-accent-primary animate-pulse" />
+                </div>
+            ) : (noCvYet || hasUploadedCvs === false) ? (
+                <div className="rounded-3xl border border-accent-primary/20 bg-gradient-to-br from-accent-primary/10 to-accent-secondary/5 p-12 text-center shadow-[0_0_40px_rgba(99,102,241,0.1)] relative overflow-hidden mt-8">
+                    {/* Decorative blurred blobs */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-accent-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-secondary/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+                    
+                    <div className="w-20 h-20 mx-auto rounded-full bg-accent-primary/10 flex items-center justify-center mb-6">
+                        <Activity className="w-10 h-10 text-accent-primary" />
+                    </div>
+                    
+                    {hasUploadedCvs === false ? (
+                        <>
+                            <h2 className="text-2xl font-black font-outfit mb-3 text-text-primary tracking-tight">Bắt đầu chuẩn đoán sức khỏe CV</h2>
+                            <p className="text-sm text-text-secondary leading-relaxed max-w-lg mx-auto mb-8">
+                                Chấm điểm CV theo <strong>8 chiều</strong> dựa trên dữ liệu thị trường thực
+                                (~1.600 JD crawl từ ITviec + TopCV). Hãy tải lên một CV mới để bắt đầu.
+                            </p>
+                            <button 
+                                onClick={() => navigate('/cv-upload')}
+                                className="px-8 py-3 rounded-full font-bold text-sm bg-accent-primary text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all inline-flex items-center gap-2 hover:scale-105 active:scale-95"
+                            >
+                                <Plus className="w-4 h-4" /> Tải CV lên ngay
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-2xl font-black font-outfit mb-3 text-text-primary tracking-tight">Chưa có dữ liệu phân tích</h2>
+                            <p className="text-sm text-text-secondary leading-relaxed max-w-lg mx-auto mb-8">
+                                CV bạn chọn chưa được tính toán điểm sức khỏe hoặc chưa đồng bộ dữ liệu. 
+                                <br/>Vui lòng nhấn nút <strong className="text-accent-primary">Sync CV Health</strong> ở thanh công cụ phía trên để bắt đầu phân tích.
+                            </p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div className={`space-y-6 transition-opacity duration-300 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
+                    <FreshnessGauge data={healthScore} loading={loadingScore} />
                     <WhatIfSimulation 
                         userId={userId} 
                         originalData={originalHealthScore} 
@@ -205,7 +252,6 @@ export default function CVHealthDashboard({ userId }: Props) {
                             }
                         }} 
                     />
-                    <FreshnessGauge data={healthScore} loading={loadingScore} />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <FreshnessTimeSeriesChart data={history} loading={loadingHistory} />
                         <SkillAlertsCard data={alerts} loading={loadingAlerts} />
@@ -213,6 +259,7 @@ export default function CVHealthDashboard({ userId }: Props) {
                     <OpportunityWindow data={opportunities} loading={loadingOpps} />
                 </div>
             )}
+        </div>
         </div>
     );
 }
