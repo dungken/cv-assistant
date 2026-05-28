@@ -26,6 +26,7 @@ import UserMemoryPanel from './components/features/UserMemoryPanel';
 import AdminPortal from './components/features/AdminPortal';
 import CVHealthDashboard from './components/features/cv-health/CVHealthDashboard';
 import MarketIntelDashboard from './components/features/MarketIntelDashboard';
+import CVUpload from './components/features/CVUpload';
 import { Button } from './components/ui/Button';
 import { Badge } from './components/ui/Badge';
 import { cn } from './lib/utils';
@@ -815,6 +816,16 @@ export default function App() {
             element={
               <div className="flex-1 overflow-y-auto relative z-10">
                 <MarketIntelDashboard />
+              </div>
+            }
+          />
+          <Route
+            path="/cv-upload"
+            element={
+              <div className="flex-1 overflow-y-auto relative z-10 w-full">
+                <div className="max-w-[1600px] mx-auto w-full p-8 lg:p-12">
+                  <CVUpload />
+                </div>
               </div>
             }
           />

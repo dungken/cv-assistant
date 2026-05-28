@@ -15,6 +15,7 @@ import FreshnessTimeSeriesChart from './FreshnessTimeSeriesChart';
 import SkillAlertsCard from './SkillAlertsCard';
 import OpportunityWindow from './OpportunityWindow';
 import CVPicker from './CVPicker';
+import WhatIfSimulation from './WhatIfSimulation';
 
 interface Props {
     userId: string;
@@ -40,6 +41,9 @@ export default function CVHealthDashboard({ userId }: Props) {
     const [loadingAlerts, setLoadingAlerts] = useState(false);
     const [loadingOpps, setLoadingOpps] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Keep a copy of original data before simulation
+    const [originalHealthScore, setOriginalHealthScore] = useState<HealthScoreResponse | null>(null);
 
     const [noCvYet, setNoCvYet] = useState(false);
     const [globalError, setGlobalError] = useState<string | null>(null);
@@ -81,8 +85,8 @@ export default function CVHealthDashboard({ userId }: Props) {
             r.reason instanceof AxiosError &&
             (!r.reason.response || r.reason.response.status >= 500);
 
-        if (scoreRes.status === 'fulfilled') { setHealthScore(scoreRes.value.data); hasData.current.score = true; }
-        else if (isNotFound(scoreRes)) { foundNoCv = true; setHealthScore(null); }
+        if (scoreRes.status === 'fulfilled') { setHealthScore(scoreRes.value.data); setOriginalHealthScore(scoreRes.value.data); hasData.current.score = true; }
+        else if (isNotFound(scoreRes)) { foundNoCv = true; setHealthScore(null); setOriginalHealthScore(null); }
         else if (isNetworkError(scoreRes)) networkErrorCount++;
 
         if (histRes.status === 'fulfilled') { setHistory(histRes.value.data); hasData.current.history = true; }
@@ -190,6 +194,17 @@ export default function CVHealthDashboard({ userId }: Props) {
                 </div>
             ) : (
                 <div className={`space-y-6 transition-opacity duration-300 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
+                    <WhatIfSimulation 
+                        userId={userId} 
+                        originalData={originalHealthScore} 
+                        onSimulate={(simulatedData) => {
+                            if (simulatedData) {
+                                setHealthScore(simulatedData);
+                            } else {
+                                setHealthScore(originalHealthScore);
+                            }
+                        }} 
+                    />
                     <FreshnessGauge data={healthScore} loading={loadingScore} />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <FreshnessTimeSeriesChart data={history} loading={loadingHistory} />

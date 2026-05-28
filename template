@@ -1,0 +1,177 @@
+% CV Fresher .NET Developer - Dung
+\documentclass[10pt,a4paper]{article}
+
+% Essential packages
+\usepackage[top=0.5cm, bottom=0.5cm, left=1.2cm, right=1.2cm]{geometry}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{microtype}
+\usepackage{fontawesome5}
+\usepackage{tcolorbox}
+
+% Use modern font
+\usepackage[defaultsans,scale=0.95]{opensans}
+\renewcommand\familydefault{\sfdefault}
+\linespread{1.05}
+
+% Define color palette
+\definecolor{primary}{RGB}{0, 51, 102}    % Deep Blue
+\definecolor{secondary}{RGB}{180, 0, 0}   % Red Highlights
+\definecolor{text}{RGB}{30, 30, 30}
+\definecolor{lightgray}{RGB}{245, 245, 245}
+\definecolor{darkgray}{RGB}{80, 80, 80}
+
+% Setup hyperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary,
+    pdftitle={Ha Van Dung - Software Developer}
+}
+
+% Customize section titles
+\titleformat{\section}
+    {\large\bfseries\color{primary}\uppercase}
+    {}{0em}
+    {}
+    [{\color{lightgray}\titlerule[1pt]}]
+\titlespacing{\section}{0pt}{8pt}{6pt}
+
+% Custom commands
+\newcommand{\contactinfo}[2]{
+    \makebox[0pt][l]{\textcolor{secondary}{#1}}%
+    \hspace{14pt}#2
+}
+
+\newcommand{\projectitem}[5]{
+    \noindent\begin{tcolorbox}[
+        colback=white,
+        colframe=lightgray,
+        boxrule=0.5pt,
+        arc=2pt,
+        top=5pt, bottom=5pt, left=6pt, right=6pt
+    ]
+        \noindent\textbf{\color{primary}#1} \hfill \textcolor{darkgray}{\small #2}\\[2pt]
+        {\small\textbf{Stack:} #3}\\[2pt]
+        {\footnotesize\color{darkgray}#4}
+        \vspace{3pt}
+        #5
+    \end{tcolorbox}
+    \vspace{4pt}
+}
+
+% Begin document
+\begin{document}
+\pagestyle{empty}
+
+% --- HEADER ---
+\begin{center}
+    {\fontsize{24}{28}\bfseries\color{primary}HA VAN DUNG}\\[4pt]
+    {\Large\textcolor{secondary}{Fresher Backend Developer (.NET)}}\\[4pt]
+
+    % Contact Information
+    \small
+    \begin{tabular}{c c c}
+        \contactinfo{\faPhone}{+84 32 725 0461} &
+        \contactinfo{\faEnvelope}{\href{mailto:dunghv.dev@gmail.com}{dunghv.dev@gmail.com}} &
+        \contactinfo{\faMapMarkerAlt}{Ho Chi Minh City, Vietnam} \\
+        \contactinfo{\faLinkedin}{\href{https://linkedin.com/in/dungdev}{linkedin.com/in/dungdev}} &
+        \contactinfo{\faGithub}{\href{https://github.com/dungken}{github.com/dungken}} &
+        \contactinfo{\faYoutube}{\href{https://youtube.com/@dungkenn}{youtube.com/@dungkenn}}
+    \end{tabular}
+\end{center}
+
+\vspace{2pt}
+
+% --- PROFESSIONAL SUMMARY ---
+\section{Professional Summary}
+IT graduate (Aug 2026, degree pending) seeking a \textbf{Fresher Backend .NET Developer} position. Hands-on experience with \textbf{C\# / ASP.NET Core}, \textbf{Clean Architecture}, \textbf{MS SQL Server}, and RESTful API development through real-world internship and freelance projects. Actively leverages \textbf{AI tools} (GitHub Copilot, Claude, ChatGPT) to accelerate development and improve code quality. Highly responsible, detail-oriented, and eager to grow long-term in a professional .NET environment.
+
+% --- TECHNICAL SKILLS ---
+\section{Technical Skills}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+    \textbf{Language:} & \textbf{C\#} (Primary), Java, JavaScript (ES6+), SQL. \\
+    \textbf{.NET Stack:} & \textbf{ASP.NET Core MVC / Web API}, \textbf{.NET 9 / .NET Core}, Entity Framework Core, LINQ, MediatR (CQRS), ABP Framework. \\
+    \textbf{Architecture:} & \textbf{Clean Architecture}, Domain-Driven Design (DDD), SOLID, Repository Pattern, Dependency Injection. \\
+    \textbf{Database:} & \textbf{MS SQL Server} (T-SQL, Stored Procedures, Query Optimization), PostgreSQL, MySQL, MongoDB. \\
+    \textbf{Front-End:} & \textbf{HTML5, CSS3, JavaScript}, jQuery, Bootstrap, Vue 3 + TypeScript (Basic), React.js (Basic). \\
+    \textbf{Tools:} & \textbf{Git} (GitFlow), Visual Studio, Postman, Docker (Basic), Unit Testing, FluentValidation, AutoMapper. \\
+    \textbf{AI-Assisted Dev:} & GitHub Copilot, Claude, ChatGPT -- used daily for code generation, debugging, code review, and documentation. \\
+    \textbf{Other Backend:} & Java / Spring Boot, Node.js / Express (personal projects). \\
+\end{tabularx}
+
+% --- LANGUAGES ---
+\section{Languages}
+\noindent
+\textbf{Japanese:} \textbf{JLPT N3} (Exam taken Jul 2026 -- awaiting results). Good reading/listening, basic daily conversation. Currently preparing for \textbf{N2} (Dec 2026). \href{https://github.com/dungken/MyResume/blob/master/Certificates/jlpt-n3.png}{\textcolor{secondary}{\scriptsize \faExternalLink* View Certificate}}\\
+\textbf{English:} Reading proficiency. Capable of reading technical documents, official framework documentation.
+
+% --- EXPERIENCE & PROJECTS ---
+\section{Experience \& Projects}
+
+% --- SST ---
+\noindent
+\textbf{\color{primary}Backend .NET Developer} \hfill \textcolor{darkgray}{\small Jan 2026 -- Jun 2026}\\[1pt]
+\textbf{Smart Sports Tablet (SST)} \textcolor{darkgray}{\small · Full-time · Remote · Team size: 5 developers} \hfill \href{https://smartsports.vn/}{\textcolor{secondary}{\small \faGlobe\ smartsports.vn}} | \textcolor{darkgray}{\small \faLock\ \textit{NDA}}\\[2pt]
+{\small\textbf{Stack:} \textbf{C\# / .NET 9} (Clean Architecture, CQRS / MediatR, EF Core), \textbf{SQL Server}, Vue 3 + TypeScript, Ant Design Vue, Flutter, SignalR}\\[2pt]
+{\small\textit{SST provides an integrated sports management solution (tablet + web + mobile app) for venues running billiards, pickleball, and badminton. The platform connects physical tablet devices at each table/court with a central web dashboard and Flutter app for real-time operations.}}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=3pt,label={•}]
+    \item \textbf{Backend Architecture (.NET 9):} Designed and developed the core backend applying \textbf{Clean Architecture} and \textbf{CQRS with MediatR}. Defined domain models, application services, and repository layers following \textbf{SOLID} principles. Managed all data access via \textbf{Entity Framework Core} on \textbf{SQL Server}.
+    \item \textbf{Tournament Module:} Built a complete tournament management flow — creating tournaments, generating \textbf{bracket/draw diagrams} (round-robin, elimination), scheduling match timetables, and broadcasting \textbf{real-time scores} from tablets and web to all connected clients via \textbf{SignalR}.
+    \item \textbf{Multi-level RBAC:} Designed and implemented a \textbf{role-based access control} system with 5 levels: \textit{Admin, Club, Agency, Staff, Member}. Each role has distinct permissions over data and operations, enforced at both API and business logic layers.
+    \item \textbf{Web \& App Contribution:} Primary responsibility on the \textbf{Vue 3 + TypeScript} web management dashboard (Ant Design Vue, Pinia). Also contributed to the \textbf{Flutter} tablet/mobile app for the tournament module when needed.
+\end{itemize}
+\vspace{5pt}
+
+% --- UEH ---
+\noindent
+\textbf{\color{primary}Back End Developer (.NET)} \hfill \textcolor{darkgray}{\small Jul 2025 -- Dec 2025}\\[1pt]
+\textbf{UEH University} \textcolor{darkgray}{\small · Freelance · Remote} \hfill {\small \href{https://vieclam.ueh.edu.vn/}{\textcolor{secondary}{\faGlobe\ Client}} | \href{https://vieclamadmin.ueh.edu.vn/}{\textcolor{secondary}{\faGlobe\ Admin}} | \textcolor{darkgray}{\faLock\ NDA}}\\[2pt]
+{\small\textbf{Stack:} \textbf{C\# / .NET 9}, ASP.NET Core MVC / Web API, Clean Architecture, CQRS / MediatR, EF Core, \textbf{MS SQL Server}, jQuery, Bootstrap}\\[2pt]
+{\small\textit{UEH Job Portal is the official recruitment platform of the University of Economics Ho Chi Minh City, serving 76,000+ candidates and 3,000+ companies. The system includes a public candidate site and a full-featured admin management portal.}}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=3pt,label={•}]
+    \item \textbf{System Migration (.NET 9):} Participated in migrating 2 portals (Candidate \& Admin) from legacy .NET to \textbf{.NET 9} under strict Senior Lead code review. Restructured the Admin site with \textbf{Clean Architecture} and \textbf{CQRS (MediatR)}, improving separation of concerns and long-term maintainability.
+    \item \textbf{Feature Development:} Implemented key features including job posting management, candidate profile, company profile, and an \textbf{automated email notification service} using background queues. Built API layers enforcing \textbf{FluentValidation} and decoupled DTOs via \textbf{AutoMapper}.
+    \item \textbf{Database Refactoring:} Restructured \textbf{MS SQL Server} schema across \textbf{60+ tables} -- standardized naming conventions, wrote migration scripts and backup protocols to guarantee \textbf{100\% data integrity} for \textbf{76,000+ candidates}, 3,000+ companies, and ~5,000 active job postings.
+\end{itemize}
+\vspace{5pt}
+
+% --- Graduation Thesis ---
+\noindent
+\textbf{\color{primary}Graduation Thesis: CV Health Intelligence System} \hfill \textcolor{darkgray}{\small Mar 2026 -- Jul 2026}\\[1pt]
+\hfill \href{https://cv-assistant.vercel.app}{\textcolor{secondary}{\small \faGlobe\ Live Demo}} \quad \href{https://github.com/dungken/cv-assistant}{\textcolor{secondary}{\small \faGithub\ Source Code}}\\[2pt]
+{\small\textbf{Stack:} \textbf{C\# / ASP.NET Core} (API Gateway), Python / FastAPI (AI services), React + TypeScript (FE), PostgreSQL, ChromaDB, Docker}\\[2pt]
+{\small\textit{A microservices-based platform that tracks the ``freshness'' of a candidate's CV against real-time job market data, identifies skill gaps, and recommends an optimized learning path to maximize job opportunities.}}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=3pt,label={•}]
+    \item \textbf{.NET API Gateway:} Built the central \textbf{ASP.NET Core} API Gateway handling request routing, \textbf{JWT authentication}, rate limiting, and response aggregation from downstream Python/FastAPI microservices.
+    \item \textbf{Microservices Architecture:} Designed the system with clear service boundaries -- \textbf{.NET} owns the API and auth layer; \textbf{Python/FastAPI} owns AI services (CV Freshness Scoring, Learning Path Optimizer, NLP skill extraction via mBERT); \textbf{React + TypeScript} renders the dashboard.
+    \item \textbf{Database Design:} Modeled a time-series schema in \textbf{PostgreSQL} for daily skill demand tracking (~200 JD/day crawled from ITviec/TopCV). Integrated \textbf{ChromaDB} for semantic vector search on job descriptions.
+    \item \textbf{Core Research:} Proposed and validated the \textbf{CV Freshness Score} formula (trend weight, recency, skill importance). Benchmarked 3 Learning Path optimization algorithms (Greedy, Dijkstra, Dynamic Programming) on a skill graph of 500+ nodes and 50 test cases.
+\end{itemize}
+
+% --- EDUCATION ---
+\section{Education}
+\noindent\textbf{Bachelor of Science in Information Technology} \hfill \textcolor{darkgray}{\small 2022 -- 2026}\\[1pt]
+\textcolor{darkgray}{\small University of Transport and Communications, Ho Chi Minh City} \\[2pt]
+\textcolor{darkgray}{\small Relevant Coursework: Object-Oriented Programming (Java, C\#), Data Structures \& Algorithms, Database Management Systems (MS SQL Server, MongoDB, PostgreSQL), Web Programming, Software Engineering.}
+
+% --- CERTIFICATIONS ---
+\section{Certifications \& Achievements}
+\noindent\textbf{\small 3rd Prize -- Student Scientific Research 2025--2026} \hfill
+\href{https://github.com/dungken/MyResume/blob/master/Certificates/nckh2026.png}{\textcolor{secondary}{\scriptsize \faExternalLink* View Certificate}}\\[1pt]
+\textcolor{darkgray}{\scriptsize Topic: NLP-based AI System for Smart CV Generation \& Personalized Career Path Advisory}
+
+\vspace{4pt}
+\noindent\textbf{\small 3rd Prize -- Student Scientific Research 2024--2025} \hfill
+\href{https://github.com/dungken/MyResume/blob/master/Certificates/nckh.png}{\textcolor{secondary}{\scriptsize \faExternalLink* View Certificate}}\\[1pt]
+\textcolor{darkgray}{\scriptsize Topic: Ontology-based Web System for Solving Discrete Mathematics Problems}
+
+\vspace{4pt}
+\noindent\textbf{\small ICPC Central Vietnam 2025 -- Contestant} \hfill
+\href{https://github.com/dungken/MyResume/blob/master/Certificates/icpc.png}{\textcolor{secondary}{\scriptsize \faExternalLink* View Certificate}}\\[1pt]
+\textcolor{darkgray}{\scriptsize Participated in the regional ICPC contest as a team member. Practiced competitive programming with focus on algorithms and data structures.}
+
+\end{document}

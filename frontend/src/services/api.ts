@@ -77,6 +77,9 @@ export interface CVData {
         phone: string;
         location: string;
         title: string;
+        linkedin?: string;
+        github?: string;
+        youtube?: string;
     };
     summary?: string;
     education: any[];
@@ -85,6 +88,7 @@ export interface CVData {
     projects: any[];
     certifications: any[];
     section_order?: string[];
+    languages?: any[];
 }
 
 export interface CollectorResponse {
@@ -929,6 +933,52 @@ export const cvHealthApi = {
             has_summary: opts?.hasSummary ?? null,
             has_education: opts?.hasEducation ?? null,
             has_experience: opts?.hasExperience ?? null,
+            has_projects: opts?.hasProjects ?? null,
+        }),
+
+    simulateCv: (
+        userId: string,
+        targetRole: string,
+        skills: CvHealthSkill[],
+        opts?: {
+            yearsExperience?: number | null;
+            preferredLocation?: string | null;
+            preferredWorkModes?: string[] | null;
+            seniority?: string | null;
+            pastJobTitles?: string[] | null;
+            numProjects?: number | null;
+            projectSkillCounts?: number[] | null;
+            degree?: string | null;
+            major?: string | null;
+            achievementText?: string | null;
+            languageText?: string | null;
+            hasContact?: boolean | null;
+            hasSummary?: boolean | null;
+            hasEducation?: boolean | null;
+            hasExperience?: boolean | null;
+            hasSkills?: boolean | null;
+            hasProjects?: boolean | null;
+        },
+    ) =>
+        api.post<HealthScoreResponse>(`${SKILL_BASE}/cv/simulate`, {
+            user_id: userId,
+            target_role: targetRole,
+            skills,
+            years_experience: opts?.yearsExperience ?? null,
+            preferred_location: opts?.preferredLocation ?? null,
+            preferred_work_modes: opts?.preferredWorkModes ?? null,
+            seniority: opts?.seniority ?? null,
+            past_job_titles: opts?.pastJobTitles ?? null,
+            num_projects: opts?.numProjects ?? null,
+            project_skill_counts: opts?.projectSkillCounts ?? null,
+            degree: opts?.degree ?? null,
+            major: opts?.major ?? null,
+            achievement_text: opts?.achievementText ?? null,
+            language_text: opts?.languageText ?? null,
+            has_contact: opts?.hasContact ?? null,
+            has_summary: opts?.hasSummary ?? null,
+            has_education: opts?.hasEducation ?? null,
+            has_experience: opts?.hasExperience ?? null,
             has_skills: opts?.hasSkills ?? null,
             has_projects: opts?.hasProjects ?? null,
         }),
@@ -1004,13 +1054,14 @@ export interface ExperienceItem {
 
 export interface ParseResult {
     filename: string;
+    personal_info?: any;
     summary: string;
     experience: ExperienceItem[];
     projects: ExperienceItem[];
     education: ExperienceItem[];
     certifications: ExperienceItem[];
+    languages?: any[];
     skills: Record<string, string[]>;
-    languages: string[];
     raw_text: string;
     status: string;
     metadata: {

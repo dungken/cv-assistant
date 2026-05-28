@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import { UploadCloud, Loader2, ChevronDown, FileText } from 'lucide-react';
 import { cvDocumentApi, cvHealthApi, nerApi, type CvDocument } from '../../../services/api';
@@ -145,10 +146,7 @@ export default function CVPicker({ userId, onLinked }: Props) {
     const [linking, setLinking] = useState(false);
     const [linkError, setLinkError] = useState<string | null>(null);
 
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState<string | null>(null);
-    const [dragOver, setDragOver] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const navigate = useNavigate();
 
     // CV dropdown
     const [cvDropOpen, setCvDropOpen] = useState(false);
@@ -206,35 +204,7 @@ export default function CVPicker({ userId, onLinked }: Props) {
         return () => { cancelled = true; };
     }, [selectedId]);
 
-    async function handleUpload(file: File) {
-        const lower = file.name.toLowerCase();
-        if (!lower.endsWith('.pdf') && !lower.endsWith('.docx')) {
-            setUploadError('Chỉ hỗ trợ PDF hoặc DOCX.');
-            return;
-        }
-        setUploading(true);
-        setUploadError(null);
-        setPreview(null);
-        try {
-            const parseRes = await nerApi.parseCv(file);
-            const name = file.name.replace(/\.(pdf|docx)$/i, '');
-            const createRes = await cvDocumentApi.create({ name, dataJson: JSON.stringify(parseRes.data) });
-            const listRes = await cvDocumentApi.list();
-            setDocs(listRes.data);
-            setSelectedId(createRes.data.id);
-            setPreview({ source: 'upload', parsed: parseRes.data });
-            setShowPreview(true);
-            setCvDropOpen(false);
-        } catch (err) {
-            setUploadError(
-                err instanceof AxiosError
-                    ? (err.response?.data as { detail?: string } | undefined)?.detail || err.message
-                    : err instanceof Error ? err.message : 'Upload CV thất bại.',
-            );
-        } finally {
-            setUploading(false);
-        }
-    }
+    // handleUpload removed for Human-in-the-loop review
 
     function toggleWorkMode(mode: string) {
         setWorkModes(prev => prev.includes(mode) ? prev.filter(m => m !== mode) : [...prev, mode]);
@@ -326,23 +296,13 @@ export default function CVPicker({ userId, onLinked }: Props) {
                                     ))}
                                 </div>
                                 <div className="border-t border-white/5 p-2">
-                                    <input ref={fileInputRef} type="file" accept=".pdf,.docx" className="hidden"
-                                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
-                                    />
                                     <button type="button"
-                                        onClick={() => !uploading && fileInputRef.current?.click()}
-                                        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
-                                        onDragLeave={() => setDragOver(false)}
-                                        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleUpload(f); }}
-                                        disabled={uploading}
-                                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border border-dashed ${uploading ? 'border-accent-primary/40 bg-accent-primary/5 cursor-wait' : dragOver ? 'border-accent-primary bg-accent-primary/8' : 'border-white/10 hover:border-accent-primary/30 hover:bg-accent-primary/5 cursor-pointer'}`}
+                                        onClick={() => navigate('/cv-upload')}
+                                        className="w-full flex items-center justify-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border border-dashed border-white/10 hover:border-accent-primary/30 hover:bg-accent-primary/5 cursor-pointer"
                                     >
-                                        {uploading
-                                            ? <><Loader2 className="w-3.5 h-3.5 text-accent-primary animate-spin shrink-0" /><span className="text-text-secondary text-xs">Đang parse…</span></>
-                                            : <><UploadCloud className="w-3.5 h-3.5 text-text-muted shrink-0" /><span className="text-text-secondary text-xs">Upload CV mới · PDF / DOCX</span></>
-                                        }
+                                        <UploadCloud className="w-3.5 h-3.5 text-accent-primary shrink-0" />
+                                        <span className="text-text-primary text-xs font-bold uppercase tracking-wider">Upload CV mới & Review</span>
                                     </button>
-                                    {uploadError && <div className="mt-1.5 px-1 text-xs text-rose-400">{uploadError}</div>}
                                 </div>
                             </div>
                         )}
