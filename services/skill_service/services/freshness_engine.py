@@ -500,9 +500,11 @@ ACHIEVEMENT_PATTERNS: list[tuple[str, float]] = [
     (r"\b(award|giải nhất|giải nhì|giải ba|giải thưởng|prize|winner|champion)\b", 15.0),
     (r"\b(scholarship|học bổng)\b", 15.0),
     (r"\b(aws|azure|gcp|google cloud)\s*(certified|certification|certificate)?\b", 15.0),
-    (r"\b(certified|certification|chứng chỉ)\b", 10.0),
+    (r"\b(certified|certification|certificate|chứng chỉ)\b", 10.0),
     (r"\b(publication|paper|báo khoa học|patent|sáng chế)\b", 20.0),
     (r"\b(open[- ]?source|contributor|maintainer)\b", 10.0),
+    (r"\b(jlpt|n1|n2|n3|toeic|ielts|toefl)\b", 10.0),
+    (r"\b(leetcode|hackerrank|codeforces)\b", 10.0),
 ]
 
 # Chiều 6 — Language scoring (§3.2.2 chiều 6)
@@ -524,13 +526,31 @@ COMPLETENESS_WEIGHTS: dict[str, float] = {
 
 # Số năm kinh nghiệm mục tiêu theo seniority (years_target — chiều 2)
 SENIORITY_TARGET_YEARS: dict[str, float] = {
+    "fresher": 0.0,    # fresher = không yêu cầu kinh nghiệm chuyên môn
+    "intern": 0.0,
     "junior": 1.0,
-    "fresher": 0.5,
     "mid": 3.0,
+    "middle": 3.0,
     "senior": 5.0,
     "lead": 8.0,
+    "principal": 10.0,
+    "manager": 8.0,
 }
 DEFAULT_TARGET_YEARS = 3.0
+# Điểm tối thiểu cho Experience khi seniority yêu cầu 0 năm (fresher) —
+# tránh kéo tổng điểm xuống 0 chỉ vì user là sinh viên mới ra trường.
+FRESHER_BASELINE_EXP = 70.0
+# Achievement: scale theo số hit (không cộng dồn điểm cố định để tránh
+# JLPT match cả "jlpt"+"n3"+"certificate" thành 3 hit).
+ACHIEVEMENT_PER_HIT = 18.0  # 4 hit phân biệt → ~72/100
+ACHIEVEMENT_CAP = 100.0
+
+# Top skill noise — kỹ năng này thường xuất hiện top JD nhưng không phải
+# skill cụ thể (architecture concepts) → bỏ khỏi market alignment.
+MARKET_ALIGN_NOISE = {
+    "microservices", "agile", "scrum", "rest", "restful", "api",
+    "soa", "saas", "ci/cd", "cicd", "tdd", "bdd", "oop",
+}
 
 
 # ─── Trọng số ω_d theo (role, seniority) — Bảng 3.2 ───────────────────────────
@@ -614,12 +634,27 @@ class CVProfileInput:
 
 
 @dataclass
+class DimensionDetail:
+    """Structured breakdown for a dimension — feeds the (i) popup on dashboard.
+
+    `summary` is the 1-line headline shown inline next to the bar.
+    The remaining fields are shown in a Dialog when user clicks the info icon.
+    All fields are optional so simpler dimensions don't need to fill everything.
+    """
+    summary: str = ""                       # 1-line headline
+    formula: str = ""                       # vd "100 × 0.13 × 1.00 = 13.0"
+    inputs: list[dict] = field(default_factory=list)        # [{label, value, hint?}]
+    breakdown: list[str] = field(default_factory=list)      # bullets giải thích vì sao
+    tips: list[str] = field(default_factory=list)           # action items
+
+
+@dataclass
 class DimensionScore:
     name: str
     score: float          # s_d ∈ [0, 100]
     weight: float         # ω_d
     weighted: float       # ω_d · s_d
-    detail: str = ""      # giải thích ngắn cho dashboard
+    detail: DimensionDetail = field(default_factory=DimensionDetail)
 
 
 @dataclass
@@ -655,18 +690,77 @@ class MultiCriteriaFreshnessEngine:
         return res.score, res
 
     # ── chiều 2: Experience ──
-    def _dim_experience(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_experience(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
         if profile.years_experience is None:
-            return 50.0, "không rõ số năm KN → baseline 50"
-        target = SENIORITY_TARGET_YEARS.get(
-            (profile.seniority or "").lower(), DEFAULT_TARGET_YEARS
-        )
-        coverage = min(1.0, profile.years_experience / target) if target > 0 else 1.0
+            return 50.0, DimensionDetail(
+                summary="Chưa quét được số năm KN — tạm chấm 50/100.",
+                formula=r"\text{baseline (no data)} = 50",
+                inputs=[{"label": "years_experience", "value": "null"}],
+                breakdown=["⚠ Hệ thống không đọc được số năm KN từ CV (thiếu DATE entity).",
+                           "ℹ Có thể do CV không ghi rõ mốc tháng/năm ở mỗi job."],
+                tips=["Ghi rõ format 'Jan 2024 - Present' hoặc '01/2024 - hiện tại' ở mỗi job.",
+                      "Tránh viết chung chung như '2 năm tại công ty A'."],
+            )
+
+        seniority_l = (profile.seniority or "").lower()
+        target = SENIORITY_TARGET_YEARS.get(seniority_l, DEFAULT_TARGET_YEARS)
         relevance = self._relevance_factor(profile)
+        seniority_label = (profile.seniority or "mục tiêu").upper()
+        yrs = profile.years_experience
+
+        if target <= 0:
+            bonus = min(30.0, yrs * 30.0)
+            base_score = FRESHER_BASELINE_EXP + bonus
+            score = max(0.0, min(100.0, base_score * relevance))
+            return score, DimensionDetail(
+                summary=f"Fresher (target 0 năm) — nền {FRESHER_BASELINE_EXP:.0f} + {bonus:.0f} bonus × relevance {relevance:.2f}",
+                formula=(rf"\text{{score}} = (\underbrace{{{FRESHER_BASELINE_EXP:.0f}}}_{{\text{{baseline}}}} + "
+                         rf"\underbrace{{{bonus:.1f}}}_{{\text{{bonus}}}}) \cdot "
+                         rf"\underbrace{{{relevance:.2f}}}_{{\text{{relevance}}}} = {score:.1f}"),
+                inputs=[
+                    {"label": "Cấp bậc mục tiêu", "value": seniority_label, "hint": "không yêu cầu năm KN"},
+                    {"label": "Số năm KN thực có", "value": f"{yrs:.1f} năm"},
+                    {"label": "Độ liên quan job title", "value": f"{relevance*100:.0f}%"},
+                ],
+                breakdown=[
+                    f"ℹ Cấp {seniority_label} không yêu cầu năm KN — nền tảng {FRESHER_BASELINE_EXP:.0f}đ.",
+                    (f"✓ Bonus +{bonus:.1f}đ cho {yrs:.1f} năm KN intern/part-time bạn đang có."
+                     if yrs > 0 else f"ℹ Chưa có KN intern/part-time → không có bonus."),
+                    (f"✓ Job title cũ ({', '.join(profile.past_job_titles[:2])}) khớp role {profile.role} (×{relevance:.2f})."
+                     if relevance >= 0.8 and profile.past_job_titles else
+                     f"⚠ Job title cũ chưa khớp role {profile.role} → relevance chỉ {relevance:.2f} (kéo điểm xuống)."
+                     if profile.past_job_titles else
+                     f"ℹ Không phát hiện JOB_TITLE entity → relevance = {relevance:.2f} (trung tính)."),
+                ],
+                tips=([] if relevance >= 0.8 else
+                      [f"Đổi chức danh job cũ cho khớp role '{profile.role}' (vd 'Backend Intern' thay vì 'Software Intern')."]) +
+                     (["Liệt kê thêm các project/freelance để bonus tăng lên 30đ."] if yrs < 1.0 else []),
+            )
+
+        coverage = min(1.0, yrs / target)
         score = 100.0 * coverage * relevance
-        return score, (
-            f"{profile.years_experience:.1f}/{target:.0f} năm "
-            f"(coverage={coverage:.2f}, relevance={relevance:.2f})"
+        return score, DimensionDetail(
+            summary=f"{yrs:.1f}/{target:.0f} năm KN ({coverage*100:.0f}% target) × relevance {relevance:.2f}",
+            formula=(rf"\text{{score}} = 100 \cdot \min\!\left(1,\ \dfrac{{{yrs:.1f}}}{{{target:.0f}}}\right) "
+                     rf"\cdot {relevance:.2f} = 100 \cdot {coverage:.2f} \cdot {relevance:.2f} = {score:.1f}"),
+            inputs=[
+                {"label": "Số năm KN", "value": f"{yrs:.1f} năm"},
+                {"label": "Target cho {seniority_label}".format(seniority_label=seniority_label), "value": f"{target:.0f} năm"},
+                {"label": "Coverage", "value": f"{coverage*100:.0f}%"},
+                {"label": "Relevance job title", "value": f"{relevance*100:.0f}%"},
+            ],
+            breakdown=[
+                (f"✓ Đạt đủ kỳ vọng KN cho cấp {seniority_label} ({yrs:.1f}/{target:.0f} năm)." if coverage >= 1.0 else
+                 f"⚠ Mới đạt {coverage*100:.0f}% kỳ vọng — còn thiếu {(target - yrs):.1f} năm cho cấp {seniority_label}." if coverage < 0.5 else
+                 f"ℹ Đạt {coverage*100:.0f}% kỳ vọng KN ({yrs:.1f}/{target:.0f} năm) — gần đủ."),
+                (f"✓ Chức danh cũ ({', '.join(profile.past_job_titles[:2])}) khớp role {profile.role}."
+                 if relevance >= 0.8 and profile.past_job_titles else
+                 f"⚠ Chức danh cũ chưa thật khớp role {profile.role} (relevance {relevance:.0%})."
+                 if profile.past_job_titles else
+                 "ℹ Không tìm thấy JOB_TITLE trong CV → relevance trung tính (75%)."),
+            ],
+            tips=([f"Cần thêm {(target - yrs):.1f} năm KN nữa để đạt 100% coverage."] if coverage < 1.0 else []) +
+                 ([f"Đổi tên chức danh job cũ cho khớp role '{profile.role}' để nâng relevance."] if relevance < 0.8 else []),
         )
 
     def _relevance_factor(self, profile: CVProfileInput) -> float:
@@ -686,131 +780,315 @@ class MultiCriteriaFreshnessEngine:
         return 0.5
 
     # ── chiều 3: Project ──
-    def _dim_project(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_project(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
+        seniority_l = (profile.seniority or "junior").lower()
+        if seniority_l in ("fresher", "intern", "junior"):
+            target = PROJECT_TARGET
+        else:
+            target = max(2, PROJECT_TARGET - 1)
+
         if profile.num_projects <= 0:
-            return 0.0, "không có project"
-        count_factor = min(1.0, profile.num_projects / PROJECT_TARGET)
+            return 0.0, DimensionDetail(
+                summary=f"0 dự án — cần ít nhất {target} để đạt chuẩn.",
+                formula=r"\text{score} = 0 \quad \text{(no projects)}",
+                inputs=[{"label": "Số dự án", "value": "0"}, {"label": "Target", "value": str(target)}],
+                breakdown=["✗ Không tìm thấy dự án nào trong CV.",
+                           "ℹ Dự án là bằng chứng năng lực mạnh nhất, đặc biệt cho fresher/junior."],
+                tips=[f"Thêm tối thiểu {target} dự án (cá nhân/freelance/open source).",
+                      "Mỗi dự án nên có: tên, stack 3-5 công nghệ, mô tả vai trò + kết quả đo lường."],
+            )
+
+        count_factor = min(1.0, profile.num_projects / target)
         if profile.project_skill_counts:
             avg_skills = sum(profile.project_skill_counts) / len(profile.project_skill_counts)
         else:
-            avg_skills = PROJECT_SKILL_BENCHMARK * 0.6  # default mật độ trung bình
-        density = min(1.0, avg_skills / PROJECT_SKILL_BENCHMARK)
+            avg_skills = PROJECT_SKILL_BENCHMARK * 0.6
+        density_raw = avg_skills / PROJECT_SKILL_BENCHMARK
+        density = max(0.4, min(1.0, density_raw))
         score = 100.0 * count_factor * density
-        return score, (
-            f"{profile.num_projects} project (count_factor={count_factor:.2f}, "
-            f"skill_density={density:.2f})"
+
+        bullets = [
+            (f"✓ Đủ số dự án chuẩn ({profile.num_projects}/{target})." if profile.num_projects >= target else
+             f"⚠ Mới có {profile.num_projects}/{target} dự án — cần thêm {target - profile.num_projects} cho đủ chuẩn."),
+            (f"✓ Stack dày ({avg_skills:.1f} tech/dự án — chuẩn {PROJECT_SKILL_BENCHMARK})." if density >= 0.8 else
+             f"⚠ Stack thưa ({avg_skills:.1f} tech/dự án — chuẩn {PROJECT_SKILL_BENCHMARK}) — chưa thể hiện hết tech đã dùng."),
+        ]
+        tips: list[str] = []
+        if profile.num_projects < target:
+            tips.append(f"Thêm {target - profile.num_projects} dự án nữa để đạt count_factor = 1.0.")
+        if density < 0.8:
+            tips.append("Liệt kê chi tiết Stack (Database, Message Queue, CI/CD, monitoring…) trong từng dự án.")
+        if not tips:
+            tips.append("Đã đạt chuẩn — tiếp tục thêm metric kết quả (vd 'giảm latency 40%') để gây ấn tượng mạnh hơn.")
+
+        return score, DimensionDetail(
+            summary=f"{profile.num_projects} dự án × {avg_skills:.1f} tech/dự án = {score:.1f}/100",
+            formula=(rf"\text{{score}} = 100 \cdot \underbrace{{{count_factor:.2f}}}_{{\text{{count\_factor}}}} \cdot "
+                     rf"\underbrace{{{density:.2f}}}_{{\text{{density}}}} = {score:.1f}"),
+            inputs=[
+                {"label": "Số dự án", "value": str(profile.num_projects), "hint": f"target {target}"},
+                {"label": "Avg công nghệ/dự án", "value": f"{avg_skills:.1f}", "hint": f"benchmark {PROJECT_SKILL_BENCHMARK}"},
+                {"label": "count_factor", "value": f"{count_factor:.2f}"},
+                {"label": "density", "value": f"{density:.2f}", "hint": "floor 0.4"},
+            ],
+            breakdown=bullets,
+            tips=tips,
         )
 
     # ── chiều 4: Education ──
-    def _dim_education(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_education(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
         if not profile.degree:
-            return 40.0, "không rõ bằng cấp → 40"
+            return 40.0, DimensionDetail(
+                summary="Không tìm thấy DEGREE trong CV — tạm chấm 40/100 (baseline 'Khác').",
+                formula=rf"\text{{score}} = \text{{DEGREE\_DEFAULT}} = {DEGREE_DEFAULT_SCORE:.0f}",
+                inputs=[{"label": "Degree", "value": "(không có)"}],
+                breakdown=["✗ Không tìm thấy bằng cấp trong CV.",
+                           "⚠ ATS doanh nghiệp lọc theo từ khoá bằng cấp — thiếu sẽ bị loại."],
+                tips=["Ghi rõ 'Bachelor of Science', 'Cử nhân CNTT', 'Master of Engineering'…",
+                      "Format: <bằng cấp>, <chuyên ngành>, <trường>, <năm tốt nghiệp>."],
+            )
         base = DEGREE_DEFAULT_SCORE
+        matched_key = "khác"
         deg_l = profile.degree.lower()
         for key, val in DEGREE_BASE_SCORE.items():
             if key in deg_l:
                 base = val
+                matched_key = key
                 break
         adjust = 0.0
-        note = ""
+        major_status = "không có thông tin chuyên ngành"
         if profile.major:
             major_l = profile.major.lower()
             if any(k in major_l for k in _IT_MAJOR_KEYWORDS):
                 adjust = MAJOR_ADJUST
-                note = f", major IT (+{MAJOR_ADJUST:.0f})"
+                major_status = f"khớp khối CNTT ('{profile.major}') → +{MAJOR_ADJUST:.0f}"
             else:
                 adjust = -MAJOR_ADJUST
-                note = f", major ngoài IT (-{MAJOR_ADJUST:.0f})"
+                major_status = f"không khớp khối CNTT ('{profile.major}') → -{MAJOR_ADJUST:.0f}"
         score = max(0.0, min(100.0, base + adjust))
-        return score, f"{profile.degree} (base={base:.0f}{note})"
+        tips: list[str] = []
+        if not profile.major:
+            tips.append("Bổ sung chuyên ngành ('in Computer Science', 'ngành CNTT') để nhận +10đ.")
+        if base < 80:
+            tips.append("Bằng cấp cao hơn (Bachelor/Master) sẽ nâng baseline lên 80-90đ.")
+        return score, DimensionDetail(
+            summary=f"{profile.degree} ({base:.0f}) {('+ ' + str(int(adjust))) if adjust > 0 else (str(int(adjust))) if adjust < 0 else ''} = {score:.0f}/100",
+            formula=(rf"\text{{score}} = \underbrace{{{base:.0f}}}_{{\text{{DEGREE\_BASE[{matched_key}]}}}} "
+                     rf"{'+' if adjust >= 0 else '-'} \underbrace{{{abs(adjust):.0f}}}_{{\text{{major\_adjust}}}} = {score:.0f}"),
+            inputs=[
+                {"label": "Bằng cấp", "value": profile.degree, "hint": f"baseline {base:.0f}"},
+                {"label": "Chuyên ngành", "value": profile.major or "—", "hint": major_status},
+            ],
+            breakdown=[
+                f"✓ Bằng '{profile.degree}' (tier {matched_key}) → nền {base:.0f}/100.",
+                (f"✓ {major_status}." if adjust > 0 else
+                 f"⚠ {major_status}." if adjust < 0 else
+                 f"ℹ {major_status}."),
+            ],
+            tips=tips,
+        )
 
     # ── chiều 5: Achievement ──
-    def _dim_achievement(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_achievement(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
         text_l = (profile.achievement_text or "").lower()
         if not text_l.strip():
-            return 0.0, "không có thành tích"
-        total = 0.0
-        hits = 0
-        for pat, pts in ACHIEVEMENT_PATTERNS:
-            n = len(re.findall(pat, text_l))
-            if n:
-                total += pts * n
-                hits += n
-        score = min(100.0, total)
-        return score, f"{hits} thành tích/chứng chỉ phát hiện"
+            return 0.0, DimensionDetail(
+                summary="Không có thành tích/chứng chỉ nào.",
+                formula=r"\text{score} = 0 \quad \text{(no achievement text)}",
+                inputs=[{"label": "achievement_text", "value": "(rỗng)"}],
+                breakdown=["✗ Chưa có chứng chỉ/giải thưởng/đóng góp open source nào.",
+                           "ℹ Hệ thống quét section Certifications, Awards, Achievements + summary."],
+                tips=["Bổ sung chứng chỉ (AWS Certified, JLPT, IELTS) nếu có.",
+                      "List Hackathon, đóng góp Open Source, LeetCode/Codeforces rating.",
+                      "Học bổng, giải thưởng cấp trường/quốc gia cũng được tính."],
+            )
+        distinct_hits = 0
+        labels: list[str] = []
+        for pat, _pts in ACHIEVEMENT_PATTERNS:
+            if re.search(pat, text_l):
+                distinct_hits += 1
+                first = re.sub(r"\\b|\(|\)|\?|\:|\.|\*|\+", "", pat).split("|")[0].strip()
+                if first:
+                    labels.append(first)
+        score = min(ACHIEVEMENT_CAP, distinct_hits * ACHIEVEMENT_PER_HIT)
+        return score, DimensionDetail(
+            summary=f"{distinct_hits} loại thành tích × {ACHIEVEMENT_PER_HIT:.0f}đ = {score:.0f}/100",
+            formula=(rf"\text{{score}} = \min\!\left({ACHIEVEMENT_CAP:.0f},\ "
+                     rf"\underbrace{{{distinct_hits}}}_{{\text{{distinct hits}}}} \cdot "
+                     rf"\underbrace{{{ACHIEVEMENT_PER_HIT:.0f}}}_{{\text{{pts/hit}}}}\right) = {score:.0f}"),
+            inputs=[
+                {"label": "Số loại distinct", "value": str(distinct_hits)},
+                {"label": "Điểm/loại", "value": f"{ACHIEVEMENT_PER_HIT:.0f}"},
+                {"label": "Mẫu phát hiện", "value": ", ".join(labels[:5]) or "—"},
+            ],
+            breakdown=[
+                f"✓ Phát hiện {distinct_hits} LOẠI thành tích khác nhau: {', '.join(labels[:5])}.",
+                f"ℹ Mỗi loại chỉ tính 1 lần — tránh phồng điểm khi 1 chứng chỉ match nhiều keyword.",
+                (f"⚠ Cần thêm {int((ACHIEVEMENT_CAP - score) // ACHIEVEMENT_PER_HIT) + 1} loại nữa để đạt trần {ACHIEVEMENT_CAP:.0f}/100."
+                 if score < ACHIEVEMENT_CAP else f"✓ Đã đạt trần điểm {ACHIEVEMENT_CAP:.0f}/100."),
+            ],
+            tips=([] if score >= ACHIEVEMENT_CAP else [
+                f"Thêm {int((ACHIEVEMENT_CAP - score) // ACHIEVEMENT_PER_HIT) + 1} loại thành tích khác để đạt trần.",
+                "Categories thiếu: paper/patent, scholarship, hackathon, cloud cert (AWS/Azure/GCP), open source."
+            ]),
+        )
 
     # ── chiều 6: Language ──
-    def _dim_language(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_language(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
         text_l = (profile.language_text or "").lower()
+        tier_table = (
+            f"Bảng quy đổi: Native={LANG_NATIVE:.0f} | Advanced={LANG_ADVANCED:.0f} | "
+            f"Intermediate={LANG_INTERMEDIATE:.0f} | Basic={LANG_BASIC:.0f} | None={LANG_NONE:.0f}."
+        )
         if not text_l.strip():
-            return LANG_NONE, "không có thông tin ngoại ngữ → 30"
+            return LANG_NONE, DimensionDetail(
+                summary=f"Không đề cập ngoại ngữ → mặc định {LANG_NONE:.0f}/100.",
+                formula=rf"\text{{score}} = \text{{LANG\_NONE}} = {LANG_NONE:.0f}",
+                inputs=[{"label": "language_text", "value": "(rỗng)"}],
+                breakdown=["✗ CV không có section Languages.",
+                           f"ℹ {tier_table}"],
+                tips=["Thêm: 'English: Professional Working Proficiency', 'JLPT N3', 'TOEIC 750'…"],
+            )
 
-        # IELTS x.y
+        def build(score: float, tier: str, evidence: str, tips: list[str]) -> DimensionDetail:
+            return DimensionDetail(
+                summary=f"{evidence} → tier {tier} ({score:.0f}/100)",
+                formula=rf"\text{{score}} = \text{{tier}}(\text{{{tier}}}) = {score:.0f}",
+                inputs=[{"label": "Evidence trong CV", "value": evidence}, {"label": "Tier", "value": tier}],
+                breakdown=[f"✓ CV match: {evidence} → tier {tier}.",
+                           f"ℹ {tier_table}"],
+                tips=tips,
+            )
+
+        # IELTS
         m = re.search(r"ielts\s*[:\-]?\s*(\d(?:\.\d)?)", text_l)
         if m:
             band = float(m.group(1))
             if band >= 7.0:
-                return LANG_NATIVE, f"IELTS {band}"
+                return LANG_NATIVE, build(LANG_NATIVE, "Native", f"IELTS {band}",
+                    ["Đã ở tier cao nhất."])
             if band >= 6.0:
-                return LANG_ADVANCED, f"IELTS {band}"
-            return LANG_INTERMEDIATE, f"IELTS {band}"
-        # TOEIC nnn
+                return LANG_ADVANCED, build(LANG_ADVANCED, "Advanced", f"IELTS {band}",
+                    [f"Cần IELTS ≥ 7.0 để lên Native (+{LANG_NATIVE - LANG_ADVANCED:.0f}đ)."])
+            return LANG_INTERMEDIATE, build(LANG_INTERMEDIATE, "Intermediate", f"IELTS {band}",
+                [f"Cần IELTS ≥ 6.0 để lên Advanced (+{LANG_ADVANCED - LANG_INTERMEDIATE:.0f}đ)."])
+        # TOEIC
         m = re.search(r"toeic\s*[:\-]?\s*(\d{3,4})", text_l)
         if m:
             sc = int(m.group(1))
             if sc >= 800:
-                return LANG_NATIVE, f"TOEIC {sc}"
+                return LANG_NATIVE, build(LANG_NATIVE, "Native", f"TOEIC {sc}", ["Đã ở tier cao nhất."])
             if sc >= 600:
-                return LANG_ADVANCED, f"TOEIC {sc}"
+                return LANG_ADVANCED, build(LANG_ADVANCED, "Advanced", f"TOEIC {sc}",
+                    [f"Cần TOEIC ≥ 800 để lên Native."])
             if sc >= 450:
-                return LANG_INTERMEDIATE, f"TOEIC {sc}"
-            return LANG_BASIC, f"TOEIC {sc}"
-        # Keyword level
-        if re.search(r"\b(native|fluent|bản ngữ|thành thạo)\b", text_l):
-            return LANG_NATIVE, "native/fluent"
-        if re.search(r"\b(advanced|nâng cao|tốt)\b", text_l):
-            return LANG_ADVANCED, "advanced"
-        if re.search(r"\b(intermediate|trung cấp|khá)\b", text_l):
-            return LANG_INTERMEDIATE, "intermediate"
-        if re.search(r"\b(basic|cơ bản|beginner)\b", text_l):
-            return LANG_BASIC, "basic"
-        return LANG_NONE, "không phân loại được mức"
+                return LANG_INTERMEDIATE, build(LANG_INTERMEDIATE, "Intermediate", f"TOEIC {sc}",
+                    [f"Cần TOEIC ≥ 600 để lên Advanced."])
+            return LANG_BASIC, build(LANG_BASIC, "Basic", f"TOEIC {sc}",
+                [f"Cần TOEIC ≥ 450 để lên Intermediate."])
+        # JLPT
+        m = re.search(r"jlpt\s*[:\-]?\s*(n[1-5])|\bn[1-5]\b", text_l)
+        if m:
+            level = (m.group(1) or m.group(0)).lower()
+            if level in ("n1", "n2"):
+                return LANG_NATIVE, build(LANG_NATIVE, "Native", f"JLPT {level.upper()}", ["Đã ở tier cao nhất."])
+            if level == "n3":
+                return LANG_ADVANCED, build(LANG_ADVANCED, "Advanced", "JLPT N3",
+                    [f"Cần JLPT N2 để lên Native (+{LANG_NATIVE - LANG_ADVANCED:.0f}đ)."])
+            if level in ("n4", "n5"):
+                return LANG_INTERMEDIATE, build(LANG_INTERMEDIATE, "Intermediate", f"JLPT {level.upper()}",
+                    [f"Cần JLPT N3 để lên Advanced."])
+        # Keyword tier
+        if re.search(r"\b(native|fluent|bản ngữ|thành thạo|bilingual|full professional proficiency)\b", text_l):
+            return LANG_NATIVE, build(LANG_NATIVE, "Native", "keyword Native/Fluent/Bilingual", ["Đã ở tier cao nhất."])
+        if re.search(r"\b(advanced|nâng cao|professional working proficiency)\b", text_l):
+            return LANG_ADVANCED, build(LANG_ADVANCED, "Advanced", "keyword Advanced/Professional",
+                ["Bổ sung điểm thi cụ thể (IELTS/TOEIC) để củng cố đánh giá."])
+        if re.search(r"\b(intermediate|trung cấp|khá|limited working proficiency)\b", text_l):
+            return LANG_INTERMEDIATE, build(LANG_INTERMEDIATE, "Intermediate", "keyword Intermediate/Khá", [])
+        if re.search(r"\b(basic|cơ bản|beginner|elementary)\b", text_l):
+            return LANG_BASIC, build(LANG_BASIC, "Basic", "keyword Basic/Cơ bản",
+                ["Đầu tư học để lên Intermediate — phổ biến nhất trong tin tuyển dụng."])
+
+        return LANG_NONE, DimensionDetail(
+            summary=f"CV có mention ngoại ngữ nhưng không xác định được tier → {LANG_NONE:.0f}/100.",
+            formula=rf"\text{{score}} = \text{{LANG\_NONE}} = {LANG_NONE:.0f}",
+            inputs=[{"label": "language_text", "value": (profile.language_text or "")[:80]}],
+            breakdown=["⚠ Có mention ngoại ngữ nhưng không match được tier (IELTS/TOEIC/JLPT/keyword chuẩn).",
+                       f"ℹ {tier_table}"],
+            tips=["Bổ sung dạng chuẩn: 'IELTS 6.5', 'TOEIC 750', 'JLPT N3', 'Professional Working Proficiency'."],
+        )
 
     # ── chiều 7: Completeness ──
-    def _dim_completeness(self, profile: CVProfileInput) -> tuple[float, str]:
+    def _dim_completeness(self, profile: CVProfileInput) -> tuple[float, DimensionDetail]:
         present = {
-            "contact": profile.has_contact,
-            "summary": profile.has_summary,
-            "education": profile.has_education,
-            "experience": profile.has_experience,
-            "skills": profile.has_skills,
-            "projects": profile.has_projects,
+            "Contact": profile.has_contact,
+            "Summary": profile.has_summary,
+            "Education": profile.has_education,
+            "Experience": profile.has_experience,
+            "Skills": profile.has_skills,
+            "Projects": profile.has_projects,
         }
-        score = sum(COMPLETENESS_WEIGHTS[k] for k, ok in present.items() if ok)
+        weight_map = {k: COMPLETENESS_WEIGHTS[k.lower()] for k in present}
+        score = min(100.0, sum(weight_map[k] for k, ok in present.items() if ok))
         missing = [k for k, ok in present.items() if not ok]
-        score = min(100.0, score)
-        return score, ("đủ section" if not missing else f"thiếu: {', '.join(missing)}")
+        section_bullets = [f"{'✓' if ok else '✗'} {k} (+{weight_map[k]:.0f}đ)" for k, ok in present.items()]
+        return score, DimensionDetail(
+            summary=(f"Đủ 6/6 section ({score:.0f}/100)" if not missing
+                     else f"Có {6 - len(missing)}/6 section, thiếu: {', '.join(missing)} → {score:.0f}/100"),
+            formula=(rf"\text{{score}} = \sum_{{s \in \text{{sections}}}} w_s \cdot \mathbb{{1}}[s \in \text{{CV}}] "
+                     rf"= {score:.0f}"),
+            inputs=[{"label": k, "value": "✓" if ok else "✗", "hint": f"+{weight_map[k]:.0f}đ nếu có"}
+                    for k, ok in present.items()],
+            breakdown=section_bullets,
+            tips=([f"Bổ sung section '{m}' để +{weight_map[m]:.0f}đ." for m in missing]
+                  if missing else ["Đã đủ — duy trì khi update CV mới."]),
+        )
 
     # ── chiều 8: Market Alignment ──
     def _dim_market_alignment(
         self, db: Session, profile: CVProfileInput, snapshot_date: date
-    ) -> tuple[float, str]:
+    ) -> tuple[float, DimensionDetail]:
         current, _freq, _cold = self.skill_engine._load_trend_data(
             db, profile.role, snapshot_date
         )
         if not current:
-            return 0.0, "chưa có market snapshot"
-        top_k = [
-            sk for sk, _ in sorted(current.items(), key=lambda kv: -kv[1])[:MARKET_ALIGN_TOP_K]
-        ]
+            return 0.0, DimensionDetail(
+                summary="Chưa đủ dữ liệu thị trường để đánh giá.",
+                formula=r"\text{N/A} \quad \text{(no skill\_trends data)}",
+                inputs=[{"label": "snapshot_date", "value": snapshot_date.isoformat()}],
+                breakdown=["⚠ Chưa có dữ liệu thị trường cho role này.",
+                           "ℹ Cần chạy crawler aggregator để build top-K skills."],
+                tips=["Chờ batch crawler tiếp theo (chạy weekly)."],
+            )
+        filtered = [(sk, cnt) for sk, cnt in current.items() if sk.lower() not in MARKET_ALIGN_NOISE]
+        top_k = [sk for sk, _ in sorted(filtered, key=lambda kv: -kv[1])[:MARKET_ALIGN_TOP_K]]
         top_set = {s.lower() for s in top_k}
-        cv_canon = {
-            self.ontology.canonical.get(s.name.lower(), s.name).lower()
-            for s in profile.skills
-        }
-        hit = len(cv_canon & top_set)
+        cv_canon = {self.ontology.canonical.get(s.name.lower(), s.name).lower() for s in profile.skills}
+        matched = sorted(cv_canon & top_set)
+        missing = [s for s in top_k if s.lower() not in cv_canon]
+        hit = len(matched)
         score = 100.0 * hit / MARKET_ALIGN_TOP_K
-        return score, f"{hit}/{MARKET_ALIGN_TOP_K} top-skill role có trong CV"
+        return score, DimensionDetail(
+            summary=f"Khớp {hit}/{MARKET_ALIGN_TOP_K} top skill thị trường cho role {profile.role}.",
+            formula=(rf"\text{{score}} = 100 \cdot \dfrac{{|\,S_{{\text{{CV}}}} \cap S_{{\text{{top-K}}}}|}}"
+                     rf"{{|\,S_{{\text{{top-K}}}}|}} = 100 \cdot \dfrac{{{hit}}}{{{MARKET_ALIGN_TOP_K}}} = {score:.0f}"),
+            inputs=[
+                {"label": "Role", "value": profile.role},
+                {"label": "Top-K skills thị trường", "value": ", ".join(top_k) or "—"},
+                {"label": "Skill khớp trong CV", "value": ", ".join(matched) or "(không có)"},
+                {"label": "Skill còn thiếu", "value": ", ".join(missing[:5]) or "—"},
+            ],
+            breakdown=[
+                (f"✓ Khớp {hit}/{MARKET_ALIGN_TOP_K} top skill thị trường ({', '.join(matched[:3])}…)."
+                 if matched else f"✗ Chưa khớp skill nào trong top {MARKET_ALIGN_TOP_K} thị trường."),
+                (f"⚠ Còn {len(missing)} top skill chưa có: {', '.join(missing[:5])}{'…' if len(missing) > 5 else ''}."
+                 if missing else "✓ CV đã cover trọn top thị trường — vô cùng tốt."),
+                f"ℹ Top-K dựa trên demand_count từ JD crawl mới nhất ({snapshot_date.isoformat()}).",
+            ],
+            tips=([f"Học/bổ sung skill thiếu: {', '.join(missing[:3])}" + ("..." if len(missing) > 3 else "")]
+                  if missing else ["Đã khớp toàn bộ top market — giữ vững!"]),
+        )
 
     # ── public ──
     def compute(
@@ -834,8 +1112,66 @@ class MultiCriteriaFreshnessEngine:
         s7, d7 = self._dim_completeness(profile)
         s8, d8 = self._dim_market_alignment(db, profile, snapshot_date)
 
+        top_skills = sorted(skill_res.contributions, key=lambda c: c.contribution, reverse=True)
+        top3 = top_skills[:3]
+        top3_str = ", ".join(f"{c.skill} ({c.contribution:.1f}đ)" for c in top3) if top3 else "—"
+        sum_terms = sum(c.contribution for c in skill_res.contributions)
+        ideal_str = ", ".join(skill_res.ideal_skills[:5]) + ("…" if len(skill_res.ideal_skills) > 5 else "")
+        missing_top = skill_res.missing_ideal[:3]
+        # Insight-driven breakdown — nói VỀ CV CỦA USER, không giải thích công thức
+        n_recent = sum(1 for c in skill_res.contributions if c.recency >= 0.7)
+        n_old = sum(1 for c in skill_res.contributions if c.recency < 0.4)
+        n_trending_up = sum(1 for c in skill_res.contributions if c.trend > 1.1)
+        n_trending_down = sum(1 for c in skill_res.contributions if c.trend < 0.9)
+        ideal_overlap = len(set(c.skill.lower() for c in skill_res.contributions)
+                            & set(s.lower() for s in skill_res.ideal_skills))
+        bk: list[str] = []
+        if top3:
+            bk.append(f"✓ Top 3 skill đóng góp điểm cao nhất: {top3_str} (chiếm {sum(c.contribution for c in top3):.0f}đ).")
+        if ideal_overlap > 0:
+            kind = "✓" if ideal_overlap >= len(skill_res.ideal_skills) * 0.5 else "ℹ"
+            bk.append(f"{kind} CV có {ideal_overlap}/{len(skill_res.ideal_skills)} skill thuộc top thị trường hiện tại.")
+        if n_trending_up > 0:
+            bk.append(f"✓ {n_trending_up} skill đang TRENDING UP (demand tăng so với 4 tuần trước) → kéo điểm lên.")
+        if n_trending_down > 0:
+            bk.append(f"⚠ {n_trending_down} skill đang COOLING (demand giảm) → kéo điểm xuống.")
+        if n_old > 0:
+            bk.append(f"⚠ {n_old} skill chưa update last_used_year >5 năm → recency = 0.1 (penalty mạnh).")
+        elif n_recent < len(skill_res.contributions) * 0.6:
+            bk.append(f"ℹ Chỉ {n_recent}/{len(skill_res.contributions)} skill được dùng trong 2 năm gần nhất.")
+        if missing_top:
+            bk.append(f"✗ Skill HOT chưa có: {', '.join(missing_top)}{'…' if len(skill_res.missing_ideal) > 3 else ''}.")
+        else:
+            bk.append("✓ CV đã cover đủ top skill thị trường — duy trì!")
+        if skill_res.cold_start:
+            bk.append("ℹ Dữ liệu thị trường <4 tuần → điểm có thể biến động khi data đủ.")
+        d1 = DimensionDetail(
+            summary=(f"{len(profile.skills)} skill × Demand × Recency = {s1:.1f}/100"
+                     + (f". Top: {top3[0].skill}" if top3 else "")),
+            formula=(r"\text{score} = 100 \cdot \dfrac{\displaystyle\sum_{s \in S_{\text{CV}}} "
+                     r"w_r(s) \cdot \text{trend}(s) \cdot \text{recency}(s)}"
+                     r"{\displaystyle\sum_{s \in S_{\text{ideal}}} w_r(s)}"
+                     rf" = {sum_terms:.1f}"
+                     + (r"\quad \text{(capped to 100)}" if s1 >= 100 else "")),
+            inputs=[
+                {"label": "Số skill trong CV", "value": str(len(profile.skills))},
+                {"label": "Top-15 ideal skills (role)", "value": ideal_str or "—"},
+                {"label": "Top đóng góp",
+                 "value": top3_str,
+                 "hint": "skill (điểm) — sort theo contribution"},
+                {"label": "Cold-start?", "value": "Có" if skill_res.cold_start else "Không",
+                 "hint": "Cold-start = chưa đủ 4 tuần data → trend=1.0 trung tính"},
+            ],
+            breakdown=bk,
+            tips=([f"Bổ sung skill thiếu: {', '.join(missing_top)}." for missing_top in [missing_top] if missing_top] +
+                  (["Update last_used_year cho skill cũ để recency tăng (1.0 nếu dùng trong 1 năm)."]
+                   if any(c.recency < 0.7 for c in skill_res.contributions) else [])
+                  + (["Dữ liệu thị trường còn cold-start — điểm có thể thay đổi sau vài tuần."]
+                     if skill_res.cold_start else [])),
+        )
+
         raw = {
-            "skill": (s1, f"{len(profile.skills)} skill"),
+            "skill": (s1, d1),
             "experience": (s2, d2),
             "project": (s3, d3),
             "education": (s4, d4),

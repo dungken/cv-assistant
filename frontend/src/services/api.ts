@@ -801,12 +801,26 @@ export interface SkillContribution {
     contribution: number;
 }
 
+export interface DimensionDetailInput {
+    label: string;
+    value: string;
+    hint?: string | null;
+}
+
+export interface DimensionDetail {
+    summary: string;
+    formula: string;
+    inputs: DimensionDetailInput[];
+    breakdown: string[];
+    tips: string[];
+}
+
 export interface DimensionScore {
     name: string;
     score: number;
     weight: number;
     weighted: number;
-    detail: string;
+    detail: DimensionDetail;
 }
 
 export interface HealthScoreResponse {
@@ -888,7 +902,21 @@ export interface OpportunityWindowResponse {
     items: OpportunityJD[];
 }
 
+export interface SavedCvConfig {
+    user_id: string;
+    target_role: string;
+    years_experience: number | null;
+    preferred_location: string | null;
+    preferred_work_modes: string[];
+    seniority: string | null;
+    skill_count: number;
+    updated_at: string | null;
+}
+
 export const cvHealthApi = {
+    getSavedConfig: (userId: string) =>
+        api.get<SavedCvConfig>(`${SKILL_BASE}/cv/me`, { params: { user_id: userId } }),
+
     upsertCv: (
         userId: string,
         targetRole: string,

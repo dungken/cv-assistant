@@ -30,10 +30,49 @@ from services.skill_service.models.schemas import (
     FreshnessHistoryResponse, FreshnessHistoryPoint,
     MultiCriteriaResponse, DimensionScoreItem,
 )
+from dataclasses import asdict as _dataclass_asdict
 from services.skill_service.services.freshness_engine import (
     CVSkillInput, record_history_and_alert,
     MultiCriteriaFreshnessEngine, CVProfileInput,
 )
+
+
+def _dim_to_item(d):
+    """Convert engine's DimensionScore (with nested DimensionDetail dataclass)
+    to API DimensionScoreItem. Uses asdict to recursively flatten nested
+    dataclasses so Pydantic can validate the inputs list."""
+    return DimensionScoreItem(**_dataclass_asdict(d))
+
+
+def _apply_llm_tips(user_id: str, profile: "CVProfileInput", result) -> None:
+    """In-place: replace rule-based tips with LLM-generated tips when available.
+    Silently no-op if Groq disabled / fails. Breakdown stays rule-based."""
+    try:
+        from services.skill_service.services.freshness_advisor import enrich_tips
+        skill_res = result.skill_result
+        top_contribs = []
+        if skill_res and skill_res.contributions:
+            top_contribs = [c.skill for c in sorted(
+                skill_res.contributions, key=lambda c: c.contribution, reverse=True
+            )[:5]]
+        llm_tips = enrich_tips(
+            user_id=user_id,
+            role=result.role,
+            seniority=result.seniority or "junior",
+            snapshot_date=result.snapshot_date.isoformat(),
+            cv_skills=[s.name for s in profile.skills],
+            dimensions=result.dimensions,
+            missing_top_market=(skill_res.missing_ideal if skill_res else None),
+            top_contributors=top_contribs,
+        )
+        if not llm_tips:
+            return
+        for dim in result.dimensions:
+            new_tips = llm_tips.get(dim.name)
+            if new_tips and dim.detail:
+                dim.detail.tips = new_tips
+    except Exception as e:
+        logger.warning("LLM tips enrich failed (keeping rule-based): %s", e)
 from services.skill_service.services import cv_store
 from services.skill_service.services.opportunity_window import find_opportunities
 from services.skill_service.models.database import FreshnessAlertDB, FreshnessHistoryDB
@@ -375,6 +414,27 @@ def _recompute_freshness_bg(user_id: str) -> None:
 
 # ─── Tuần 14: user-state endpoints ────────────────────────────────────────────
 
+@app.get("/cv/me")
+def get_saved_cv(user_id: str = Query(...), db = Depends(get_db)):
+    """Return saved CV config (target_role, seniority, years_experience,
+    preferred_location, preferred_work_modes, extras) so frontend can
+    prefill the 'Mục tiêu Ứng tuyển' form. 404 if user chưa upsert lần nào."""
+    cv = cv_store.get_cv(db, user_id)
+    if cv is None:
+        raise HTTPException(status_code=404, detail="No CV saved")
+    extras = cv.profile_extras or {}
+    return {
+        "user_id": cv.user_id,
+        "target_role": cv.target_role,
+        "years_experience": cv.years_experience,
+        "preferred_location": cv.preferred_location,
+        "preferred_work_modes": cv.preferred_work_modes or [],
+        "seniority": extras.get("seniority"),
+        "skill_count": len(cv.skills_with_recency or []),
+        "updated_at": cv.updated_at.isoformat() if cv.updated_at else None,
+    }
+
+
 @app.post("/cv/me", response_model=CVUpsertResponse)
 def upsert_cv(
     request: CVUpsertRequest,
@@ -427,6 +487,7 @@ def health_score(
     try:
         profile = _build_profile_from_cv(cv)
         result = get_multi_engine().compute(db=db, profile=profile)
+        _apply_llm_tips(user_id, profile, result)
     except Exception as e:
         logger.error("health-score failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -450,7 +511,7 @@ def health_score(
         missing_ideal=skill_res.missing_ideal if skill_res else [],
         cold_start=result.cold_start,
         history_recorded=history_recorded,
-        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        dimensions=[_dim_to_item(d) for d in result.dimensions],
         seniority=result.seniority,
     )
 
@@ -469,6 +530,7 @@ def cv_freshness_multi(
     try:
         profile = _build_profile_from_cv(cv)
         result = get_multi_engine().compute(db=db, profile=profile)
+        _apply_llm_tips(user_id, profile, result)
     except Exception as e:
         logger.error("freshness-multi failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -480,7 +542,7 @@ def cv_freshness_multi(
         seniority=result.seniority,
         snapshot_date=result.snapshot_date.isoformat(),
         score=result.score,
-        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        dimensions=[_dim_to_item(d) for d in result.dimensions],
         skill_contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
         ideal_skills=skill_res.ideal_skills if skill_res else [],
         missing_ideal=skill_res.missing_ideal if skill_res else [],
@@ -542,7 +604,7 @@ def simulate_freshness(
         missing_ideal=skill_res.missing_ideal if skill_res else [],
         cold_start=result.cold_start,
         history_recorded=False,
-        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        dimensions=[_dim_to_item(d) for d in result.dimensions],
         seniority=result.seniority,
     )
 

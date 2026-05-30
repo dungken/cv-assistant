@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, LogIn, ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sparkles, Activity, BarChart3 } from 'lucide-react';
 import { authApi } from '../../services/api';
 
 interface LoginProps {
@@ -33,7 +33,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister, onSwi
     };
 
     return (
-        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden  shadow-2xl animate-in zoom-in-95 duration-700">
+        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden font-sans shadow-2xl animate-in zoom-in-95 duration-700">
             {/* Left Column: Branding & Features */}
             <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-indigo-600 via-purple-700 to-indigo-900 p-12 flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full -mr-20 -mt-20 anim-pulse"></div>
@@ -43,22 +43,28 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister, onSwi
                     <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 border border-white/20 shadow-xl">
                         <Sparkles className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-5xl font-black text-white tracking-tighter leading-tight mb-6">
-                        Unlock Your <br /> Career Potential.
+                    <h1 className="font-sans text-5xl font-black text-white tracking-tighter leading-tight mb-10">
+                        CV Assistant <br /> Intelligence.
                     </h1>
-                    <ul className="space-y-6">
-                        {[
-                            { icon: <ShieldCheck />, text: "AI-Powered CV Anonymization" },
-                            { icon: <Zap />, text: "Real-time O*NET Analysis" },
-                            { icon: <ArrowRight className="w-4 h-4" />, text: "Personalized Career Pathing" }
-                        ].map((item, idx) => (
-                            <li key={idx} className="flex items-center gap-4 text-white/80 font-medium text-sm">
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/10 flex-shrink-0">
-                                    {React.cloneElement(item.icon as React.ReactElement<any>, { size: 16, className: "text-white" })}
-                                </div>
-                                {item.text}
-                            </li>
-                        ))}
+                    <ul className="space-y-8">
+                        <li className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 flex-shrink-0 mt-1 shadow-lg">
+                                <Activity className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-sans text-white font-bold text-base mb-1.5">CV Health Intelligence</h3>
+                                <p className="text-white/60 text-sm font-medium leading-relaxed">Multi-criteria freshness framework evaluating your CV across 8 professional dimensions.</p>
+                            </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 flex-shrink-0 mt-1 shadow-lg">
+                                <BarChart3 className="w-5 h-5 text-amber-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-sans text-white font-bold text-base mb-1.5">Market Intelligence</h3>
+                                <p className="text-white/60 text-sm font-medium leading-relaxed">Real-time IT market insights extracted from thousands of active job descriptions.</p>
+                            </div>
+                        </li>
                     </ul>
                 </div>
 
@@ -76,10 +82,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister, onSwi
                         </div>
                     </div>
                     <span className="inline-block px-4 py-1.5 rounded-full bg-accent-primary/10 text-accent-primary text-[10px] font-black tracking-widest uppercase mb-4">
-                        Member Access
+                        System Access
                     </span>
-                    <h2 className="text-4xl font-black text-text-primary mb-2 tracking-tighter">Welcome back.</h2>
-                    <p className="text-text-secondary font-medium tracking-tight">Enter your details to continue</p>
+                    <h2 className="font-sans text-4xl font-black text-text-primary mb-2 tracking-tighter">Welcome back.</h2>
+                    <p className="text-text-secondary font-medium tracking-tight">Enter your credentials to access the engine</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
@@ -144,7 +150,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister, onSwi
                     </button>
                 </form>
 
-                <div className="mt-12 pt-8 border-t  text-center">
+                <div className="mt-12 pt-8 border-t border-white/5 text-center">
                     <p className="text-text-secondary text-xs font-bold uppercase tracking-widest">
                         Don't have an account? <button onClick={onSwitchToRegister} className="text-accent-primary hover:underline ml-1">Join the community</button>
                     </p>

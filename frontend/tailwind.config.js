@@ -41,6 +41,10 @@ export default {
         '2xl': '1.75rem',
         '3xl': '2.25rem',
       },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        outfit: ['Outfit', 'sans-serif'],
+      },
       keyframes: {
         progress: {
           '0%':   { transform: 'translateX(-100%)' },

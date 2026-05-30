@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { UploadCloud, Loader2, ChevronDown, FileText, Eye, Target, Activity } from 'lucide-react';
-import { cvDocumentApi, cvHealthApi, nerApi, type CvDocument } from '../../../services/api';
-import CVPreviewPanel from './CVPreviewPanel';
+import { UploadCloud, Loader2, ChevronDown, FileText, Eye, Target, Activity, MapPin } from 'lucide-react';
+import { cvDocumentApi, cvHealthApi, type CvDocument } from '../../../services/api';
 
 interface Props {
     userId: string;
@@ -11,40 +10,154 @@ interface Props {
     onEmpty?: (isEmpty: boolean) => void;
 }
 
-const ROLES: Array<{ id: string; label: string }> = [
-    { id: 'backend', label: 'Backend' },
-    { id: 'frontend', label: 'Frontend' },
-    { id: 'data', label: 'Data' },
-    { id: 'devops', label: 'DevOps' },
-    { id: 'ai_engineer', label: 'AI Eng' },
-    { id: 'fullstack', label: 'Fullstack' },
-    { id: 'mobile', label: 'Mobile' },
-];
-
-const SENIORITIES = [
-    { id: 'fresher', label: 'Fresher' },
-    { id: 'junior', label: 'Junior' },
-    { id: 'mid', label: 'Mid' },
-    { id: 'senior', label: 'Senior' },
-    { id: 'lead', label: 'Lead' },
-];
-
-const LOCATIONS = [
-    { id: 'HCM', label: 'HCM' },
-    { id: 'HN', label: 'Hà Nội' },
-    { id: 'DN', label: 'Đà Nẵng' },
-    { id: 'Remote', label: 'Remote' },
-    { id: 'Any', label: 'Bất kỳ' },
-];
-
-const WORK_MODES = [
-    { id: 'onsite', label: 'Onsite' },
-    { id: 'hybrid', label: 'Hybrid' },
-    { id: 'remote', label: 'Remote' },
-];
+import { ROLES, SENIORITIES, LOCATIONS, WORK_MODES } from '../../../config/jobMeta';
 
 interface NerEntity { text: string; type: string }
-interface NerBlock { entities?: NerEntity[] }
+interface NerBlock { entities?: NerEntity[], anchor?: string, description?: string }
+
+const MONTH_MAP: Record<string, number> = {
+    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+    may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+    sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10,
+    dec: 11, december: 11,
+    th01: 0, th02: 1, th03: 2, th04: 3, th05: 4, th06: 5,
+    th07: 6, th08: 7, th09: 8, th10: 9, th11: 10, th12: 11,
+};
+
+function parseDateString(str: string): Date | null {
+    if (!str) return null;
+    const s = str.toLowerCase().trim();
+    // "Jan 2026" / "January 2026" / "Sept 2025"
+    const m1 = s.match(/([a-z]{3,})[a-z]*\.?\s+(\d{4})/);
+    if (m1 && MONTH_MAP[m1[1]] !== undefined) {
+        return new Date(Number(m1[2]), MONTH_MAP[m1[1]], 1);
+    }
+    // "Tháng 7/2026" hoặc "T7/2026" hoặc "Th7 2026"
+    const mVi = s.match(/(?:tháng|th\.?|t)\s*(\d{1,2})[\s\/\-\.]+(\d{4})/);
+    if (mVi) {
+        const mo = parseInt(mVi[1], 10) - 1;
+        return new Date(Number(mVi[2]), mo >= 0 && mo <= 11 ? mo : 0, 1);
+    }
+    // "07/2026" / "7-2026" / "7.2026"
+    const m2 = s.match(/(\d{1,2})[\/\-\.](\d{4})/);
+    if (m2) {
+        const mo = parseInt(m2[1], 10) - 1;
+        return new Date(Number(m2[2]), mo >= 0 && mo <= 11 ? mo : 0, 1);
+    }
+    // "2026/07"
+    const m2b = s.match(/(\d{4})[\/\-\.](\d{1,2})/);
+    if (m2b) {
+        const mo = parseInt(m2b[2], 10) - 1;
+        return new Date(Number(m2b[1]), mo >= 0 && mo <= 11 ? mo : 0, 1);
+    }
+    // Năm trần "2025"
+    const m3 = s.match(/(\d{4})/);
+    if (m3) return new Date(Number(m3[1]), 0, 1);
+    return null;
+}
+
+const PRESENT_RE = /present|nay|hiện\s*tại|now|hiện|hientai/i;
+const DATE_TOKEN = '(?:(?:[a-z]{3,}[a-z]*\\.?\\s+\\d{4})|(?:(?:tháng|th\\.?|t)\\s*\\d{1,2}[\\s\\/\\-\\.]+\\d{4})|(?:\\d{1,2}[\\/\\-\\.]\\d{4})|(?:\\d{4}[\\/\\-\\.]\\d{1,2})|(?:\\d{4}))';
+const RANGE_RE = new RegExp(`(${DATE_TOKEN})\\s*(?:-|–|—|to|đến|~)\\s*(${DATE_TOKEN}|present|nay|hiện\\s*tại|hientai|now|hiện)`, 'gi');
+
+function monthsBetween(start: Date, end: Date): number {
+    return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+}
+
+function extractMonthsFromText(text: string): number {
+    if (!text) return 0;
+    let best = 0;
+    const today = new Date();
+    let m: RegExpExecArray | null;
+    RANGE_RE.lastIndex = 0;
+    while ((m = RANGE_RE.exec(text)) !== null) {
+        const start = parseDateString(m[1]);
+        const endStr = m[2].trim();
+        let end: Date | null;
+        if (PRESENT_RE.test(endStr)) {
+            end = today;
+        } else {
+            end = parseDateString(endStr);
+        }
+        if (!start || !end) continue;
+        // Clamp start to today to avoid future-dated jobs polluting the count
+        const effEnd = end > today ? today : end;
+        if (effEnd < start) continue;
+        const months = monthsBetween(start, effEnd) + 1; // +1 inclusive
+        if (months > 0 && months > best) best = months;
+    }
+    return best;
+}
+
+function estimateYearsOfExperience(expBlocks: unknown): number {
+    if (!Array.isArray(expBlocks)) return 0;
+    let totalMonths = 0;
+    for (const block of expBlocks) {
+        if (!block) continue;
+        let blockMonths = 0;
+        // 1. Try DATE/DURATION entities first
+        if (Array.isArray(block.entities)) {
+            for (const ent of block.entities) {
+                if (ent && (ent.type === 'DATE' || ent.type === 'DURATION')) {
+                    blockMonths = Math.max(blockMonths, extractMonthsFromText(String(ent.text)));
+                }
+            }
+        }
+        // 2. Fallback: regex over raw anchor/description text
+        if (blockMonths === 0) {
+            const raw = [block.anchor, block.description, block.text, block.title]
+                .filter(Boolean).join(' ');
+            blockMonths = extractMonthsFromText(raw);
+        }
+        totalMonths += blockMonths;
+    }
+    return Number((totalMonths / 12).toFixed(2));
+}
+
+// Detect seniority signal from job titles & summary text.
+// Returns one of SENIORITIES ids or null if no signal.
+function detectSeniority(parsed: unknown): string | null {
+    if (!parsed || typeof parsed !== 'object') return null;
+    const obj = parsed as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof obj.summary === 'string') parts.push(obj.summary);
+    if (typeof obj.title === 'string') parts.push(obj.title);
+    const exp = obj.experience as NerBlock[] | undefined;
+    if (Array.isArray(exp)) {
+        for (const b of exp) {
+            if (b?.anchor) parts.push(String(b.anchor));
+            for (const e of b?.entities ?? []) {
+                if (e?.type === 'JOB_TITLE' && e?.text) parts.push(String(e.text));
+            }
+        }
+    }
+    const text = parts.join(' \n ').toLowerCase();
+    if (!text.trim()) return null;
+    // Order matters — check stronger signals first
+    if (/\b(principal|staff|architect|head\s+of|cto|director)\b/.test(text)) return 'lead';
+    if (/\b(manager|engineering\s+manager|em\b)/.test(text)) return 'manager';
+    if (/\b(tech\s*lead|lead\s+(engineer|developer|dev)|team\s+lead)\b/.test(text)) return 'lead';
+    if (/\b(senior|sr\.?|sr\s+(engineer|developer|dev))\b/.test(text)) return 'senior';
+    if (/\b(mid[\s-]*level|middle\s+(engineer|developer|dev)|intermediate)\b/.test(text)) return 'mid';
+    if (/\b(junior|jr\.?)\b/.test(text)) return 'junior';
+    if (/\b(fresher|fresh\s+graduate|intern|internship|thực\s+tập)\b/.test(text)) return 'fresher';
+    return null;
+}
+
+// Flatten any value (string/array/object) into a single text blob for keyword scanning.
+function flattenToText(value: unknown, depth = 0): string {
+    if (value == null || depth > 4) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) return value.map(v => flattenToText(v, depth + 1)).filter(Boolean).join(' \n ');
+    if (typeof value === 'object') {
+        return Object.values(value as Record<string, unknown>)
+            .map(v => flattenToText(v, depth + 1))
+            .filter(Boolean)
+            .join(' \n ');
+    }
+    return '';
+}
 
 function extractProfileExtras(parsed: unknown) {
     const out = {
@@ -57,6 +170,8 @@ function extractProfileExtras(parsed: unknown) {
         language_text: '',
         has_contact: true, has_summary: false, has_education: false,
         has_experience: false, has_skills: false, has_projects: false,
+        calculated_years_exp: 0,
+        detected_seniority: null as string | null,
     };
     if (!parsed || typeof parsed !== 'object') return out;
     const obj = parsed as Record<string, unknown>;
@@ -70,11 +185,26 @@ function extractProfileExtras(parsed: unknown) {
     const skillsField = obj.skills;
     out.has_skills = (Array.isArray(skillsField) && skillsField.length > 0)
         || (typeof skillsField === 'object' && skillsField !== null && Object.keys(skillsField).length > 0);
+
+    out.calculated_years_exp = estimateYearsOfExperience(exp);
+    out.detected_seniority = detectSeniority(parsed);
+
     if (Array.isArray(edu)) {
         for (const block of edu) {
             for (const e of block.entities ?? []) {
                 if (e?.type === 'DEGREE' && !out.degree) out.degree = e.text;
                 if (e?.type === 'MAJOR' && !out.major) out.major = e.text;
+            }
+            // Fallback: scan anchor/description for degree keywords
+            if (!out.degree) {
+                const txt = ((block.anchor || '') + ' ' + (block.description || '')).toLowerCase();
+                const m = txt.match(/\b(ph\.?d|doctor|master|bachelor|engineer|associate|diploma|college|kỹ sư|cử nhân|thạc sĩ|tiến sĩ|cao đẳng)\b/);
+                if (m) out.degree = m[1];
+            }
+            if (!out.major) {
+                const txt = (block.anchor || '') + ' ' + (block.description || '');
+                const m = txt.match(/\b(?:in|of|ngành|chuyên ngành)\s+([A-Za-zÀ-ỹ\s]{3,60})/i);
+                if (m) out.major = m[1].trim().split(/[,.\n]/)[0];
             }
         }
     }
@@ -84,32 +214,52 @@ function extractProfileExtras(parsed: unknown) {
             for (const e of block.entities ?? []) {
                 if (e?.type === 'JOB_TITLE' && typeof e.text === 'string') titles.add(e.text.trim());
             }
+            if (block.anchor && typeof block.anchor === 'string') {
+                // anchor often contains the job title as the first line
+                const firstLine = block.anchor.split('\n')[0].trim();
+                if (firstLine && firstLine.length < 80) titles.add(firstLine);
+            }
         }
         out.past_job_titles = Array.from(titles);
     }
-    if (Array.isArray(projects)) {
-        out.num_projects = projects.length;
-        out.project_skill_counts = projects.map(p =>
-            (p.entities ?? []).filter(e => e?.type === 'SKILL' || e?.type === 'TECH').length,
-        );
+
+    // Count projects from BOTH the dedicated `projects` section AND from `experience`
+    // entries (many CVs put real projects under work history). Skill-density uses
+    // SKILL/TECH entity counts; if an experience block has its own Stack, that
+    // contributes to skill count.
+    const projectLikeBlocks: NerBlock[] = [];
+    if (Array.isArray(projects)) projectLikeBlocks.push(...projects);
+    if (Array.isArray(exp)) projectLikeBlocks.push(...exp);
+    if (projectLikeBlocks.length > 0) {
+        out.num_projects = projectLikeBlocks.length;
+        out.project_skill_counts = projectLikeBlocks.map(p => {
+            const fromEntities = (p.entities ?? []).filter(e => e?.type === 'SKILL' || e?.type === 'TECH').length;
+            // Bullet/Stack hints in description bump density signal if NER missed them
+            const bulletBoost = ((p.description || '').match(/[•\-\*]/g) || []).length;
+            return Math.max(fromEntities, Math.min(bulletBoost, 6));
+        });
     }
-    const certs = obj.certifications as Array<{ description?: string; anchor?: string }> | undefined;
+
+    // Achievement: flatten certs + scan summary/exp for award keywords
     const achievementParts: string[] = [];
-    if (Array.isArray(certs)) {
-        for (const c of certs) {
-            if (c.anchor) achievementParts.push(c.anchor);
-            if (c.description) achievementParts.push(c.description);
-        }
-    }
-    out.achievement_text = achievementParts.join(' ');
-    const langs = obj.languages;
-    if (Array.isArray(langs)) {
-        out.language_text = langs.join(', ');
-    } else if (skillsField && typeof skillsField === 'object') {
+    achievementParts.push(flattenToText(obj.certifications));
+    achievementParts.push(flattenToText(obj.awards));
+    achievementParts.push(flattenToText(obj.achievements));
+    // Scan summary too — awards/certs often mentioned there
+    if (typeof obj.summary === 'string') achievementParts.push(obj.summary);
+    out.achievement_text = achievementParts.filter(Boolean).join(' \n ');
+
+    // Language: scan many possible shapes (NER inconsistent across CVs)
+    const langCandidates: unknown[] = [
+        obj.languages, obj.language, (obj as any).Languages, (obj as any).Language,
+    ];
+    if (skillsField && typeof skillsField === 'object') {
         const s = skillsField as Record<string, unknown>;
-        const b = s.languages ?? s.language ?? s.Languages;
-        if (Array.isArray(b)) out.language_text = b.join(', ');
+        langCandidates.push(s.languages, s.language, (s as any).Languages);
     }
+    const langText = langCandidates.map(v => flattenToText(v)).filter(Boolean).join(' \n ');
+    out.language_text = langText;
+
     return out;
 }
 
@@ -143,6 +293,11 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     const [role, setRole] = useState('backend');
     const [seniority, setSeniority] = useState('junior');
     const [yearsExp, setYearsExp] = useState(1);
+    // Track whether the user has manually touched these — auto-detection only
+    // overrides untouched fields, never user intent.
+    const [seniorityTouched, setSeniorityTouched] = useState(false);
+    const [yearsTouched, setYearsTouched] = useState(false);
+    const [autoNotice, setAutoNotice] = useState<string | null>(null);
     const [location, setLocation] = useState('HCM');
     const [workModes, setWorkModes] = useState(['onsite', 'hybrid', 'remote']);
     const [linking, setLinking] = useState(false);
@@ -158,10 +313,18 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     const [locDropOpen, setLocDropOpen] = useState(false);
     const locDropRef = useRef<HTMLDivElement>(null);
 
+    // Role & Seniority dropdowns
+    const [roleDropOpen, setRoleDropOpen] = useState(false);
+    const roleDropRef = useRef<HTMLDivElement>(null);
+    const [seniorityDropOpen, setSeniorityDropOpen] = useState(false);
+    const seniorityDropRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (cvDropRef.current && !cvDropRef.current.contains(e.target as Node)) setCvDropOpen(false);
             if (locDropRef.current && !locDropRef.current.contains(e.target as Node)) setLocDropOpen(false);
+            if (roleDropRef.current && !roleDropRef.current.contains(e.target as Node)) setRoleDropOpen(false);
+            if (seniorityDropRef.current && !seniorityDropRef.current.contains(e.target as Node)) setSeniorityDropOpen(false);
         };
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
@@ -186,6 +349,31 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
         return () => { cancelled = true; };
     }, []);
 
+    // Prefill form từ config đã lưu (nếu user từng bấm "Tính điểm" trước đó)
+    useEffect(() => {
+        let cancelled = false;
+        cvHealthApi.getSavedConfig(userId)
+            .then(res => {
+                if (cancelled) return;
+                const cfg = res.data;
+                if (cfg.target_role) setRole(cfg.target_role);
+                if (cfg.seniority) {
+                    setSeniority(cfg.seniority);
+                    setSeniorityTouched(true);
+                }
+                if (cfg.years_experience != null) {
+                    setYearsExp(Number(cfg.years_experience.toFixed(1)));
+                    setYearsTouched(true);
+                }
+                if (cfg.preferred_location) setLocation(cfg.preferred_location);
+                if (cfg.preferred_work_modes && cfg.preferred_work_modes.length > 0) {
+                    setWorkModes(cfg.preferred_work_modes);
+                }
+            })
+            .catch(() => { /* 404 lần đầu — bỏ qua, giữ default */ });
+        return () => { cancelled = true; };
+    }, [userId]);
+
     function toggleWorkMode(mode: string) {
         setWorkModes(prev => prev.includes(mode) ? prev.filter(m => m !== mode) : [...prev, mode]);
     }
@@ -194,6 +382,7 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
         if (!selectedId) return;
         setLinking(true);
         setLinkError(null);
+        setAutoNotice(null);
         try {
             const docRes = await cvDocumentApi.getById(selectedId);
             const latestVer = docRes.data.versions.slice().sort((a, b) => b.versionNumber - a.versionNumber)[0];
@@ -204,11 +393,34 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
             const extras = extractProfileExtras(parsed);
             if (skills.length === 0) throw new Error('CV này chưa có kỹ năng nào được trích xuất.');
             const currentYear = new Date().getFullYear();
-            const yearsValue = Number.isNaN(yearsExp) ? null : Math.max(0, yearsExp);
+
+            // ── Auto-detection (only when user didn't override) ─────────────
+            const notices: string[] = [];
+
+            // Seniority: if CV signals senior/lead and user is on untouched default 'junior',
+            // promote and apply default years for that level.
+            let effSeniority = seniority;
+            if (!seniorityTouched && extras.detected_seniority && extras.detected_seniority !== seniority) {
+                effSeniority = extras.detected_seniority;
+                setSeniority(effSeniority);
+                notices.push(`Cấp bậc tự động cập nhật → ${effSeniority.toUpperCase()} (phát hiện từ chức danh trong CV)`);
+            }
+
+            // Years: prefer auto-calculated when user didn't touch the input.
+            // Allow override only when calc > 0 (avoid clobbering a real fresher CV with 0).
+            let finalYears = Number.isNaN(yearsExp) ? null : Math.max(0, yearsExp);
+            if (!yearsTouched && extras.calculated_years_exp > 0) {
+                finalYears = extras.calculated_years_exp;
+                setYearsExp(Number(extras.calculated_years_exp.toFixed(1)));
+                notices.push(`Số năm KN tự động: ${extras.calculated_years_exp.toFixed(1)} năm (tính từ thời gian các job trong CV)`);
+            }
+
+            if (notices.length > 0) setAutoNotice(notices.join(' · '));
+
             await cvHealthApi.upsertCv(userId, role, skills.map(name => ({ name, last_used_year: currentYear })), {
-                yearsExperience: yearsValue, preferredLocation: location.trim() || null,
+                yearsExperience: finalYears, preferredLocation: location.trim() || null,
                 preferredWorkModes: workModes.length > 0 ? workModes : null,
-                seniority, pastJobTitles: extras.past_job_titles,
+                seniority: effSeniority, pastJobTitles: extras.past_job_titles,
                 numProjects: extras.num_projects, projectSkillCounts: extras.project_skill_counts,
                 degree: extras.degree || null, major: extras.major || null,
                 achievementText: extras.achievement_text || null, languageText: extras.language_text || null,
@@ -297,108 +509,146 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
 
                 {/* --- Group 2: Mục tiêu Ứng tuyển --- */}
                 <div className="flex flex-col gap-3 flex-1 min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-emerald-400" /> Cấu hình Mục tiêu Ứng tuyển
-                    </span>
-                    
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                        {/* Vị trí & Cấp bậc */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex items-center flex-wrap gap-1 bg-black/20 p-1 rounded-full border border-white/5">
-                                {ROLES.map(r => (
-                                    <button key={r.id} type="button" onClick={() => setRole(r.id)}
-                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
-                                            r.id === role
-                                                ? 'bg-accent-primary text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]'
-                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
-                                        }`}>
-                                        {r.label}
+
+                    <div className="flex flex-wrap items-stretch gap-4">
+
+                        {/* ── BLOCK A: Ảnh hưởng điểm ────────────────── */}
+                        <div className="flex flex-col gap-2 p-3 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/15 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                                <Target className="w-3 h-3" /> Ảnh hưởng điểm chấm
+                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Role */}
+                                <div className="relative" ref={roleDropRef}>
+                                    <button type="button" onClick={() => setRoleDropOpen(v => !v)}
+                                        className="flex items-center gap-2 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all">
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="text-[11px] text-text-muted font-bold">Vị trí</span>
+                                            <span className="text-[13px] text-accent-primary font-black">
+                                                {ROLES.find(r => r.id === role)?.label ?? role}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform duration-150 ${roleDropOpen ? 'rotate-180' : ''}`} />
                                     </button>
-                                ))}
-                            </div>
-                            
-                            <div className="flex items-center flex-wrap gap-1 bg-black/20 p-1 rounded-full border border-white/5">
-                                {SENIORITIES.map(s => (
-                                    <button key={s.id} type="button" onClick={() => setSeniority(s.id)}
-                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
-                                            s.id === seniority
-                                                ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
-                                        }`}>
-                                        {s.label}
+                                    {roleDropOpen && (
+                                        <div className="absolute top-full left-0 mt-2 z-50 w-48 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+                                                {ROLES.map(r => (
+                                                    <button key={r.id} type="button"
+                                                        onClick={() => { setRole(r.id); setRoleDropOpen(false); }}
+                                                        className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${role === r.id ? 'bg-accent-primary/15 text-accent-primary font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
+                                                        {r.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Seniority */}
+                                <div className="relative" ref={seniorityDropRef}>
+                                    <button type="button" onClick={() => setSeniorityDropOpen(v => !v)}
+                                        className="flex items-center gap-2 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all">
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="text-[11px] text-text-muted font-bold">Cấp bậc</span>
+                                            <span className="text-[13px] text-emerald-400 font-black">
+                                                {SENIORITIES.find(s => s.id === seniority)?.label ?? seniority}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform duration-150 ${seniorityDropOpen ? 'rotate-180' : ''}`} />
                                     </button>
-                                ))}
+                                    {seniorityDropOpen && (
+                                        <div className="absolute top-full left-0 mt-2 z-50 w-40 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="p-1.5 space-y-0.5">
+                                                {SENIORITIES.map(s => (
+                                                    <button key={s.id} type="button"
+                                                        onClick={() => { setSeniority(s.id); setSeniorityTouched(true); setSeniorityDropOpen(false); }}
+                                                        className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${seniority === s.id ? 'bg-emerald-500/15 text-emerald-400 font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
+                                                        {s.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                             </div>
                         </div>
 
-                        {/* Thông số phụ */}
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-1 bg-black/20 p-1 rounded-full border border-white/5">
-                                {WORK_MODES.map(m => (
-                                    <button key={m.id} type="button" onClick={() => toggleWorkMode(m.id)}
-                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
-                                            workModes.includes(m.id)
-                                                ? 'bg-indigo-500/30 text-indigo-200 shadow-inner'
-                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
-                                        }`}>
-                                        {m.label}
+                        {/* ── BLOCK B: Lọc gợi ý việc làm (không ảnh hưởng điểm) ── */}
+                        <div className="flex flex-col gap-2 p-3 rounded-2xl bg-white/[0.02] border border-white/5 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted/80 flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3" /> Lọc gợi ý việc làm
+                                <span className="ml-1 normal-case font-normal tracking-normal text-text-muted/60 text-[10px]">(không ảnh hưởng điểm)</span>
+                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1 bg-black/20 p-1 rounded-full border border-white/5">
+                                    {WORK_MODES.map(m => (
+                                        <button key={m.id} type="button" onClick={() => toggleWorkMode(m.id)}
+                                            className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
+                                                workModes.includes(m.id)
+                                                    ? 'bg-indigo-500/25 text-indigo-200 shadow-inner'
+                                                    : 'text-text-muted hover:text-text-primary hover:bg-white/10'
+                                            }`}>
+                                            {m.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="relative" ref={locDropRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocDropOpen(v => !v)}
+                                        className="flex items-center gap-2 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all"
+                                    >
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="text-[11px] text-text-muted font-bold">Tại</span>
+                                            <span className="text-[13px] text-text-primary font-bold">
+                                                {LOCATIONS.find(l => l.id === location)?.label ?? location}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-150 ${locDropOpen ? 'rotate-180' : ''}`} />
                                     </button>
-                                ))}
+                                    {locDropOpen && (
+                                        <div className="absolute top-full left-0 mt-2 z-50 w-36 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                            {LOCATIONS.map(l => (
+                                                <button key={l.id} type="button"
+                                                    onClick={() => { setLocation(l.id); setLocDropOpen(false); }}
+                                                    className={`w-full px-3 py-2 text-left text-sm transition-colors ${location === l.id ? 'bg-accent-primary/12 text-accent-primary font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
+                                                    {l.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+                        </div>
 
-                            <div className="flex items-center gap-2 h-9 px-3 rounded-full bg-black/20 border border-white/5">
-                                <span className="text-[11px] text-text-muted font-bold">K.Nghiệm</span>
-                                <input
-                                    type="number" min={0} max={40} step={1} value={yearsExp}
-                                    onChange={e => setYearsExp(Number(e.target.value))}
-                                    className="w-6 bg-transparent text-[13px] font-black text-emerald-400 text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <span className="text-[11px] text-text-muted">Năm</span>
-                            </div>
-
-                            <div className="relative" ref={locDropRef}>
-                                <button
-                                    type="button"
-                                    onClick={() => setLocDropOpen(v => !v)}
-                                    className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all"
-                                >
-                                    <span className="text-[11px] text-text-muted font-bold">Tại</span>
-                                    <span className="text-[13px] text-text-primary font-bold">
-                                        {LOCATIONS.find(l => l.id === location)?.label ?? location}
-                                    </span>
-                                    <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-150 ${locDropOpen ? 'rotate-180' : ''}`} />
-                                </button>
-                                {locDropOpen && (
-                                    <div className="absolute top-full right-0 mt-2 z-50 w-36 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                        {LOCATIONS.map(l => (
-                                            <button key={l.id} type="button"
-                                                onClick={() => { setLocation(l.id); setLocDropOpen(false); }}
-                                                className={`w-full px-3 py-2 text-left text-sm transition-colors ${location === l.id ? 'bg-accent-primary/12 text-accent-primary font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
-                                                {l.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                        {/* Spacer & Hành động */}
+                        <div className="flex-1 min-w-[20px]"></div>
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
+                                disabled={!selectedId}
+                                className="h-9 px-3 rounded-xl text-[12px] font-bold border border-white/10 bg-transparent hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-text-muted hover:text-text-primary transition-all flex items-center justify-center gap-1.5"
+                                title="Chỉnh sửa nhanh CV">
+                                <Eye className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={handleUseCv}
+                                disabled={!selectedId || linking}
+                                className="h-9 px-5 rounded-xl text-sm font-black bg-gradient-to-r from-accent-primary to-indigo-600 hover:from-accent-primary/90 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 md:hover:scale-105 active:scale-95">
+                                {linking ? <><Loader2 className="w-4 h-4 animate-spin" />Đang tính…</> : <><Activity className="w-4 h-4"/> Tính điểm</>}
+                            </button>
                         </div>
                     </div>
                 </div>
-
-                {/* --- Group 3: Hành động --- */}
-                <div className="flex flex-col items-stretch md:items-end justify-center gap-2 shrink-0 md:self-end w-full md:w-auto">
-                    <button type="button" onClick={handleUseCv}
-                        disabled={!selectedId || linking}
-                        className="h-11 px-6 rounded-xl text-sm font-black bg-gradient-to-r from-accent-primary to-indigo-600 hover:from-accent-primary/90 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 md:hover:scale-105 active:scale-95">
-                        {linking ? <><Loader2 className="w-4 h-4 animate-spin" />Đang tính toán…</> : <><Activity className="w-4 h-4"/> Tính điểm Sức khỏe</>}
-                    </button>
-                    <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
-                        disabled={!selectedId}
-                        className="h-8 px-4 rounded-xl text-[12px] font-bold border border-white/10 bg-transparent hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-text-muted hover:text-text-primary transition-all flex items-center justify-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5" /> Chỉnh sửa nhanh CV
-                    </button>
-                </div>
             </div>
 
+            {/* Auto-detection notice */}
+            {autoNotice && (
+                <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-emerald-500/8 border border-emerald-500/15 text-[12px] text-emerald-300 flex items-start gap-2">
+                    <Activity className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{autoNotice}</span>
+                </div>
+            )}
             {/* Error */}
             {linkError && (
                 <div className="mx-5 mb-4 px-3 py-2 rounded-xl bg-rose-500/8 border border-rose-500/15 text-sm text-rose-400">

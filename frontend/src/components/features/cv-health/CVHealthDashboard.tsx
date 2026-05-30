@@ -20,6 +20,8 @@ import WhatIfSimulation from './WhatIfSimulation';
 
 interface Props {
     userId: string;
+    isAuthenticated: boolean;
+    onRequireAuth: () => void;
 }
 
 function formatRelativeTime(date: Date | null): string {
@@ -31,7 +33,7 @@ function formatRelativeTime(date: Date | null): string {
     return `${Math.floor(diff / 3600)} giờ trước`;
 }
 
-export default function CVHealthDashboard({ userId }: Props) {
+export default function CVHealthDashboard({ userId, isAuthenticated, onRequireAuth }: Props) {
     const navigate = useNavigate();
     const [healthScore, setHealthScore] = useState<HealthScoreResponse | null>(null);
     const [history, setHistory] = useState<FreshnessHistoryResponse | null>(null);
@@ -59,6 +61,7 @@ export default function CVHealthDashboard({ userId }: Props) {
     const hasData = useRef({ score: false, history: false, alerts: false, opps: false });
 
     const fetchAll = useCallback(async () => {
+        if (!isAuthenticated) return;
         setNoCvYet(false);
         setGlobalError(null);
         setRefreshing(true);
@@ -118,8 +121,8 @@ export default function CVHealthDashboard({ userId }: Props) {
     }, [userId]);
 
     useEffect(() => {
-        if (userId) fetchAll();
-    }, [userId, fetchAll]);
+        if (isAuthenticated && userId) fetchAll();
+    }, [isAuthenticated, userId, fetchAll]);
 
     useEffect(() => {
         skillApi.getMarketIntelDashboard({}).then(r => {
@@ -200,7 +203,27 @@ export default function CVHealthDashboard({ userId }: Props) {
             </div>
 
             {/* Metrics grid */}
-            {(!initialCheckComplete || hasUploadedCvs === null) ? (
+            {!isAuthenticated ? (
+                <div className="rounded-3xl border border-accent-primary/20 bg-gradient-to-br from-accent-primary/10 to-accent-secondary/5 p-12 text-center shadow-[0_0_40px_rgba(99,102,241,0.1)] relative overflow-hidden mt-8">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-accent-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-secondary/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+                    
+                    <div className="w-20 h-20 mx-auto rounded-full bg-accent-primary/10 flex items-center justify-center mb-6">
+                        <Activity className="w-10 h-10 text-accent-primary" />
+                    </div>
+                    
+                    <h2 className="text-2xl font-black font-outfit mb-3 text-text-primary tracking-tight">Trải nghiệm phân tích CV AI</h2>
+                    <p className="text-sm text-text-secondary leading-relaxed max-w-lg mx-auto mb-8">
+                        Đăng nhập để trải nghiệm công cụ phân tích độ "tươi" của CV theo 8 chiều chuyên sâu, so khớp với hàng ngàn tin tuyển dụng thực tế.
+                    </p>
+                    <button 
+                        onClick={onRequireAuth}
+                        className="px-8 py-3 rounded-full font-bold text-sm bg-accent-primary text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all inline-flex items-center gap-2 hover:scale-105 active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" /> Đăng nhập để sử dụng
+                    </button>
+                </div>
+            ) : (!initialCheckComplete || hasUploadedCvs === null) ? (
                 <div className="flex items-center justify-center min-h-[40vh]">
                     <Activity className="w-8 h-8 text-accent-primary animate-pulse" />
                 </div>
@@ -222,7 +245,10 @@ export default function CVHealthDashboard({ userId }: Props) {
                                 (~1.600 JD crawl từ ITviec + TopCV). Hãy tải lên một CV mới để bắt đầu.
                             </p>
                             <button 
-                                onClick={() => navigate('/cv-upload')}
+                                onClick={() => {
+                                    if (!isAuthenticated) onRequireAuth();
+                                    else navigate('/cv-upload');
+                                }}
                                 className="px-8 py-3 rounded-full font-bold text-sm bg-accent-primary text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all inline-flex items-center gap-2 hover:scale-105 active:scale-95"
                             >
                                 <Plus className="w-4 h-4" /> Tải CV lên ngay

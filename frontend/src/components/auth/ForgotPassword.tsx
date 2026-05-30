@@ -54,7 +54,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
     };
 
     return (
-        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-700">
+        <div className="flex w-full max-w-6xl bg-secondary/30 backdrop-blur-xl rounded-[3rem] overflow-hidden font-sans shadow-2xl animate-in zoom-in-95 duration-700">
             {/* Left Column */}
             <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-emerald-600 via-teal-700 to-cyan-900 p-12 flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full -mr-20 -mt-20"></div>
@@ -64,7 +64,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
                     <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-10 border border-white/20 shadow-xl">
                         <ShieldCheck className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-5xl font-black text-white tracking-tighter leading-tight mb-6">
+                    <h1 className="font-sans text-5xl font-black text-white tracking-tighter leading-tight mb-6">
                         Account <br /> Recovery.
                     </h1>
                     <p className="text-white/80 text-lg font-medium">
@@ -88,7 +88,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
                     <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black tracking-widest uppercase mb-4">
                         {step === 'email' ? 'Step 1 of 2' : step === 'otp' ? 'Step 2 of 2' : 'Complete'}
                     </span>
-                    <h2 className="text-4xl font-black text-text-primary mb-2 tracking-tighter">
+                    <h2 className="font-sans text-4xl font-black text-text-primary mb-2 tracking-tighter">
                         {step === 'email' ? 'Reset password.' : step === 'otp' ? 'Enter code.' : 'All done!'}
                     </h2>
                     <p className="text-text-secondary font-medium tracking-tight">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UploadCloud, CheckCircle, Loader2, Brain, FileText, Hash, Eye, Edit2, Trash2, Check, X, Plus, Building, Calendar, Briefcase, MapPin, GraduationCap, Link2, Globe, Mail, Phone, ChevronDown, ChevronRight, ScanLine, ArrowLeft } from 'lucide-react';
+import { UploadCloud, CheckCircle, Loader2, Brain, FileText, Hash, Eye, Edit2, Trash2, Check, X, Plus, Building, Calendar, Briefcase, MapPin, GraduationCap, Link2, Globe, Mail, Phone, ChevronDown, ChevronRight, ScanLine, ArrowLeft, AlertTriangle, Zap, Type, Search, Settings, Save } from 'lucide-react';
 import { nerApi, cvDocumentApi, ParseResult, Entity, ExperienceItem, CVData, CvDocument } from '../../services/api';
 import { cn } from '../../lib/utils';
 
@@ -10,6 +10,8 @@ import { SkillsSection } from './cv-upload/SkillsSection';
 import { LanguagesSection } from './cv-upload/LanguagesSection';
 type Status = 'idle' | 'parsing' | 'done' | 'error';
 interface CVUploadProps {
+  isAuthenticated?: boolean;
+  onRequireAuth?: () => void;
   onParsedCvData?: (data: CVData) => void;
 }
 
@@ -150,30 +152,30 @@ const renderHighlightedRawText = (text: string, groupedEntities?: Record<string,
 };
 
 const PARSING_STEPS = [
-  '⚡ [SYSTEM] Khởi tạo pipeline trích xuất NER mBERT...',
-  '📁 [SYSTEM] Đang đọc file PDF và tiền xử lý văn bản thô...',
-  '🤖 [mBERT] Đang tải trọng số mô hình (bert-base-multilingual-cased)...',
-  '🔤 [mBERT] Thực hiện WordPiece Tokenization (Bilingual domain)...',
-  '🔍 [mBERT] Đang nhận diện 21 thực thể BIO (SKILL, DEGREE, JOB_TITLE,...)...',
-  '✓ [mBERT] Phát hiện PER: Nguyễn Văn A (confidence: 0.98)',
-  '✓ [mBERT] Phát hiện ORG: Đại học Giao thông Vận tải Phân hiệu tại TP.HCM',
-  '✓ [mBERT] Phát hiện DEGREE: Kỹ sư Công nghệ thông tin (confidence: 0.97)',
-  '✓ [mBERT] Phát hiện SKILL: React, Node.js, Docker, Python (confidence: 0.99)',
-  '✓ [mBERT] Phát hiện JOB_TITLE: Software Engineer (confidence: 0.94)',
-  '⚙ [SYSTEM] Khởi chạy Cascade Matching 3 tầng...',
-  '⚙ [SYSTEM] Tầng 1: Exact Match ➔ Khớp chính xác kỹ năng gốc.',
-  '⚙ [SYSTEM] Tầng 2: Ontology Match ➔ Khớp alias, synonyms trong IT Ontology...',
-  '⚙ [SYSTEM] Tầng 3: Sentence-BERT Cosine Similarity (Threshold 0.65)...',
-  '💾 [SYSTEM] Chuẩn hóa thực thể hoàn tất. Đang cập nhật trạng thái Review...'
+  { icon: Zap, text: '[SYSTEM] Khởi tạo pipeline trích xuất NER mBERT...' },
+  { icon: FileText, text: '[SYSTEM] Đang đọc file PDF và tiền xử lý văn bản thô...' },
+  { icon: Brain, text: '[mBERT] Đang tải trọng số mô hình (bert-base-multilingual-cased)...' },
+  { icon: Type, text: '[mBERT] Thực hiện WordPiece Tokenization (Bilingual domain)...' },
+  { icon: Search, text: '[mBERT] Đang nhận diện 21 thực thể BIO (SKILL, DEGREE, JOB_TITLE,...)...' },
+  { icon: Check, text: '[mBERT] Phát hiện PER: Nguyễn Văn A (confidence: 0.98)' },
+  { icon: Check, text: '[mBERT] Phát hiện ORG: Đại học Giao thông Vận tải Phân hiệu tại TP.HCM' },
+  { icon: Check, text: '[mBERT] Phát hiện DEGREE: Kỹ sư Công nghệ thông tin (confidence: 0.97)' },
+  { icon: Check, text: '[mBERT] Phát hiện SKILL: React, Node.js, Docker, Python (confidence: 0.99)' },
+  { icon: Check, text: '[mBERT] Phát hiện JOB_TITLE: Software Engineer (confidence: 0.94)' },
+  { icon: Settings, text: '[SYSTEM] Khởi chạy Cascade Matching 3 tầng...' },
+  { icon: Settings, text: '[SYSTEM] Tầng 1: Exact Match ➔ Khớp chính xác kỹ năng gốc.' },
+  { icon: Settings, text: '[SYSTEM] Tầng 2: Ontology Match ➔ Khớp alias, synonyms trong IT Ontology...' },
+  { icon: Settings, text: '[SYSTEM] Tầng 3: Sentence-BERT Cosine Similarity (Threshold 0.65)...' },
+  { icon: Save, text: '[SYSTEM] Chuẩn hóa thực thể hoàn tất. Đang cập nhật trạng thái Review...' }
 ];
 
 type SectionKey = 'experience' | 'projects' | 'education' | 'certifications';
 
-export default function CVUpload({ onParsedCvData }: CVUploadProps) {
+export default function CVUpload({ isAuthenticated = true, onRequireAuth, onParsedCvData }: CVUploadProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const docIdParam = searchParams.get('docId');
-  const [parsingLogs, setParsingLogs] = useState<string[]>([]);
+  const [parsingLogs, setParsingLogs] = useState<{icon: any, text: string}[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<SectionKey, boolean>>({
     experience: false,
     projects: false,
@@ -560,6 +562,32 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[80vh] p-6 animate-in fade-in duration-500">
+        <div className="rounded-3xl border border-accent-primary/20 bg-gradient-to-br from-accent-primary/10 to-accent-secondary/5 p-12 text-center shadow-[0_0_40px_rgba(99,102,241,0.1)] relative overflow-hidden w-full max-w-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent-secondary/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+          
+          <div className="w-20 h-20 mx-auto rounded-full bg-accent-primary/10 flex items-center justify-center mb-6">
+            <UploadCloud className="w-10 h-10 text-accent-primary" />
+          </div>
+          
+          <h2 className="text-2xl font-black font-outfit mb-3 text-text-primary tracking-tight">Trải nghiệm phân tích CV AI</h2>
+          <p className="text-sm text-text-secondary leading-relaxed max-w-lg mx-auto mb-8">
+            Đăng nhập để sử dụng AI bóc tách và phân tích hồ sơ năng lực của bạn. Hệ thống hỗ trợ xử lý file PDF tự động.
+          </p>
+          <button 
+            onClick={onRequireAuth}
+            className="px-8 py-3 rounded-full font-bold text-sm bg-accent-primary text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all inline-flex items-center gap-2 hover:scale-105 active:scale-95 relative z-10"
+          >
+            <Plus className="w-4 h-4" /> Đăng nhập để tải CV lên
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
@@ -699,11 +727,12 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
                 
                 <div className="h-44 overflow-y-auto font-mono text-[10px] leading-relaxed text-emerald-400 space-y-1.5 scrollbar-none text-left select-none pr-1">
                   {parsingLogs.map((log, i) => (
-                    <div key={i} className="animate-in slide-in-from-bottom-1 duration-150 break-words opacity-90">
-                      {log}
+                    <div key={i} className="animate-in slide-in-from-bottom-1 duration-150 break-words opacity-90 flex items-start gap-1.5">
+                      <log.icon className="w-3 h-3 shrink-0 mt-[2px]" />
+                      <span>{log.text}</span>
                     </div>
                   ))}
-                  <div className="w-1.5 h-3 bg-emerald-400 inline-block animate-pulse ml-0.5" />
+                  <div className="w-1.5 h-3 bg-emerald-400 inline-block animate-pulse ml-4 mt-1" />
                 </div>
               </div>
               
@@ -755,7 +784,7 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
       {/* Error State */}
       {status === 'error' && (
         <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-6 flex gap-4 items-start">
-          <span className="text-2xl mt-0.5">⚠️</span>
+          <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" />
           <div>
             <p className="font-bold">Parsing Failed</p>
             <p className="text-sm mt-1 opacity-80">{errorMsg}</p>

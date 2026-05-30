@@ -311,12 +311,26 @@ class CVUpsertResponse(BaseModel):
 
 # ─── Multi-criteria Freshness (chuong3/3.2) — 8-dim breakdown ────────────────
 
+class DimensionDetailInput(BaseModel):
+    label: str
+    value: str
+    hint: Optional[str] = None
+
+
+class DimensionDetailItem(BaseModel):
+    summary: str = ""
+    formula: str = ""
+    inputs: List[DimensionDetailInput] = []
+    breakdown: List[str] = []
+    tips: List[str] = []
+
+
 class DimensionScoreItem(BaseModel):
     name: str
     score: float
     weight: float
     weighted: float
-    detail: str = ""
+    detail: DimensionDetailItem = DimensionDetailItem()
 
 class MultiCriteriaResponse(BaseModel):
     user_id: str

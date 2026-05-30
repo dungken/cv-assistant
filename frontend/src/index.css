@@ -69,9 +69,17 @@ body {
   letter-spacing: -0.011em;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 h1, h2, h3, h4, .font-outfit {
   font-family: 'Outfit', sans-serif;
   letter-spacing: -0.02em;
+}
+
+.font-sans, .font-inter {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 .light body {
@@ -549,4 +557,42 @@ html, body {
 }
 ol, ul, menu {
   list-style: circle;
+}
+
+/* ── KaTeX overrides for dark theme (formula popup) ─────────────────────── */
+.katex-formula-block .katex {
+  color: rgb(110 231 183 / 0.95); /* emerald-300 */
+  font-size: 1.05em;
+}
+.katex-formula-block .katex .mathnormal,
+.katex-formula-block .katex .mathit {
+  color: rgb(165 180 252); /* indigo-300 */
+}
+.katex-formula-block .katex .mord.text {
+  color: rgb(226 232 240 / 0.85);
+}
+.katex-formula-block .katex .mbin,
+.katex-formula-block .katex .mrel {
+  color: rgb(196 181 253); /* violet-300 */
+}
+.katex-formula-block .katex .mfrac > span > .frac-line {
+  border-color: rgb(110 231 183 / 0.7);
+}
+.katex-formula-block .katex .mop {
+  color: rgb(252 211 77); /* amber-300 — Σ, min, max */
+}
+.katex-formula-block .katex-display {
+  margin: 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+.katex-formula-block .katex-display > .katex {
+  white-space: nowrap;
+}
+.katex-formula-block::-webkit-scrollbar { height: 6px; }
+.katex-formula-block::-webkit-scrollbar-track { background: transparent; }
+.katex-formula-block::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
 }

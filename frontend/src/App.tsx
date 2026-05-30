@@ -9,8 +9,7 @@ import {
 } from 'lucide-react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { chatbotApi, chatCrudApi, collectorApi, memoryApi, userApi, Source, Session, CVData } from './services/api';
-import Login from './components/auth/Login';
-import Register from './components/auth/Register';
+import AuthModal, { AuthViewType } from './components/auth/AuthModal';
 import ForgotPassword from './components/auth/ForgotPassword';
 import SettingsModal from './components/common/SettingsModal';
 import TopNav from './components/layout/TopNav';
@@ -45,7 +44,8 @@ export default function App() {
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!localStorage.getItem('token'));
-  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password'>('login');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalView, setAuthModalView] = useState<AuthViewType>('login');
   const [userName, setUserName] = useState<string>(localStorage.getItem('userName') || '');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -361,6 +361,15 @@ export default function App() {
     setIsMemoryPanelOpen(false);
   };
 
+  const requireAuth = (view: AuthViewType = 'login'): boolean => {
+    if (!isAuthenticated) {
+      setAuthModalView(view);
+      setIsAuthModalOpen(true);
+      return false;
+    }
+    return true;
+  };
+
   const inferSessionTitle = (userText: string, assistantText: string): string => {
     const stripStructured = (s: string) =>
       s
@@ -431,6 +440,8 @@ export default function App() {
 
   const sendMessage = async (messageContent: string) => {
     if (!messageContent.trim() || isLoading) return;
+    if (!requireAuth()) return; // Protect chat with lazy login
+
     const loweredMessage = messageContent.toLowerCase();
     if (loweredMessage.includes('bỏ qua') || loweredMessage.includes('để sau')) {
       const until = Date.now() + 10 * 60 * 1000;
@@ -732,6 +743,9 @@ export default function App() {
   };
 
   const openArtifact = (type: string) => {
+    // Check auth for protected artifacts
+    if (type !== 'market' && !requireAuth()) return;
+
     setArtifactType(type as any);
     setIsArtifactOpen(true);
     if (type === 'builder' && messages.length === 0) {
@@ -766,29 +780,20 @@ export default function App() {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-canvas font-sans text-text-primary transition-all duration-500 overflow-y-auto">
-        <div className="w-full flex justify-center py-10">
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            {authView === 'login' ? (
-              <Login onLoginSuccess={handleAuthSuccess} onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />
-            ) : authView === 'register' ? (
-              <Register onRegisterSuccess={handleAuthSuccess} onSwitchToLogin={() => setAuthView('login')} />
-            ) : (
-              <ForgotPassword onBackToLogin={() => setAuthView('login')} />
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-screen bg-canvas text-text-primary overflow-hidden font-sans transition-colors duration-500">
+      <AuthModal 
+        open={isAuthModalOpen} 
+        onOpenChange={setIsAuthModalOpen} 
+        onAuthSuccess={handleAuthSuccess} 
+        defaultView={authModalView}
+      />
+
       <TopNav
         userName={userName}
         userRole={userRole}
+        isAuthenticated={isAuthenticated}
+        onRequireAuth={(view) => requireAuth(view)}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAdmin={() => navigate('/admin')}
@@ -801,13 +806,17 @@ export default function App() {
         <Routes>
           <Route
             path="/admin"
-            element={userRole === 'Admin' ? <AdminPortal userName={userName} /> : <Navigate to="/" replace />}
+            element={isAuthenticated && userRole === 'Admin' ? <AdminPortal userName={userName} /> : <Navigate to="/" replace />}
           />
-          <Route
+            <Route
             path="/cv-health"
             element={
               <div className="flex-1 overflow-y-auto relative z-10">
-                <CVHealthDashboard userId={userEmail || 'demo'} />
+                <CVHealthDashboard 
+                  userId={userEmail} 
+                  isAuthenticated={isAuthenticated}
+                  onRequireAuth={() => requireAuth('login')}
+                />
               </div>
             }
           />
@@ -823,7 +832,10 @@ export default function App() {
             path="/cv-upload"
             element={
               <div className="flex-1 overflow-y-auto relative z-10">
-                <CVUpload />
+                <CVUpload 
+                  isAuthenticated={isAuthenticated}
+                  onRequireAuth={() => requireAuth('login')}
+                />
               </div>
             }
           />

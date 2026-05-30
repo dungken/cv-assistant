@@ -68,6 +68,7 @@ def _cleanup(db):
                {"p": "__t14_%"})
     db.execute(text("DELETE FROM jd_raw WHERE jd_key LIKE :p"),
                {"p": f"{JD_PREFIX}%"})
+    db.execute(text("DELETE FROM jd_raw WHERE source = 'test'"))
     db.commit()
 
 

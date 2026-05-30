@@ -4,7 +4,7 @@ import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area, CartesianGrid,
 } from 'recharts';
-import { Search, RefreshCw, TrendingUp, TrendingDown, Database, Briefcase, GraduationCap, MapPin, Building2, DollarSign, Sparkles, Layers, Compass, Zap, Wifi, Gem, LineChart as LineIcon, Target, Flame, Award, Languages, CalendarDays, AlertTriangle, Crown, Network } from 'lucide-react';
+import { Search, RefreshCw, TrendingUp, TrendingDown, Database, Briefcase, GraduationCap, MapPin, Building2, DollarSign, Sparkles, Layers, Compass, Zap, Wifi, Gem, LineChart as LineIcon, Target, Flame, Award, Languages, CalendarDays, AlertTriangle, Crown, Network, LayoutDashboard, Coins, Microscope } from 'lucide-react';
 import { skillApi, type MarketIntelDashboard } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/Card';
 import { LightSelect } from '../ui/LightSelect';
@@ -118,16 +118,17 @@ export default function MarketIntelDashboardView() {
                     {/* Tabs Navigation */}
                     <div className="flex gap-6 mt-4 border-b border-white/10">
                         {[
-                            { id: 'overview', label: '📊 Tổng Quan' },
-                            { id: 'salary', label: '💰 Lương Thưởng' },
-                            { id: 'trends', label: '📈 Xu Hướng Kỹ Năng' },
-                            { id: 'deep', label: '🕸️ Phân Tích Chuyên Sâu' },
+                            { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard },
+                            { id: 'salary', label: 'Lương Thưởng', icon: Coins },
+                            { id: 'trends', label: 'Xu Hướng Kỹ Năng', icon: LineIcon },
+                            { id: 'deep', label: 'Phân Tích Chuyên Sâu', icon: Microscope },
                         ].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`pb-2 text-sm font-bold transition-all relative ${activeTab === tab.id ? 'text-accent-primary' : 'text-text-secondary hover:text-text-primary'}`}
+                                className={`pb-2 text-sm font-bold transition-all relative flex items-center gap-2 ${activeTab === tab.id ? 'text-accent-primary' : 'text-text-secondary hover:text-text-primary'}`}
                             >
+                                <tab.icon className="w-4 h-4" />
                                 {tab.label}
                                 {activeTab === tab.id && (
                                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-primary rounded-t-full" />
@@ -166,7 +167,7 @@ export default function MarketIntelDashboardView() {
                                 <ChartCard title="Top 10 địa điểm tuyển dụng" subtitle="Theo số JD" icon={<MapPin className="w-4 h-4" />}>
                                     <LocationChart rows={data.top_locations} />
                                 </ChartCard>
-                                <ChartCard title="📅 Thứ mấy đăng JD nhiều nhất?" subtitle="60 ngày gần nhất · biết khi nào nên check job board" icon={<CalendarDays className="w-4 h-4" />}>
+                                <ChartCard title="Thứ mấy đăng JD nhiều nhất?" subtitle="60 ngày gần nhất · biết khi nào nên check job board" icon={<CalendarDays className="w-4 h-4" />}>
                                     <DayOfWeekChart rows={data.day_of_week} />
                                 </ChartCard>
                             </div>
@@ -184,7 +185,7 @@ export default function MarketIntelDashboardView() {
                                     <EnglishPremiumHero data={data.english_premium} />
                                 </ChartCard>
                             )}
-                            <ChartCard title="📈 Career ROI — Lương tăng theo kinh nghiệm" subtitle="Median salary qua từng cấp · các đường role khác nhau" icon={<LineIcon className="w-4 h-4" />}>
+                            <ChartCard title="Career ROI — Lương tăng theo kinh nghiệm" subtitle="Median salary qua từng cấp · các đường role khác nhau" icon={<LineIcon className="w-4 h-4" />}>
                                 <SalaryCurveChart curve={data.salary_curve} />
                             </ChartCard>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -200,7 +201,7 @@ export default function MarketIntelDashboardView() {
                                 <ChartCard title="Lương theo địa điểm" subtitle="3 thành phố lớn · Median + dải P25-P75 (USD)" icon={<Compass className="w-4 h-4" />}>
                                     <GeoSalaryChart rows={data.geo_salary} />
                                 </ChartCard>
-                                <ChartCard title="🏆 Combo Skill Premium" subtitle="Lương khi có cả 2 skill vs trung bình từng skill riêng" icon={<Award className="w-4 h-4" />}>
+                                <ChartCard title="Combo Skill Premium" subtitle="Lương khi có cả 2 skill vs trung bình từng skill riêng" icon={<Award className="w-4 h-4" />}>
                                     <ComboSalaryChart rows={data.combo_salary} />
                                 </ChartCard>
                             </div>
@@ -227,13 +228,13 @@ export default function MarketIntelDashboardView() {
                                 <ChartCard title="Công ty hàng đầu theo Skill" subtitle="Click skill để xem 3 công ty tuyển nhiều nhất" icon={<Building2 className="w-4 h-4" />}>
                                     <CompaniesBySkillChart data={data.companies_by_skill} />
                                 </ChartCard>
-                                <ChartCard title="🔥 Hot Companies tháng này" subtitle="Velocity 14d cuối so với 14d trước · cty đang scale" icon={<Flame className="w-4 h-4" />}>
+                                <ChartCard title="Hot Companies tháng này" subtitle="Velocity 14d cuối so với 14d trước · cty đang scale" icon={<Flame className="w-4 h-4" />}>
                                     <HotCompaniesChart rows={data.hot_companies} />
                                 </ChartCard>
-                                <ChartCard title="⚠️ Skill đang nguội" subtitle="Skills giảm post tuyển dụng trong 2 tuần gần nhất" icon={<AlertTriangle className="w-4 h-4" />}>
+                                <ChartCard title="Skill đang nguội" subtitle="Skills giảm post tuyển dụng trong 2 tuần gần nhất" icon={<AlertTriangle className="w-4 h-4" />}>
                                     <OutdatedSkillsChart rows={data.outdated_skills} />
                                 </ChartCard>
-                                <ChartCard title="👑 Niche Champions" subtitle="Công ty tuyển nhiều skill hiếm (3-25 JD/skill)" icon={<Crown className="w-4 h-4" />}>
+                                <ChartCard title="Niche Champions" subtitle="Công ty tuyển nhiều skill hiếm (3-25 JD/skill)" icon={<Crown className="w-4 h-4" />}>
                                     <NicheChampionsChart rows={data.niche_champions} />
                                 </ChartCard>
                             </div>
@@ -242,20 +243,20 @@ export default function MarketIntelDashboardView() {
 
                     {activeTab === 'deep' && (
                         <div className="space-y-6">
-                            <ChartCard title="💎 Hidden Gem Skills — Ít cạnh tranh, lương cao" subtitle="Scatter: trục X = số JD (demand) · trục Y = median lương · ô trên-trái = HIDDEN GEM" icon={<Gem className="w-4 h-4" />}>
+                            <ChartCard title="Hidden Gem Skills — Ít cạnh tranh, lương cao" subtitle="Scatter: trục X = số JD (demand) · trục Y = median lương · ô trên-trái = HIDDEN GEM" icon={<Gem className="w-4 h-4" />}>
                                 <QuadrantChart quadrants={data.skill_quadrants} gems={data.hidden_gems} />
                             </ChartCard>
                             <ChartCard title="Stack thực tế thị trường tuyển dụng" subtitle={`${data.skill_clusters.length} cluster · skills hay đi cùng nhau với Jaccard ≥ 0.15`} icon={<Layers className="w-4 h-4" />}>
                                 <ClusterChart clusters={data.skill_clusters} />
                             </ChartCard>
-                            <ChartCard title="🕸️ Mạng lưới kết nối Skills" subtitle={`Force-style network · ${data.skill_network.nodes.length} skills, ${data.skill_network.edges.length} edges`} icon={<Network className="w-4 h-4" />}>
+                            <ChartCard title="Mạng lưới kết nối Skills" subtitle={`Force-style network · ${data.skill_network.nodes.length} skills, ${data.skill_network.edges.length} edges`} icon={<Network className="w-4 h-4" />}>
                                 <SkillNetworkChart network={data.skill_network} />
                             </ChartCard>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <ChartCard title="Cặp kỹ năng đi cùng nhau" subtitle="Skills hay xuất hiện song song trong JD">
                                     <SkillPairsChart rows={data.skill_pairs} />
                                 </ChartCard>
-                                <ChartCard title="🎯 Skill Specificity Tier" subtitle="Core (>30% JD) · Common (10-30%) · Specialized (<10%)" icon={<Target className="w-4 h-4" />}>
+                                <ChartCard title="Skill Specificity Tier" subtitle="Core (>30% JD) · Common (10-30%) · Specialized (<10%)" icon={<Target className="w-4 h-4" />}>
                                     <SpecificityChart rows={data.skill_specificity} />
                                 </ChartCard>
                                 <div className="lg:col-span-2">
@@ -535,13 +536,16 @@ function RoleDistributionChart({ rows }: { rows: { role_group: string; cnt: numb
                     <Tooltip content={<DarkTooltip />} />
                 </PieChart>
             </ResponsiveContainer>
-            <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+            <div className="space-y-1.5">
                 {data.map((d, i) => {
                     const pct = (d.value / total) * 100;
                     return (
-                        <div key={d.name} className="flex items-center gap-2 text-xs">
+                        <div key={d.name} className="group relative flex items-center gap-2 text-xs">
                             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                            <span className="flex-1 truncate font-medium" title={d.name}>{d.name}</span>
+                            <span className="flex-1 truncate font-medium cursor-default">{d.name}</span>
+                            <div className="absolute left-6 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                {d.name}
+                            </div>
                             <span className="text-text-secondary tabular-nums">{d.value}</span>
                             <span className="text-text-secondary tabular-nums w-10 text-right">{pct.toFixed(1)}%</span>
                         </div>
@@ -563,8 +567,11 @@ function TopCompaniesChart({ rows }: { rows: { company: string; cnt: number }[] 
             {rows.map((r, i) => {
                 const label = r.company.length > 38 ? r.company.slice(0, 38) + '…' : r.company;
                 return (
-                    <div key={r.company} className="group flex items-center gap-3">
-                        <span className="text-xs font-medium truncate w-44 shrink-0" title={r.company}>{label}</span>
+                    <div key={r.company} className="group relative flex items-center gap-3">
+                        <span className="text-xs font-medium truncate w-44 shrink-0 cursor-default">{label}</span>
+                        <div className="absolute left-0 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                            {r.company}
+                        </div>
                         <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
                             <div
                                 className="h-full rounded-full transition-all duration-500 group-hover:brightness-125"
@@ -641,9 +648,12 @@ function DonutWithLegend({ data, colorOffset = 0 }: { data: { name: string; valu
                 {data.map((d, i) => {
                     const pct = (d.value / total) * 100;
                     return (
-                        <div key={d.name} className="flex items-center gap-2 text-xs">
+                        <div key={d.name} className="group relative flex items-center gap-2 text-xs">
                             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[(i + colorOffset) % PALETTE.length] }} />
-                            <span className="flex-1 truncate font-medium" title={d.name}>{d.name}</span>
+                            <span className="flex-1 truncate font-medium cursor-default">{d.name}</span>
+                            <div className="absolute left-6 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                {d.name}
+                            </div>
                             <span className="text-text-secondary tabular-nums">{d.value}</span>
                             <span className="text-text-secondary tabular-nums w-10 text-right">{pct.toFixed(1)}%</span>
                         </div>
@@ -757,7 +767,12 @@ function Heatmap({ rows }: { rows: { skill: string; role_group: string; cnt: num
                 <tbody>
                     {skills.map((s) => (
                         <tr key={s}>
-                            <td className="p-2 font-medium pr-2 truncate" title={s}>{s}</td>
+                            <td className="group relative p-2 font-medium pr-2">
+                                <div className="truncate cursor-default w-full">{s}</div>
+                                <div className="absolute left-6 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                    {s}
+                                </div>
+                            </td>
                             {roles.map((r) => {
                                 const v = matrix[s]?.[r] ?? 0;
                                 const intensity = max > 0 ? v / max : 0;
@@ -842,8 +857,11 @@ function PremiumBars({ rows, positive = false }: { rows: MarketIntelDashboard['s
                 const fillPct = (Math.abs(pct) / maxAbs) * 100;
                 return (
                     <div key={r.skill} className="text-xs">
-                        <div className="flex items-center justify-between mb-0.5">
-                            <span className="font-medium truncate" title={r.skill}>{r.skill}</span>
+                        <div className="group relative flex items-center justify-between mb-0.5">
+                            <span className="font-medium truncate cursor-default">{r.skill}</span>
+                            <div className="absolute left-0 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                {r.skill}
+                            </div>
                             <span className={`tabular-nums font-semibold ${pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {pct >= 0 ? '+' : ''}{pct.toFixed(0)}%
                             </span>
@@ -879,9 +897,12 @@ function VelocityChart({ data }: { data: MarketIntelDashboard['skill_velocity'] 
         const color = up ? 'text-emerald-400' : 'text-rose-400';
         const bg = up ? 'from-emerald-500/15 to-emerald-500/0' : 'from-rose-500/15 to-rose-500/0';
         return (
-            <div key={r.skill} className={`p-2.5 rounded-xl bg-gradient-to-r ${bg} flex items-center gap-2 text-xs`}>
+            <div key={r.skill} className={`group relative p-2.5 rounded-xl bg-gradient-to-r ${bg} flex items-center gap-2 text-xs`}>
                 <Icon className={`w-3.5 h-3.5 ${color} shrink-0`} />
-                <span className="font-semibold flex-1 truncate" title={r.skill}>{r.skill}</span>
+                <span className="font-semibold flex-1 truncate cursor-default">{r.skill}</span>
+                <div className="absolute left-8 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                    {r.skill}
+                </div>
                 <span className={`${color} font-bold tabular-nums`}>
                     {r.delta_abs > 0 ? '+' : ''}{r.delta_abs}
                 </span>
@@ -926,7 +947,12 @@ function ClusterChart({ clusters }: { clusters: MarketIntelDashboard['skill_clus
                         className="rounded-2xl p-4 border border-white/5 relative overflow-hidden hover:border-white/20 transition"
                         style={{ background: `linear-gradient(135deg, ${color}18, transparent)` }}>
                         <div className="text-[10px] uppercase tracking-wider text-text-secondary mb-1">Stack #{i + 1} · {c.size} skills</div>
-                        <div className="font-bold mb-2 text-sm truncate" title={c.label}>{c.label}</div>
+                        <div className="group relative">
+                            <div className="font-bold mb-2 text-sm truncate cursor-default">{c.label}</div>
+                            <div className="absolute left-0 -top-8 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                {c.label}
+                            </div>
+                        </div>
                         <div className="flex flex-wrap gap-1">
                             {c.skills.map((s) => (
                                 <span key={s} className="px-2 py-0.5 rounded-md text-[10px] font-medium"
@@ -950,8 +976,11 @@ function RoleSalaryChart({ rows }: { rows: MarketIntelDashboard['role_salary'] }
         <div className="space-y-2.5">
             {rows.map((r, i) => (
                 <div key={r.role_group} className="text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium truncate" title={prettify(r.role_group)}>{prettify(r.role_group)}</span>
+                    <div className="group relative flex items-center justify-between mb-1">
+                        <span className="font-medium truncate cursor-default">{prettify(r.role_group)}</span>
+                        <div className="absolute left-0 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                            {prettify(r.role_group)}
+                        </div>
                         <span className="text-text-secondary tabular-nums">${Math.round(r.median_mid ?? 0).toLocaleString()} · {r.cnt} JD</span>
                     </div>
                     <div className="relative h-2 rounded-full bg-white/5">
@@ -1036,8 +1065,11 @@ function RemoteSkillChart({ rows }: { rows: MarketIntelDashboard['remote_by_skil
     return (
         <div className="space-y-1.5">
             {rows.map((r, i) => (
-                <div key={r.skill} className="flex items-center gap-2 text-xs">
-                    <span className="w-24 truncate font-medium shrink-0" title={r.skill}>{r.skill}</span>
+                <div key={r.skill} className="group relative flex items-center gap-2 text-xs">
+                    <span className="w-24 truncate font-medium shrink-0 cursor-default">{r.skill}</span>
+                    <div className="absolute left-0 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                        {r.skill}
+                    </div>
                     <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
                         <div
                             className="h-full rounded-full"
@@ -1102,12 +1134,15 @@ function CompaniesBySkillChart({ data }: { data: MarketIntelDashboard['companies
             <div className="space-y-1.5 pt-2 border-t border-white/5">
                 <div className="text-[10px] uppercase tracking-wider text-text-secondary">Top tuyển <b className="text-text-primary">{selected}</b></div>
                 {companies.map((c, i) => (
-                    <div key={c.company} className="flex items-center gap-3 text-xs p-2 rounded-lg bg-white/[0.02]">
+                    <div key={c.company} className="group relative flex items-center gap-3 text-xs p-2 rounded-lg bg-white/[0.02]">
                         <span className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px]"
                             style={{ backgroundColor: PALETTE[i % PALETTE.length] + '33', color: PALETTE[i % PALETTE.length] }}>
                             {i + 1}
                         </span>
-                        <span className="flex-1 font-medium truncate" title={c.company}>{c.company}</span>
+                        <span className="flex-1 font-medium truncate cursor-default">{c.company}</span>
+                        <div className="absolute left-10 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                            {c.company}
+                        </div>
                         <span className="text-text-secondary tabular-nums">{c.cnt} JD</span>
                     </div>
                 ))}
@@ -1165,7 +1200,7 @@ function QuadrantChart({ quadrants, gems }: {
                 <div className="absolute inset-0 p-4">
                     <div className="absolute" style={{ left: `${medCutX}%`, top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.1)' }} />
                     <div className="absolute" style={{ top: `${100 - medCutY}%`, left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-                    <div className="absolute top-2 left-2 text-[10px] text-emerald-400/60 uppercase tracking-wider font-bold">💎 Hidden Gem</div>
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 text-[10px] text-emerald-400/60 uppercase tracking-wider font-bold"><Gem className="w-3 h-3" /> Hidden Gem</div>
                     <div className="absolute top-2 right-2 text-[10px] text-cyan-400/60 uppercase tracking-wider font-bold">High demand · High salary</div>
                     <div className="absolute bottom-2 left-2 text-[10px] text-text-secondary uppercase tracking-wider">Low everything</div>
                     <div className="absolute bottom-2 right-2 text-[10px] text-orange-400/60 uppercase tracking-wider">Saturated</div>
@@ -1202,14 +1237,17 @@ function QuadrantChart({ quadrants, gems }: {
                 {gems.length === 0 && <EmptyNote msg="Chưa phát hiện gem." />}
                 {gems.map((g, i) => (
                     <div key={g.skill}
-                        className={`flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer transition ${
+                        className={`group relative flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer transition ${
                             hovered === g.skill ? 'bg-emerald-500/20' : 'bg-white/[0.03] hover:bg-white/[0.06]'
                         }`}
                         onMouseEnter={() => setHovered(g.skill)}
                         onMouseLeave={() => setHovered(null)}
                     >
                         <span className="w-5 text-text-secondary text-[10px] tabular-nums">#{i + 1}</span>
-                        <span className="flex-1 font-medium truncate" title={g.skill}>{g.skill}</span>
+                        <span className="flex-1 font-medium truncate cursor-default">{g.skill}</span>
+                        <div className="absolute left-8 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                            {g.skill}
+                        </div>
                         <span className="text-emerald-400 font-bold tabular-nums">${Math.round(g.median_salary).toLocaleString()}</span>
                         <span className="text-text-secondary tabular-nums w-12 text-right">{g.cnt} JD</span>
                     </div>
@@ -1294,9 +1332,12 @@ function HotCompaniesChart({ rows }: { rows: MarketIntelDashboard['hot_companies
                 const bg = up ? 'from-emerald-500/15 to-emerald-500/0' : 'from-rose-500/15 to-rose-500/0';
                 const Icon = up ? TrendingUp : TrendingDown;
                 return (
-                    <div key={r.company} className={`p-2.5 rounded-lg bg-gradient-to-r ${bg} flex items-center gap-2 text-xs`}>
+                    <div key={r.company} className={`group relative p-2.5 rounded-lg bg-gradient-to-r ${bg} flex items-center gap-2 text-xs`}>
                         <Icon className={`w-3.5 h-3.5 ${color} shrink-0`} />
-                        <span className="font-semibold flex-1 truncate" title={r.company}>{r.company}</span>
+                        <span className="font-semibold flex-1 truncate cursor-default">{r.company}</span>
+                        <div className="absolute left-8 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                            {r.company}
+                        </div>
                         <span className={`${color} font-bold tabular-nums`}>{up ? '+' : ''}{r.delta_abs}</span>
                         <span className="text-text-secondary text-[10px] tabular-nums w-16 text-right">{r.prev_cnt}→{r.recent_cnt}</span>
                     </div>
@@ -1312,9 +1353,12 @@ function NicheChampionsChart({ rows }: { rows: MarketIntelDashboard['niche_champ
     return (
         <div className="space-y-2">
             {rows.map((r, i) => (
-                <div key={r.company} className="flex items-center gap-2 text-xs">
+                <div key={r.company} className="group relative flex items-center gap-2 text-xs">
                     <Crown className="w-3 h-3 shrink-0" style={{ color: PALETTE[i % PALETTE.length] }} />
-                    <span className="flex-1 truncate font-medium" title={r.company}>{r.company}</span>
+                    <span className="flex-1 truncate font-medium cursor-default">{r.company}</span>
+                    <div className="absolute left-6 -top-7 hidden group-hover:block z-[60] px-2.5 py-1 rounded-lg bg-black/95 text-[11px] font-semibold text-white whitespace-nowrap shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                        {r.company}
+                    </div>
                     <div className="w-24 h-2 rounded-full bg-white/5 overflow-hidden">
                         <div className="h-full rounded-full"
                             style={{
@@ -1331,7 +1375,7 @@ function NicheChampionsChart({ rows }: { rows: MarketIntelDashboard['niche_champ
 }
 
 function OutdatedSkillsChart({ rows }: { rows: MarketIntelDashboard['outdated_skills'] }) {
-    if (!rows.length) return <EmptyNote msg="🎉 Không có skill nào đang nguội. Thị trường ổn định." />;
+    if (!rows.length) return <EmptyNote msg="Không có skill nào đang nguội. Thị trường ổn định." />;
     return (
         <div className="space-y-2">
             {rows.map((r) => {
@@ -1431,55 +1475,114 @@ function SkillNetworkChart({ network }: { network: MarketIntelDashboard['skill_n
     const [hovered, setHovered] = useState<string | null>(null);
     if (!nodes.length) return <EmptyNote msg="Không đủ data để build graph." />;
 
-    // Simple radial layout — nodes around a circle, sized by cnt.
-    const cx = 400, cy = 280, R = 220;
+    const cx = 400, cy = 340, R = 240; 
     const placed = nodes.map((n, i) => {
         const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
         return {
             skill: n.skill, cnt: n.cnt,
             x: cx + Math.cos(angle) * R,
             y: cy + Math.sin(angle) * R,
+            angle
         };
     });
     const posMap = new Map(placed.map((p) => [p.skill, p]));
-    const maxCnt = Math.max(...nodes.map((n) => n.cnt));
     const maxEdge = Math.max(...edges.map((e) => e.cnt), 1);
 
+    // Lọc cạnh (Edges):
+    // 1. Khi KHÔNG hover: chỉ hiện top 15% những đường liên kết mạnh nhất (tránh "hairball").
+    // 2. Khi CÓ hover: CHỈ hiển thị những đường nối trực tiếp với node đang hover. Không render các đường khác.
+    const sortedEdges = [...edges].sort((a, b) => b.cnt - a.cnt);
+    const topEdgesThreshold = sortedEdges[Math.floor(sortedEdges.length * 0.15)]?.cnt || 0;
+
     return (
-        <div className="relative w-full overflow-x-auto">
-            <svg viewBox="0 0 800 560" className="w-full" style={{ minWidth: 600 }}>
+        <div className="relative w-full overflow-x-auto pb-4 pt-2">
+            <svg viewBox="0 0 800 680" className="w-full" style={{ minWidth: 600 }}>
+                {/* Dùng đường cong Bezier kéo về tâm (Chord Diagram style) thay vì đường thẳng (Line)
+                    để các dây liên kết không bị cắt ngang qua vòng cung chứa các nodes khác */}
                 {edges.map((e, i) => {
                     const a = posMap.get(e.skill_a); const b = posMap.get(e.skill_b);
                     if (!a || !b) return null;
-                    const opacity = (e.cnt / maxEdge) * 0.45 + 0.05;
-                    const active = hovered === e.skill_a || hovered === e.skill_b;
+                    
+                    const isHoveredEdge = hovered === e.skill_a || hovered === e.skill_b;
+                    
+                    if (hovered) {
+                        // Unmount toàn bộ các đường không liên quan để GIẢM LAG (trước đây dùng opacity 0.02 vẫn phải render 361 đường)
+                        if (!isHoveredEdge) return null;
+                    } else {
+                        // Ẩn bớt các đường yếu đi nếu không hover
+                        if (e.cnt < topEdgesThreshold) return null;
+                    }
+
+                    // Quadratic Bezier Curve với điểm neo (Control Point) là tâm hình tròn (cx, cy)
+                    const d = `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
+                    const opacity = hovered ? 0.7 : ((e.cnt / maxEdge) * 0.3 + 0.1);
+
                     return (
-                        <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                            stroke={active ? '#6366f1' : '#888'}
-                            strokeWidth={active ? 2 : Math.max(0.4, (e.cnt / maxEdge) * 2.5)}
-                            opacity={hovered && !active ? 0.05 : opacity} />
+                        <path key={i} d={d}
+                            fill="none"
+                            stroke={isHoveredEdge ? '#818cf8' : '#888'}
+                            strokeWidth={isHoveredEdge ? 2 : Math.max(0.3, (e.cnt / maxEdge) * 1.5)}
+                            opacity={opacity} 
+                        />
                     );
                 })}
+                
                 {placed.map((p, i) => {
-                    const r = Math.max(8, Math.min(28, Math.log2(p.cnt + 1) * 4));
+                    const r = Math.max(12, Math.min(26, Math.log2(p.cnt + 1) * 3.5));
                     const active = hovered === p.skill;
                     const color = PALETTE[i % PALETTE.length];
+                    const isRelated = hovered && edges.some(e => 
+                        (e.skill_a === p.skill && e.skill_b === hovered) || 
+                        (e.skill_b === p.skill && e.skill_a === hovered)
+                    );
+                    
+                    const highlight = active || isRelated;
+                    const dim = hovered && !highlight;
+
+                    const textX = p.x + Math.cos(p.angle) * (r + 10);
+                    const textY = p.y + Math.sin(p.angle) * (r + 10);
+                    const isRight = Math.cos(p.angle) > 0.1;
+                    const isLeft = Math.cos(p.angle) < -0.1;
+                    const isBottom = Math.sin(p.angle) > 0.1;
+                    const isTop = Math.sin(p.angle) < -0.1;
+
+                    let anchor: "start" | "middle" | "end" = "middle";
+                    if (isRight) anchor = "start";
+                    else if (isLeft) anchor = "end";
+
+                    let baseline: "auto" | "middle" | "hanging" = "middle";
+                    if (isBottom) baseline = "hanging";
+                    else if (isTop) baseline = "auto";
+
                     return (
                         <g key={p.skill}
                             style={{ cursor: 'pointer' }}
                             onMouseEnter={() => setHovered(p.skill)}
                             onMouseLeave={() => setHovered(null)}
                         >
+                            {/* Dùng một lớp vòng sáng (SVG Circle) thay vì CSS filter: drop-shadow. 
+                                drop-shadow trên số lượng lớn element SVG khi hover là nguyên nhân cốt lõi gây lag tụt frame! */}
+                            {highlight && (
+                                <circle cx={p.x} cy={p.y} r={r + 8} fill={color} opacity={0.25} />
+                            )}
+                            
                             <circle cx={p.x} cy={p.y} r={r}
                                 fill={color}
-                                opacity={hovered && !active ? 0.2 : 0.85}
-                                style={{ filter: active ? `drop-shadow(0 0 12px ${color})` : 'none' }} />
-                            <text x={p.x} y={p.y + r + 12}
-                                textAnchor="middle"
-                                fill={active ? '#fff' : '#bbb'}
-                                fontSize={active ? 13 : 10}
-                                fontWeight={active ? 700 : 500}
-                                opacity={hovered && !active ? 0.3 : 1}>
+                                opacity={dim ? 0.2 : 0.95}
+                                stroke={active ? '#fff' : 'transparent'}
+                                strokeWidth={active ? 2 : 0}
+                            />
+                            
+                            <text 
+                                x={textX} 
+                                y={textY}
+                                textAnchor={anchor}
+                                dominantBaseline={baseline}
+                                fill={highlight ? '#fff' : '#a1a1aa'}
+                                fontSize={highlight ? 13 : 11}
+                                fontWeight={highlight ? 700 : 500}
+                                opacity={dim ? 0.3 : 1}
+                                style={{ pointerEvents: 'none' }}>
                                 {p.skill}
                             </text>
                         </g>

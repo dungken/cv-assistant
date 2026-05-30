@@ -209,7 +209,7 @@ const CVSectionEditor: React.FC<CVSectionEditorProps> = ({ title, sectionType, i
                     <div className="bg-canvas border border-white/10 rounded-3xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
                         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
                             <div>
-                                <h3 className="text-xl font-black text-accent-primary uppercase tracking-widest">Compare AI Improvements✨</h3>
+                                <h3 className="text-xl font-black text-accent-primary uppercase tracking-widest flex items-center gap-1.5">Compare AI Improvements <Sparkles className="w-5 h-5 text-accent-primary" /></h3>
                                 <p className="text-xs text-text-muted mt-1">AI has rewritten your experience using high-impact action verbs and STAR format.</p>
                             </div>
                             <button onClick={() => setShowComparison(false)} className="p-2 hover:bg-white/5 rounded-full"><X/></button>

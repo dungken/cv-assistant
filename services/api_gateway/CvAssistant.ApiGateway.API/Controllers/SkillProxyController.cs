@@ -268,6 +268,18 @@ public class SkillProxyController : ControllerBase
     }
 
     /// <summary>
+    /// Get the user's saved CV config (target_role, seniority, years, location, work_modes)
+    /// to prefill the dashboard form on reload. 404 nếu chưa từng upsert.
+    /// </summary>
+    [HttpGet("cv/me")]
+    public async Task<IActionResult> GetSavedCv([FromQuery] string user_id)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var response = await client.GetAsync($"/cv/me?user_id={Uri.EscapeDataString(user_id ?? "")}");
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
     /// Current Freshness Score for `user_id`. Persists to history by default.
     /// </summary>
     [HttpGet("health-score")]
