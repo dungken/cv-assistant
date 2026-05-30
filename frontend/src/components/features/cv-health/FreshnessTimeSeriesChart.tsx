@@ -77,6 +77,7 @@ function FreshnessTimeSeriesChartInner({ data, loading }: Props) {
                                 stroke="rgb(var(--accent-primary))"
                                 strokeWidth={2}
                                 fill="url(#freshnessGradient)"
+                                isAnimationActive={false}
                             />
                         </AreaChart>
                     </ResponsiveContainer>

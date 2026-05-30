@@ -70,10 +70,30 @@ class ATSResumePDF(FPDF):
         self.cell(0, 6, role, align="C", new_x="LMARGIN", new_y="NEXT")
         self.ln(1)
 
-    def add_contact_line(self, text: str):
+    def add_contact_row(self, items: list):
+        self.set_y(self.get_y())
         self.set_font("DejaVu", "", 9)
-        self.set_text_color(*COLOR_TEXT)
-        self.cell(0, 4.5, text, align="C", new_x="LMARGIN", new_y="NEXT")
+        total_width = 0
+        for i, (text, url) in enumerate(items):
+            total_width += self.get_string_width(text)
+            if i < len(items) - 1:
+                total_width += self.get_string_width("   |   ")
+                
+        start_x = (210 - total_width) / 2
+        self.set_x(start_x)
+        
+        for i, (text, url) in enumerate(items):
+            if url:
+                self.set_text_color(0, 51, 102) # Blue
+                self.write(4.5, text, link=url)
+            else:
+                self.set_text_color(*COLOR_TEXT)
+                self.write(4.5, text)
+                
+            if i < len(items) - 1:
+                self.set_text_color(150, 150, 150)
+                self.write(4.5, "   |   ")
+        self.ln(4.5)
 
     def add_section_header(self, title: str):
         self.ln(4)
@@ -124,34 +144,42 @@ class ATSResumePDF(FPDF):
             
         sub_text = "  ·  ".join(sub_parts)
         
-        # Add links inside subtext or right-aligned if they exist
-        links_text = ""
-        if custom_links:
-            link_parts = []
-            for l in custom_links:
-                lbl = l.get("title") or l.get("url", "").replace("https://", "").replace("http://", "").replace("www.", "")
-                if lbl:
-                    link_parts.append(lbl)
-            if link_parts:
-                links_text = " | ".join(link_parts)
-                
         if sub_text:
             self.set_font("DejaVu", "", 9)
             self.set_text_color(*COLOR_MUTED)
             self.cell(130, 4.5, sub_text)
             
-            if links_text:
-                self.set_font("DejaVu", "B", 9)
-                self.set_text_color(180, 0, 0) # secondary (Red)
-                self.cell(0, 4.5, links_text, align="R", new_x="LMARGIN", new_y="NEXT")
-            else:
-                self.ln(4.5)
-        elif links_text:
+        if custom_links:
             self.set_font("DejaVu", "B", 9)
             self.set_text_color(180, 0, 0) # secondary (Red)
-            self.cell(0, 4.5, links_text, align="R", new_x="LMARGIN", new_y="NEXT")
+            
+            total_width = 0
+            for i, l in enumerate(custom_links):
+                lbl = l.get("title") or l.get("url", "").replace("https://", "").replace("http://", "").replace("www.", "")
+                total_width += self.get_string_width(lbl)
+                if i < len(custom_links) - 1:
+                    total_width += self.get_string_width(" | ")
+                    
+            start_x = self.w - self.r_margin - total_width - 1
+            if self.get_x() > start_x:
+                self.ln(4.5)
+            self.set_x(start_x)
+            
+            for i, l in enumerate(custom_links):
+                lbl = l.get("title") or l.get("url", "").replace("https://", "").replace("http://", "").replace("www.", "")
+                url = l.get("url", "")
+                if url and not url.startswith("http"):
+                    url = "https://" + url
+                w = self.get_string_width(lbl)
+                self.cell(w, 4.5, lbl, link=url)
+                if i < len(custom_links) - 1:
+                    self.set_text_color(*COLOR_MUTED)
+                    w_sep = self.get_string_width(" | ")
+                    self.cell(w_sep, 4.5, " | ")
+                    self.set_text_color(180, 0, 0)
+            self.ln(4.5)
         else:
-            if subtitle:
+            if sub_text or subtitle:
                 self.ln(4.5)
 
         self.ln(0.5)
@@ -222,28 +250,31 @@ def generate_fpdf_pdf(cv_data: dict) -> Optional[bytes]:
         # 2-Row Contact Information Grid matching LaTeX layout
         row1_parts = []
         if cv_data.get("phone"):
-            row1_parts.append(cv_data["phone"])
+            row1_parts.append((cv_data["phone"], ""))
         if cv_data.get("email"):
-            row1_parts.append(cv_data["email"])
+            row1_parts.append((cv_data["email"], f"mailto:{cv_data['email']}"))
         if cv_data.get("location"):
-            row1_parts.append(cv_data["location"])
+            row1_parts.append((cv_data["location"], ""))
         
         row2_parts = []
         if cv_data.get("linkedin"):
             lbl = cv_data.get("linkedin_title") or cv_data["linkedin"].replace("https://", "").replace("http://", "").replace("www.", "")
-            row2_parts.append(lbl)
+            url = cv_data["linkedin"] if cv_data["linkedin"].startswith("http") else f"https://{cv_data['linkedin']}"
+            row2_parts.append((lbl, url))
         if cv_data.get("github"):
             lbl = cv_data.get("github_title") or cv_data["github"].replace("https://", "").replace("http://", "").replace("www.", "")
-            row2_parts.append(lbl)
+            url = cv_data["github"] if cv_data["github"].startswith("http") else f"https://{cv_data['github']}"
+            row2_parts.append((lbl, url))
         if cv_data.get("youtube"):
             lbl = cv_data.get("youtube_title") or cv_data["youtube"].replace("https://", "").replace("http://", "").replace("www.", "")
-            row2_parts.append(lbl)
+            url = cv_data["youtube"] if cv_data["youtube"].startswith("http") else f"https://{cv_data['youtube']}"
+            row2_parts.append((lbl, url))
 
         if row1_parts:
-            pdf.add_contact_line("   |   ".join(row1_parts))
+            pdf.add_contact_row(row1_parts)
         if row2_parts:
-            pdf.add_contact_line("   |   ".join(row2_parts))
-        pdf.ln(1)
+            pdf.add_contact_row(row2_parts)
+        pdf.ln(3)
 
         # ─── Professional Summary ────────────────────────
         summary = cv_data.get("summary", "")
@@ -334,10 +365,10 @@ def generate_fpdf_pdf(cv_data: dict) -> Optional[bytes]:
                 if desc:
                     lines = [l.strip() for l in desc.replace("•", "\n").replace("- ", "\n").split("\n") if l.strip()]
                     for line in lines:
-                        line_clean = line.lstrip("-•* ").strip()
+                        line_clean = line.replace("**", "").lstrip("-•* ").strip()
                         if line_clean:
                             pdf.add_bullet_point(line_clean)
-                pdf.ln(1)
+                pdf.ln(4)
 
         # ─── Projects (If separate) ──────────────────────
         projects = cv_data.get("projects", [])
@@ -387,10 +418,10 @@ def generate_fpdf_pdf(cv_data: dict) -> Optional[bytes]:
                 if desc:
                     lines = [l.strip() for l in desc.replace("•", "\n").replace("- ", "\n").split("\n") if l.strip()]
                     for line in lines:
-                        line_clean = line.lstrip("-•* ").strip()
+                        line_clean = line.replace("**", "").lstrip("-•* ").strip()
                         if line_clean:
                             pdf.add_bullet_point(line_clean)
-                pdf.ln(1)
+                pdf.ln(4)
 
         # ─── Education ───────────────────────────────────
         education = cv_data.get("education", [])
@@ -627,11 +658,11 @@ def generate_latex_source(cv_data: dict) -> str:
                 tex += r"\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=3pt,label={•}]" + "\n"
                 lines = [l.strip() for l in desc.replace("•", "\n").replace("- ", "\n").split("\n") if l.strip()]
                 for line in lines:
-                    line_clean = esc(line.lstrip("-•* ").strip())
+                    line_clean = esc(line.replace("**", "").lstrip("-•* ").strip())
                     if line_clean:
                         tex += f"    \\item {line_clean}\n"
                 tex += r"\end{itemize}" + "\n"
-            tex += r"\vspace{4pt}" + "\n"
+            tex += r"\vspace{8pt}" + "\n"
 
     projects = cv_data.get("projects", [])
     if projects:
@@ -645,11 +676,11 @@ def generate_latex_source(cv_data: dict) -> str:
                 tex += r"\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=3pt,label={•}]" + "\n"
                 lines = [l.strip() for l in desc.replace("•", "\n").replace("- ", "\n").split("\n") if l.strip()]
                 for line in lines:
-                    line_clean = esc(line.lstrip("-•* ").strip())
+                    line_clean = esc(line.replace("**", "").lstrip("-•* ").strip())
                     if line_clean:
                         tex += f"    \\item {line_clean}\n"
                 tex += r"\end{itemize}" + "\n"
-            tex += r"\vspace{4pt}" + "\n"
+            tex += r"\vspace{8pt}" + "\n"
 
     education = cv_data.get("education", [])
     if education:

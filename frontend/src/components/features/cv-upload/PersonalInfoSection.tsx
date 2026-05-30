@@ -120,17 +120,17 @@ export function PersonalInfoSection({ info, onChange }: { info: any, onChange: (
             </div>
             
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 mt-3 text-[13px] text-text-secondary">
-              {info?.linkedin && (
+              {info?.linkedin && typeof info.linkedin === 'string' && (
                 <a href={info.linkedin.startsWith('http') ? info.linkedin : `https://${info.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-indigo-400 transition-colors">
                   <Link2 className="w-4 h-4 text-indigo-400/80"/> {info.linkedin_title || info.linkedin.replace(/^https?:\/\/(www\.)?/, '')}
                 </a>
               )}
-              {info?.github && (
+              {info?.github && typeof info.github === 'string' && (
                 <a href={info.github.startsWith('http') ? info.github : `https://${info.github}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
                   <Link2 className="w-4 h-4 text-slate-300/80"/> {info.github_title || info.github.replace(/^https?:\/\/(www\.)?/, '')}
                 </a>
               )}
-              {info?.youtube && (
+              {info?.youtube && typeof info.youtube === 'string' && (
                 <a href={info.youtube.startsWith('http') ? info.youtube : `https://${info.youtube}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-rose-400 transition-colors">
                   <Link2 className="w-4 h-4 text-rose-400/80"/> {info.youtube_title || info.youtube.replace(/^https?:\/\/(www\.)?/, '')}
                 </a>

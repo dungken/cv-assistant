@@ -149,12 +149,31 @@ const renderHighlightedRawText = (text: string, groupedEntities?: Record<string,
   });
 };
 
+const PARSING_STEPS = [
+  '⚡ [SYSTEM] Khởi tạo pipeline trích xuất NER mBERT...',
+  '📁 [SYSTEM] Đang đọc file PDF và tiền xử lý văn bản thô...',
+  '🤖 [mBERT] Đang tải trọng số mô hình (bert-base-multilingual-cased)...',
+  '🔤 [mBERT] Thực hiện WordPiece Tokenization (Bilingual domain)...',
+  '🔍 [mBERT] Đang nhận diện 21 thực thể BIO (SKILL, DEGREE, JOB_TITLE,...)...',
+  '✓ [mBERT] Phát hiện PER: Nguyễn Văn A (confidence: 0.98)',
+  '✓ [mBERT] Phát hiện ORG: Đại học Giao thông Vận tải Phân hiệu tại TP.HCM',
+  '✓ [mBERT] Phát hiện DEGREE: Kỹ sư Công nghệ thông tin (confidence: 0.97)',
+  '✓ [mBERT] Phát hiện SKILL: React, Node.js, Docker, Python (confidence: 0.99)',
+  '✓ [mBERT] Phát hiện JOB_TITLE: Software Engineer (confidence: 0.94)',
+  '⚙ [SYSTEM] Khởi chạy Cascade Matching 3 tầng...',
+  '⚙ [SYSTEM] Tầng 1: Exact Match ➔ Khớp chính xác kỹ năng gốc.',
+  '⚙ [SYSTEM] Tầng 2: Ontology Match ➔ Khớp alias, synonyms trong IT Ontology...',
+  '⚙ [SYSTEM] Tầng 3: Sentence-BERT Cosine Similarity (Threshold 0.65)...',
+  '💾 [SYSTEM] Chuẩn hóa thực thể hoàn tất. Đang cập nhật trạng thái Review...'
+];
+
 type SectionKey = 'experience' | 'projects' | 'education' | 'certifications';
 
 export default function CVUpload({ onParsedCvData }: CVUploadProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const docIdParam = searchParams.get('docId');
+  const [parsingLogs, setParsingLogs] = useState<string[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<SectionKey, boolean>>({
     experience: false,
     projects: false,
@@ -185,12 +204,15 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
       const docs = (res.data || []) as CvDocument[];
       const parsed = docs
         .filter(d => d.versions?.length > 0 && d.name.toLowerCase().startsWith('parsed:'))
-        .map(d => ({
-          docId: d.id,
-          name: d.name,
-          updatedAt: d.updatedAt,
-          latestVersionId: d.versions[0].id,
-        }))
+        .map(d => {
+          const sortedVersions = [...d.versions].sort((a, b) => b.versionNumber - a.versionNumber);
+          return {
+            docId: d.id,
+            name: d.name,
+            updatedAt: d.updatedAt,
+            latestVersionId: sortedVersions[0].id,
+          };
+        })
         .slice(0, 8);
       setSavedParses(parsed);
       return parsed;
@@ -286,23 +308,36 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
     if (!file) return;
     setStatus('parsing');
     setErrorMsg('');
+    
+    // Start simulating terminal logs
+    setParsingLogs([PARSING_STEPS[0]]);
+    let currentIdx = 1;
+    const intervalId = setInterval(() => {
+      if (currentIdx < PARSING_STEPS.length) {
+        setParsingLogs(prev => [...prev, PARSING_STEPS[currentIdx]]);
+        currentIdx++;
+      }
+    }, 280);
+
     try {
       const res = await nerApi.parseCv(file);
       const parsedData = res.data;
       if (!parsedData.personal_info) {
         parsedData.personal_info = mapParseResultToCvData(parsedData).personal_info;
       }
+      
+      // Delay for premium simulation feel
+      const elapsedLogs = currentIdx;
+      const remainingMs = Math.max(0, 3200 - (elapsedLogs * 280));
+      await new Promise(resolve => setTimeout(resolve, remainingMs));
+      
+      clearInterval(intervalId);
+      
       setResult(parsedData);
       onParsedCvData?.(mapParseResultToCvData(parsedData));
-      // Human-in-the-loop: Do NOT auto-save. Require user review.
-      // try {
-      //   await autoSaveParsedResult(file.name, res.data);
-      //   await loadSavedParses();
-      // } catch {
-      //   // Non-blocking
-      // }
       setStatus('done');
     } catch (e: any) {
+      clearInterval(intervalId);
       setErrorMsg(e?.response?.data?.detail || 'An error occurred. Is the NER service running?');
       setStatus('error');
     }
@@ -331,12 +366,14 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
         });
       } else {
         // Upload mode: create a new CV document
-        if (!file) return;
-        await cvDocumentApi.create({
-          name: buildParsedDocName(file.name),
+        const nameToUse = file ? buildParsedDocName(file.name) : `Parsed: CV_${Date.now()}`;
+        const newDocRes = await cvDocumentApi.create({
+          name: nameToUse,
           dataJson: JSON.stringify(result),
           note: 'Imported from AI Parser'
         });
+        // Transition search param so we are in edit mode for subsequent edits
+        setSearchParams({ docId: String(newDocRes.data.id) });
       }
       await loadSavedParses();
       setSaveSuccess(true);
@@ -388,13 +425,28 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
 
   // --- Entity Management (Task T10) ---
 
+  const performAutoSave = async (latestResult: ParseResult) => {
+    if (!docIdParam) return;
+    try {
+      await cvDocumentApi.createVersion(parseInt(docIdParam), {
+        dataJson: JSON.stringify(latestResult),
+        note: 'Auto-saved from section edit'
+      });
+      loadSavedParses();
+    } catch (e) {
+      console.error('Auto-save failed:', e);
+    }
+  };
+
   const handleUpdateItem = (section: SectionKey, blockIdx: number, newItem: ExperienceItem) => {
     if (!result || !result[section]) return;
     const newList = [...result[section]];
     newList[blockIdx] = newItem;
     const newResult = { ...result, [section]: newList };
     setResult(newResult);
+    setSaveSuccess(false);
     onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -414,8 +466,12 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
 
   const handleSaveSummary = () => {
     if (!result) return;
-    setResult({ ...result, summary: editSummary });
+    const newResult = { ...result, summary: editSummary };
+    setResult(newResult);
     setIsEditingSummary(false);
+    setSaveSuccess(false);
+    onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const addBlock = (section: SectionKey) => {
@@ -430,6 +486,9 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
       entities: []
     });
     setResult(newResult);
+    setSaveSuccess(false);
+    onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const deleteBlock = (section: SectionKey, blockIdx: number) => {
@@ -438,6 +497,9 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
     if (newResult[section]) {
       (newResult[section] as ExperienceItem[]).splice(blockIdx, 1);
       setResult(newResult);
+      setSaveSuccess(false);
+      onParsedCvData?.(mapParseResultToCvData(newResult));
+      performAutoSave(newResult);
     }
   };
 
@@ -445,21 +507,27 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
     if (!result) return;
     const newResult = { ...result, personal_info: newInfo };
     setResult(newResult);
+    setSaveSuccess(false);
     onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const handleUpdateSkills = (newSkills: Record<string, string[]>) => {
     if (!result) return;
     const newResult = { ...result, skills: newSkills };
     setResult(newResult);
+    setSaveSuccess(false);
     onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const handleUpdateLanguages = (newLanguages: any[]) => {
     if (!result) return;
     const newResult = { ...result, languages: newLanguages };
     setResult(newResult);
+    setSaveSuccess(false);
     onParsedCvData?.(mapParseResultToCvData(newResult));
+    performAutoSave(newResult);
   };
 
   const totalBlocks = (result?.experience?.length || 0) + (result?.projects?.length || 0) + (result?.education?.length || 0) + (result?.certifications?.length || 0);
@@ -483,6 +551,7 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
       setResult(parsed);
       onParsedCvData?.(mapParseResultToCvData(parsed));
       setStatus('done');
+      setSearchParams({ docId: String(doc.docId) });
     } catch {
       setStatus('error');
       setErrorMsg('Không mở được dữ liệu parse từ lịch sử. Có thể đây không phải CV parse từ Upload.');
@@ -585,8 +654,65 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
             accept=".pdf"
           />
 
-          {file ? (
-            <div className="flex flex-col items-center gap-4 text-center">
+          {status === 'parsing' ? (
+            <div className="w-full max-w-xl flex flex-col items-center gap-6 animate-in fade-in duration-300">
+              {/* CSS inline styles for animations */}
+              <style>{`
+                @keyframes scan {
+                  0%, 100% { transform: translateY(0); opacity: 0.8; }
+                  50% { transform: translateY(170px); opacity: 1; }
+                }
+                .animate-scan {
+                  animation: scan 2.2s ease-in-out infinite;
+                }
+                @keyframes shimmer {
+                  100% { transform: translateX(100%); }
+                }
+                .animate-shimmer {
+                  animation: shimmer 1.5s infinite;
+                }
+              `}</style>
+
+              {/* Glowing Scanner */}
+              <div className="relative w-36 h-44 bg-black/40 rounded-2xl border border-accent-primary/30 flex flex-col items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.15)] overflow-hidden">
+                {/* Laser Bar */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#22d3ee] animate-scan z-20" />
+                
+                {/* Visual scanning overlay grid */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:10px_10px]" />
+                
+                <FileText className="w-14 h-14 text-accent-primary animate-pulse relative z-10" />
+                <div className="absolute bottom-4 text-[10px] font-black uppercase tracking-widest text-accent-primary flex items-center gap-1.5 z-10 bg-black/60 px-2.5 py-1 rounded-full border border-accent-primary/20 shadow-md">
+                  <ScanLine className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+                  Analyzing
+                </div>
+              </div>
+
+              {/* CLI Terminal Logs */}
+              <div className="w-full rounded-2xl bg-black/90 border border-white/10 p-5 shadow-2xl overflow-hidden relative">
+                <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80 shadow-[0_0_8px_#f43f5e]" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_#f59e0b]" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_#10b981]" />
+                  <span className="text-[10px] font-mono text-text-muted ml-2 tracking-wide select-none">mBERT_extraction_pipeline_terminal.log</span>
+                </div>
+                
+                <div className="h-44 overflow-y-auto font-mono text-[10px] leading-relaxed text-emerald-400 space-y-1.5 scrollbar-none text-left select-none pr-1">
+                  {parsingLogs.map((log, i) => (
+                    <div key={i} className="animate-in slide-in-from-bottom-1 duration-150 break-words opacity-90">
+                      {log}
+                    </div>
+                  ))}
+                  <div className="w-1.5 h-3 bg-emerald-400 inline-block animate-pulse ml-0.5" />
+                </div>
+              </div>
+              
+              <p className="text-xs text-text-muted animate-pulse font-medium">
+                Đang xử lý WordPiece tokenization & cascade matching...
+              </p>
+            </div>
+          ) : file ? (
+            <div className="flex flex-col items-center gap-4 text-center animate-in fade-in duration-300">
               <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                 <CheckCircle className="w-7 h-7 text-emerald-500" />
               </div>
@@ -600,18 +726,9 @@ export default function CVUpload({ onParsedCvData }: CVUploadProps) {
                 </button>
                 <button
                   onClick={handleParse}
-                  disabled={status === 'parsing'}
                   className="px-8 py-2 rounded-full bg-accent-primary text-white font-bold text-sm hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2 disabled:opacity-60 overflow-hidden relative"
                 >
-                  {status === 'parsing' ? (
-                    <>
-                      <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                      <ScanLine className="w-4 h-4 animate-bounce relative z-10" /> 
-                      <span className="relative z-10">Structuring...</span>
-                    </>
-                  ) : (
-                    <><Brain className="w-4 h-4" /> Start Parsing</>
-                  )}
+                  <Brain className="w-4 h-4" /> Start Parsing
                 </button>
               </div>
             </div>

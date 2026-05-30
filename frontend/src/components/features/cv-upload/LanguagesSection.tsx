@@ -117,7 +117,7 @@ export function LanguagesSection({ languages, onChange }: { languages: any[], on
                   <div key={index} className="text-[13px] text-text-secondary leading-relaxed flex flex-wrap items-center gap-x-2">
                     <strong className="text-text-primary font-bold">{lang.name}:</strong>
                     <span>{lang.description}</span>
-                    {lang.link && (
+                    {lang.link && typeof lang.link === 'string' && (
                       <a 
                         href={lang.link.startsWith('http') ? lang.link : `https://${lang.link}`} 
                         target="_blank" 

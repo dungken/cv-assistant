@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { UploadCloud, Loader2, ChevronDown, FileText, Eye } from 'lucide-react';
+import { UploadCloud, Loader2, ChevronDown, FileText, Eye, Target, Activity } from 'lucide-react';
 import { cvDocumentApi, cvHealthApi, nerApi, type CvDocument } from '../../../services/api';
 import CVPreviewPanel from './CVPreviewPanel';
 
@@ -22,6 +22,7 @@ const ROLES: Array<{ id: string; label: string }> = [
 ];
 
 const SENIORITIES = [
+    { id: 'fresher', label: 'Fresher' },
     { id: 'junior', label: 'Junior' },
     { id: 'mid', label: 'Mid' },
     { id: 'senior', label: 'Senior' },
@@ -231,29 +232,33 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
 
     return (
         <>
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-visible">
-            <div className="px-5 py-4 flex items-start gap-4">
-            {/* Filter groups — wrap freely */}
-            <div className="flex flex-wrap gap-x-6 gap-y-4 flex-1 min-w-0">
-
-                {/* CV */}
-                <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">CV</span>
+        <div className="rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-md shadow-2xl overflow-visible">
+            <div className="px-5 py-4 flex flex-col md:flex-row md:items-start gap-6">
+                
+                {/* --- Group 1: Nguồn Dữ Liệu --- */}
+                <div className="flex flex-col gap-2 shrink-0 w-full md:w-[220px]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5" /> Nguồn Dữ Liệu CV
+                    </span>
                     <div className="relative" ref={cvDropRef}>
                         <button
                             type="button"
                             onClick={() => setCvDropOpen(v => !v)}
-                            className="flex items-center gap-2 h-8 pl-3 pr-2.5 rounded-xl bg-white/6 border border-white/10 hover:border-white/20 hover:bg-white/8 transition-all text-sm font-semibold min-w-[160px] max-w-[220px]"
+                            className="w-full flex items-center justify-between gap-2 h-10 pl-3 pr-2.5 rounded-xl bg-black/20 border border-white/10 hover:border-accent-primary/50 hover:bg-black/40 transition-all text-sm font-semibold shadow-inner"
                         >
-                            <FileText className="w-3.5 h-3.5 text-accent-primary shrink-0" />
-                            <span className="truncate flex-1 text-left text-text-primary">
-                                {loadingList ? 'Đang tải…' : selectedDoc ? selectedDoc.name : 'Chọn CV'}
-                            </span>
+                            <div className="flex items-center gap-2 truncate">
+                                <div className="w-6 h-6 rounded bg-accent-primary/20 flex items-center justify-center shrink-0">
+                                    <FileText className="w-3.5 h-3.5 text-accent-primary" />
+                                </div>
+                                <span className="truncate text-left text-text-primary">
+                                    {loadingList ? 'Đang tải…' : selectedDoc ? selectedDoc.name : 'Chọn CV'}
+                                </span>
+                            </div>
                             <ChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-150 ${cvDropOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {cvDropOpen && (
-                            <div className="absolute top-full left-0 mt-2 z-50 w-72 bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                            <div className="absolute top-full left-0 mt-2 z-50 w-full md:w-80 bg-surface border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                                 <div className="p-2 space-y-0.5 max-h-52 overflow-y-auto">
                                     {listError ? (
                                         <div className="p-3 text-sm text-rose-400">{listError}</div>
@@ -262,25 +267,24 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
                                     ) : docs.map(d => (
                                         <button key={d.id} type="button"
                                             onClick={() => { setSelectedId(d.id); setCvDropOpen(false); }}
-                                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left transition-colors ${selectedId === d.id ? 'bg-accent-primary/12 text-accent-primary' : 'hover:bg-white/5 text-text-primary'}`}
+                                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left transition-colors ${selectedId === d.id ? 'bg-accent-primary/15 text-accent-primary' : 'hover:bg-white/5 text-text-primary'}`}
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <div className="text-sm font-semibold truncate">{d.name}</div>
-                                                <div className="text-xs text-text-muted mt-0.5">v{d.currentVersion} · {new Date(d.updatedAt).toLocaleDateString('vi-VN')}</div>
+                                                <div className="text-[11px] text-text-muted mt-0.5">v{d.currentVersion} · {new Date(d.updatedAt).toLocaleDateString('vi-VN')}</div>
                                             </div>
                                             {selectedId === d.id && (
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-accent-primary/20 text-accent-primary shrink-0">Active</span>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-accent-primary/20 text-accent-primary shrink-0">Đang chọn</span>
                                             )}
                                         </button>
                                     ))}
                                 </div>
-                                <div className="border-t border-white/5 p-2">
+                                <div className="border-t border-white/5 p-2 bg-black/20">
                                     <button type="button"
                                         onClick={() => navigate('/cv-upload')}
-                                        className="w-full flex items-center justify-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border border-dashed border-white/10 hover:border-accent-primary/30 hover:bg-accent-primary/5 cursor-pointer"
+                                        className="w-full flex items-center justify-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all border border-dashed border-white/15 hover:border-accent-primary/50 hover:bg-accent-primary/10 cursor-pointer text-accent-primary font-semibold"
                                     >
-                                        <UploadCloud className="w-3.5 h-3.5 text-accent-primary shrink-0" />
-                                        <span className="text-text-primary text-xs font-bold uppercase tracking-wider">Upload CV mới & Review</span>
+                                        <UploadCloud className="w-4 h-4" /> Thêm CV Mới
                                     </button>
                                 </div>
                             </div>
@@ -288,117 +292,109 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
                     </div>
                 </div>
 
-                {/* Role */}
-                <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Role</span>
-                    <div className="flex items-center flex-wrap gap-1">
-                        {ROLES.map(r => (
-                            <button key={r.id} type="button" onClick={() => setRole(r.id)}
-                                className={`h-8 px-3 rounded-xl text-sm font-semibold transition-all ${
-                                    r.id === role
-                                        ? 'bg-white/10 text-text-primary'
-                                        : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
-                                }`}>
-                                {r.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                {/* --- Vertical Divider --- */}
+                <div className="hidden md:block w-px min-h-[50px] bg-white/10 self-stretch mt-6"></div>
 
-                {/* Level */}
-                <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Level</span>
-                    <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/8">
-                        {SENIORITIES.map(s => (
-                            <button key={s.id} type="button" onClick={() => setSeniority(s.id)}
-                                className={`h-6 px-3.5 rounded-lg text-sm font-semibold transition-all ${
-                                    s.id === seniority
-                                        ? 'bg-white/12 text-text-primary shadow-sm'
-                                        : 'text-text-muted hover:text-text-secondary'
-                                }`}>
-                                {s.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Mode */}
-                <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Mode</span>
-                    <div className="flex items-center gap-1">
-                        {WORK_MODES.map(m => (
-                            <button key={m.id} type="button" onClick={() => toggleWorkMode(m.id)}
-                                className={`h-8 px-3 rounded-xl text-sm font-semibold transition-all ${
-                                    workModes.includes(m.id)
-                                        ? 'bg-white/10 text-text-primary'
-                                        : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
-                                }`}>
-                                {m.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Filters */}
-                <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Filters</span>
-                    <div className="flex items-center gap-2">
-                        {/* YOE — custom stepper, no browser spinner */}
-                        <div className="flex items-center gap-2 h-8 px-3 rounded-xl bg-white/5 border border-white/8">
-                            <span className="text-xs text-text-muted font-bold">YOE</span>
-                            <input
-                                type="number" min={0} max={40} step={1} value={yearsExp}
-                                onChange={e => setYearsExp(Number(e.target.value))}
-                                className="w-8 bg-transparent text-sm text-text-primary text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <div className="flex flex-col -gap-0.5">
-                                <button type="button" onClick={() => setYearsExp(v => Math.min(40, v + 1))}
-                                    className="w-4 h-3.5 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors leading-none text-[10px]">▲</button>
-                                <button type="button" onClick={() => setYearsExp(v => Math.max(0, v - 1))}
-                                    className="w-4 h-3.5 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors leading-none text-[10px]">▼</button>
+                {/* --- Group 2: Mục tiêu Ứng tuyển --- */}
+                <div className="flex flex-col gap-3 flex-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-emerald-400" /> Cấu hình Mục tiêu Ứng tuyển
+                    </span>
+                    
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                        {/* Vị trí & Cấp bậc */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center flex-wrap gap-1 bg-black/20 p-1 rounded-full border border-white/5">
+                                {ROLES.map(r => (
+                                    <button key={r.id} type="button" onClick={() => setRole(r.id)}
+                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
+                                            r.id === role
+                                                ? 'bg-accent-primary text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]'
+                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
+                                        }`}>
+                                        {r.label}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div className="flex items-center flex-wrap gap-1 bg-black/20 p-1 rounded-full border border-white/5">
+                                {SENIORITIES.map(s => (
+                                    <button key={s.id} type="button" onClick={() => setSeniority(s.id)}
+                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
+                                            s.id === seniority
+                                                ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
+                                        }`}>
+                                        {s.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                        {/* Loc — custom dropdown */}
-                        <div className="relative" ref={locDropRef}>
-                            <button
-                                type="button"
-                                onClick={() => setLocDropOpen(v => !v)}
-                                className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white/5 border border-white/8 hover:border-white/20 hover:bg-white/8 transition-all"
-                            >
-                                <span className="text-xs text-text-muted font-bold">Loc</span>
-                                <span className="text-sm text-text-primary font-semibold">
-                                    {LOCATIONS.find(l => l.id === location)?.label ?? location}
-                                </span>
-                                <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-150 ${locDropOpen ? 'rotate-180' : ''}`} />
-                            </button>
-                            {locDropOpen && (
-                                <div className="absolute top-full left-0 mt-2 z-50 w-36 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                    {LOCATIONS.map(l => (
-                                        <button key={l.id} type="button"
-                                            onClick={() => { setLocation(l.id); setLocDropOpen(false); }}
-                                            className={`w-full px-3 py-2 text-left text-sm transition-colors ${location === l.id ? 'bg-accent-primary/12 text-accent-primary font-semibold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
-                                            {l.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+
+                        {/* Thông số phụ */}
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-1 bg-black/20 p-1 rounded-full border border-white/5">
+                                {WORK_MODES.map(m => (
+                                    <button key={m.id} type="button" onClick={() => toggleWorkMode(m.id)}
+                                        className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
+                                            workModes.includes(m.id)
+                                                ? 'bg-indigo-500/30 text-indigo-200 shadow-inner'
+                                                : 'text-text-muted hover:text-text-primary hover:bg-white/10'
+                                        }`}>
+                                        {m.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2 h-9 px-3 rounded-full bg-black/20 border border-white/5">
+                                <span className="text-[11px] text-text-muted font-bold">K.Nghiệm</span>
+                                <input
+                                    type="number" min={0} max={40} step={1} value={yearsExp}
+                                    onChange={e => setYearsExp(Number(e.target.value))}
+                                    className="w-6 bg-transparent text-[13px] font-black text-emerald-400 text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <span className="text-[11px] text-text-muted">Năm</span>
+                            </div>
+
+                            <div className="relative" ref={locDropRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setLocDropOpen(v => !v)}
+                                    className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all"
+                                >
+                                    <span className="text-[11px] text-text-muted font-bold">Tại</span>
+                                    <span className="text-[13px] text-text-primary font-bold">
+                                        {LOCATIONS.find(l => l.id === location)?.label ?? location}
+                                    </span>
+                                    <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-150 ${locDropOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {locDropOpen && (
+                                    <div className="absolute top-full right-0 mt-2 z-50 w-36 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                        {LOCATIONS.map(l => (
+                                            <button key={l.id} type="button"
+                                                onClick={() => { setLocation(l.id); setLocDropOpen(false); }}
+                                                className={`w-full px-3 py-2 text-left text-sm transition-colors ${location === l.id ? 'bg-accent-primary/12 text-accent-primary font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
+                                                {l.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-            </div>{/* end filter groups */}
-
-                {/* Actions — fixed right, outside wrap */}
-                <div className="flex flex-col items-end justify-start gap-2 shrink-0 pt-5">
-                    <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
-                        disabled={!selectedId}
-                        className="h-8 px-3.5 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed text-text-primary transition-all flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5" /> Xem / Sửa CV
-                    </button>
+                {/* --- Group 3: Hành động --- */}
+                <div className="flex flex-col items-stretch md:items-end justify-center gap-2 shrink-0 md:self-end w-full md:w-auto">
                     <button type="button" onClick={handleUseCv}
                         disabled={!selectedId || linking}
-                        className="h-8 px-4 rounded-xl text-sm font-bold bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center gap-1.5">
-                        {linking ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Syncing…</> : 'Sync CV Health'}
+                        className="h-11 px-6 rounded-xl text-sm font-black bg-gradient-to-r from-accent-primary to-indigo-600 hover:from-accent-primary/90 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 md:hover:scale-105 active:scale-95">
+                        {linking ? <><Loader2 className="w-4 h-4 animate-spin" />Đang tính toán…</> : <><Activity className="w-4 h-4"/> Tính điểm Sức khỏe</>}
+                    </button>
+                    <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
+                        disabled={!selectedId}
+                        className="h-8 px-4 rounded-xl text-[12px] font-bold border border-white/10 bg-transparent hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-text-muted hover:text-text-primary transition-all flex items-center justify-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" /> Chỉnh sửa nhanh CV
                     </button>
                 </div>
             </div>

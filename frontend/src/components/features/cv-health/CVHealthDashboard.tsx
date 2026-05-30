@@ -189,7 +189,7 @@ export default function CVHealthDashboard({ userId }: Props) {
             )}
 
             {/* CV picker — sticky filter bar */}
-            <div className={`sticky top-0 z-30 -mx-6 bg-canvas/60 backdrop-blur-xl border-b border-white/5 ${(!initialCheckComplete || hasUploadedCvs === false) ? 'hidden' : ''}`}>
+            <div className={`sticky top-0 z-30 -mx-6 bg-canvas/95 border-b border-white/5 ${(!initialCheckComplete || hasUploadedCvs === false) ? 'hidden' : ''}`}>
                 <div className="px-6 py-3">
                     <CVPicker userId={userId} onLinked={fetchAll} onEmpty={(empty) => setHasUploadedCvs(!empty)} />
                 </div>
@@ -240,7 +240,7 @@ export default function CVHealthDashboard({ userId }: Props) {
                 </div>
             ) : (
                 <div className={`space-y-6 transition-opacity duration-300 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
-                    <FreshnessGauge data={healthScore} loading={loadingScore} />
+                    <FreshnessGauge data={healthScore} originalData={originalHealthScore} loading={loadingScore} />
                     <WhatIfSimulation 
                         userId={userId} 
                         originalData={originalHealthScore} 

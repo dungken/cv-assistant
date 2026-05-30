@@ -14,6 +14,7 @@ import uvicorn
 import io
 import tempfile
 import os
+import urllib.parse
 from langdetect import detect, DetectorFactory
 DetectorFactory.seed = 0 # For consistent results
 
@@ -192,11 +193,14 @@ async def generate_pdf(cv_data: dict):
 
     name = cv_data.get("name", "cv").replace(" ", "_").lower()
     filename = f"{name}_cv.pdf"
+    
+    # URL-encode the filename to support Vietnamese accents in HTTP headers
+    safe_filename = urllib.parse.quote(filename)
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}"}
     )
 
 @app.post("/normalize", response_model=NormalizationResponse)

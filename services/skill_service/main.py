@@ -488,7 +488,7 @@ def cv_freshness_multi(
     )
 
 
-@app.post("/cv/simulate", response_model=MultiCriteriaResponse)
+@app.post("/cv/simulate", response_model=HealthScoreResponse)
 def simulate_freshness(
     request: CVUpsertRequest,
     db = Depends(get_db),
@@ -497,25 +497,34 @@ def simulate_freshness(
     Computes 8-dim freshness using the provided hypothetical profile without saving it."""
     skills = [s.dict() for s in request.skills]
     
-    profile = CVProfileInput(
-        skills=[CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year")) for s in skills],
-        role=request.target_role,
-        seniority=request.seniority or "junior",
-        years_experience=request.years_experience,
-        past_job_titles=request.past_job_titles or [],
-        num_projects=request.num_projects or 0,
-        project_skill_counts=request.project_skill_counts or [],
-        degree=request.degree,
-        major=request.major,
-        achievement_text=request.achievement_text or "",
-        language_text=request.language_text or "",
-        has_contact=request.has_contact if request.has_contact is not None else True,
-        has_summary=request.has_summary if request.has_summary is not None else False,
-        has_education=request.has_education if request.has_education is not None else False,
-        has_experience=request.has_experience if request.has_experience is not None else False,
-        has_skills=request.has_skills if request.has_skills is not None else True,
-        has_projects=request.has_projects if request.has_projects is not None else False,
-    )
+    cv = cv_store.get_cv(db, request.user_id)
+    if cv is not None:
+        profile = _build_profile_from_cv(cv)
+        # Override skills with the simulated ones
+        profile.skills = [CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year")) for s in skills]
+        # Allow overriding seniority if passed
+        if request.seniority:
+            profile.seniority = request.seniority
+    else:
+        profile = CVProfileInput(
+            skills=[CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year")) for s in skills],
+            role=request.target_role,
+            seniority=request.seniority or "junior",
+            years_experience=request.years_experience,
+            past_job_titles=request.past_job_titles or [],
+            num_projects=request.num_projects or 0,
+            project_skill_counts=request.project_skill_counts or [],
+            degree=request.degree,
+            major=request.major,
+            achievement_text=request.achievement_text or "",
+            language_text=request.language_text or "",
+            has_contact=request.has_contact if request.has_contact is not None else True,
+            has_summary=request.has_summary if request.has_summary is not None else False,
+            has_education=request.has_education if request.has_education is not None else False,
+            has_experience=request.has_experience if request.has_experience is not None else False,
+            has_skills=request.has_skills if request.has_skills is not None else True,
+            has_projects=request.has_projects if request.has_projects is not None else False,
+        )
     try:
         result = get_multi_engine().compute(db=db, profile=profile)
     except Exception as e:
@@ -523,17 +532,18 @@ def simulate_freshness(
         raise HTTPException(status_code=500, detail=str(e))
 
     skill_res = result.skill_result
-    return MultiCriteriaResponse(
+    return HealthScoreResponse(
         user_id=request.user_id,
         role=result.role,
-        seniority=result.seniority,
-        snapshot_date=result.snapshot_date.isoformat(),
         score=result.score,
-        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
-        skill_contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
+        snapshot_date=result.snapshot_date.isoformat(),
+        contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
         ideal_skills=skill_res.ideal_skills if skill_res else [],
         missing_ideal=skill_res.missing_ideal if skill_res else [],
         cold_start=result.cold_start,
+        history_recorded=False,
+        dimensions=[DimensionScoreItem(**d.__dict__) for d in result.dimensions],
+        seniority=result.seniority,
     )
 
 

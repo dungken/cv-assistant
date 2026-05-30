@@ -466,6 +466,7 @@ export function ExperienceCard({
           {/* Custom structured Links */}
           <div className="text-[12px] flex items-center flex-wrap gap-2">
             {customLinks.map((link: any, i: number) => {
+              if (!link || typeof link.url !== 'string') return null;
               const displayTitle = link.title || link.url.replace(/^https?:\/\/(www\.)?/, '');
               return (
                 <React.Fragment key={i}>
