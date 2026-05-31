@@ -26,6 +26,7 @@ import AdminPortal from './components/features/AdminPortal';
 import CVHealthDashboard from './components/features/cv-health/CVHealthDashboard';
 import MarketIntelDashboard from './components/features/MarketIntelDashboard';
 import CVUpload from './components/features/CVUpload';
+import OpportunityPage from './components/pages/OpportunityPage';
 import { Button } from './components/ui/Button';
 import { Badge } from './components/ui/Badge';
 import { cn } from './lib/utils';
@@ -814,6 +815,18 @@ export default function App() {
               <div className="flex-1 overflow-y-auto relative z-10">
                 <CVHealthDashboard 
                   userId={userEmail} 
+                  isAuthenticated={isAuthenticated}
+                  onRequireAuth={() => requireAuth('login')}
+                />
+              </div>
+            }
+          />
+          <Route
+            path="/opportunities"
+            element={
+              <div className="flex-1 overflow-y-auto relative z-10">
+                <OpportunityPage
+                  userId={userEmail}
                   isAuthenticated={isAuthenticated}
                   onRequireAuth={() => requireAuth('login')}
                 />

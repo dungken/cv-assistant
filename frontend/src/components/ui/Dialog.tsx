@@ -25,13 +25,16 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   )
 }
 
-export function DialogContent({ className, children }: { className?: string; children: React.ReactNode }) {
+export function DialogContent({ className, children, onClick }: { className?: string; children: React.ReactNode; onClick?: React.MouseEventHandler<HTMLDivElement> }) {
   return (
-    <div className={cn(
-      "relative bg-surface shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[2.5rem] overflow-hidden border border-white/10 transition-all duration-300 w-full max-w-md", 
-      "ring-1 ring-white/5",
-      className
-    )}>
+    <div
+      className={cn(
+        "relative bg-surface shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[2.5rem] overflow-hidden border border-white/10 transition-all duration-300 w-full max-w-md", 
+        "ring-1 ring-white/5",
+        className
+      )}
+      onClick={onClick}
+    >
       {children}
     </div>
   )

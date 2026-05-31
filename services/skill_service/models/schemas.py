@@ -354,24 +354,9 @@ class HealthScoreResponse(BaseModel):
     ideal_skills: List[str] = []
     missing_ideal: List[str] = []
     cold_start: bool = False
-    history_recorded: bool = False
     # Multi-criteria breakdown — populated when /health-score uses 8-dim engine.
     dimensions: List[DimensionScoreItem] = []
     seniority: Optional[str] = None
-
-class AlertItem(BaseModel):
-    id: int
-    user_id: str
-    role: str
-    fired_at: str
-    prev_score: float
-    new_score: float
-    delta: float
-    reason: str
-
-class SkillAlertsResponse(BaseModel):
-    user_id: str
-    alerts: List[AlertItem] = []
 
 class OpportunityJDItem(BaseModel):
     jd_key: str
@@ -400,19 +385,26 @@ class OpportunityJDItem(BaseModel):
     missing_required: List[str] = []
     missing_preferred: List[str] = []
     blockers: List[str] = []
+    # Per-user application status (default "new" if not tracked)
+    status: str = "new"
+
+
+class AggregateMissingSkill(BaseModel):
+    skill: str
+    count: int     # số JD trong list cần skill này
+    pct: float     # % của số JD list
+
+
+class OpportunityAggregate(BaseModel):
+    total_scanned: int = 0
+    total_passed: int = 0
+    top_missing_skills: List[AggregateMissingSkill] = []
+
 
 class OpportunityWindowResponse(BaseModel):
     user_id: str
     role: Optional[str] = None
     days: int
     items: List[OpportunityJDItem] = []
+    aggregate: Optional[OpportunityAggregate] = None
 
-class FreshnessHistoryPoint(BaseModel):
-    snapshot_date: str
-    score: float
-    cold_start: bool = False
-
-class FreshnessHistoryResponse(BaseModel):
-    user_id: str
-    role: Optional[str] = None
-    points: List[FreshnessHistoryPoint] = []

@@ -279,47 +279,15 @@ public class SkillProxyController : ControllerBase
         return await ForwardAsync(response);
     }
 
+
     /// <summary>
-    /// Current Freshness Score for `user_id`. Persists to history by default.
+    /// Current Multi-criteria Freshness Score (8 dim) for `user_id`.
     /// </summary>
     [HttpGet("health-score")]
-    public async Task<IActionResult> GetHealthScore(
-        [FromQuery] string user_id,
-        [FromQuery] bool persist = true)
+    public async Task<IActionResult> GetHealthScore([FromQuery] string user_id)
     {
         var client = _httpClientFactory.CreateClient("SkillService");
-        var qs = $"/health-score?user_id={Uri.EscapeDataString(user_id ?? "")}&persist={persist.ToString().ToLowerInvariant()}";
-        var response = await client.GetAsync(qs);
-        return await ForwardAsync(response);
-    }
-
-    /// <summary>
-    /// Freshness Score time-series for the dashboard chart.
-    /// </summary>
-    [HttpGet("freshness/history")]
-    public async Task<IActionResult> GetFreshnessHistory(
-        [FromQuery] string user_id,
-        [FromQuery] string? role = null,
-        [FromQuery] int limit = 60)
-    {
-        var client = _httpClientFactory.CreateClient("SkillService");
-        var qs = $"/freshness/history?user_id={Uri.EscapeDataString(user_id ?? "")}&limit={limit}";
-        if (!string.IsNullOrWhiteSpace(role))
-            qs += $"&role={Uri.EscapeDataString(role)}";
-        var response = await client.GetAsync(qs);
-        return await ForwardAsync(response);
-    }
-
-    /// <summary>
-    /// Recent score-drop alerts for the user.
-    /// </summary>
-    [HttpGet("skill-alerts")]
-    public async Task<IActionResult> GetSkillAlerts(
-        [FromQuery] string user_id,
-        [FromQuery] int limit = 20)
-    {
-        var client = _httpClientFactory.CreateClient("SkillService");
-        var qs = $"/skill-alerts?user_id={Uri.EscapeDataString(user_id ?? "")}&limit={limit}";
+        var qs = $"/health-score?user_id={Uri.EscapeDataString(user_id ?? "")}";
         var response = await client.GetAsync(qs);
         return await ForwardAsync(response);
     }
@@ -330,14 +298,48 @@ public class SkillProxyController : ControllerBase
     [HttpGet("opportunity-window")]
     public async Task<IActionResult> GetOpportunityWindow(
         [FromQuery] string user_id,
-        [FromQuery] int days = 7,
-        [FromQuery] int limit = 10,
-        [FromQuery] double min_match = 0.5)
+        [FromQuery] int days = 30,
+        [FromQuery] int limit = 20,
+        [FromQuery] double min_match = 0.4,
+        [FromQuery] string? sort = "match",
+        [FromQuery(Name = "work_modes")] List<string>? workModes = null)
     {
         var client = _httpClientFactory.CreateClient("SkillService");
         var qs = $"/opportunity-window?user_id={Uri.EscapeDataString(user_id ?? "")}" +
-                 $"&days={days}&limit={limit}&min_match={min_match.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+                 $"&days={days}&limit={limit}&min_match={min_match.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
+                 $"&sort={Uri.EscapeDataString(sort ?? "match")}";
+        if (workModes != null)
+            foreach (var m in workModes)
+                qs += $"&work_modes={Uri.EscapeDataString(m)}";
         var response = await client.GetAsync(qs);
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// Update per-user JD application status (saved/applied/interview/rejected/new).
+    /// </summary>
+    [HttpPut("jd-status")]
+    public async Task<IActionResult> UpsertJdStatus(
+        [FromQuery] string user_id,
+        [FromQuery] string jd_key,
+        [FromQuery] string status)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var qs = $"/jd-status?user_id={Uri.EscapeDataString(user_id ?? "")}" +
+                 $"&jd_key={Uri.EscapeDataString(jd_key ?? "")}" +
+                 $"&status={Uri.EscapeDataString(status ?? "")}";
+        var response = await client.PutAsync(qs, new StringContent(""));
+        return await ForwardAsync(response);
+    }
+
+    /// <summary>
+    /// Counts of JDs per status — used for status filter tabs in OpportunityWindow.
+    /// </summary>
+    [HttpGet("jd-status/stats")]
+    public async Task<IActionResult> GetJdStatusStats([FromQuery] string user_id)
+    {
+        var client = _httpClientFactory.CreateClient("SkillService");
+        var response = await client.GetAsync($"/jd-status/stats?user_id={Uri.EscapeDataString(user_id ?? "")}");
         return await ForwardAsync(response);
     }
 

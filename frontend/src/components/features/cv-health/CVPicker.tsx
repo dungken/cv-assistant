@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AxiosError } from 'axios';
-import { UploadCloud, Loader2, ChevronDown, FileText, Eye, Target, Activity, MapPin } from 'lucide-react';
+import { UploadCloud, Loader2, ChevronDown, FileText, Eye, Target, Activity } from 'lucide-react';
 import { cvDocumentApi, cvHealthApi, type CvDocument } from '../../../services/api';
 
 interface Props {
@@ -309,9 +309,6 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     const [cvDropOpen, setCvDropOpen] = useState(false);
     const cvDropRef = useRef<HTMLDivElement>(null);
 
-    // Loc dropdown
-    const [locDropOpen, setLocDropOpen] = useState(false);
-    const locDropRef = useRef<HTMLDivElement>(null);
 
     // Role & Seniority dropdowns
     const [roleDropOpen, setRoleDropOpen] = useState(false);
@@ -322,7 +319,6 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (cvDropRef.current && !cvDropRef.current.contains(e.target as Node)) setCvDropOpen(false);
-            if (locDropRef.current && !locDropRef.current.contains(e.target as Node)) setLocDropOpen(false);
             if (roleDropRef.current && !roleDropRef.current.contains(e.target as Node)) setRoleDropOpen(false);
             if (seniorityDropRef.current && !seniorityDropRef.current.contains(e.target as Node)) setSeniorityDropOpen(false);
         };
@@ -445,10 +441,10 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
     return (
         <>
         <div className="rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-md shadow-2xl overflow-visible">
-            <div className="px-5 py-4 flex flex-col md:flex-row md:items-start gap-6">
+            <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                 
-                {/* --- Group 1: Nguồn Dữ Liệu --- */}
-                <div className="flex flex-col gap-2 shrink-0 w-full md:w-[220px]">
+                {/* --- Cột 1: Nguồn Dữ Liệu --- */}
+                <div className="flex flex-col gap-2 w-full">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" /> Nguồn Dữ Liệu CV
                     </span>
@@ -504,20 +500,12 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
                     </div>
                 </div>
 
-                {/* --- Vertical Divider --- */}
-                <div className="hidden md:block w-px min-h-[50px] bg-white/10 self-stretch mt-6"></div>
-
-                {/* --- Group 2: Mục tiêu Ứng tuyển --- */}
-                <div className="flex flex-col gap-3 flex-1 min-w-0">
-
-                    <div className="flex flex-wrap items-stretch gap-4">
-
-                        {/* ── BLOCK A: Ảnh hưởng điểm ────────────────── */}
-                        <div className="flex flex-col gap-2 p-3 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/15 min-w-0">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
-                                <Target className="w-3 h-3" /> Ảnh hưởng điểm chấm
-                            </span>
-                            <div className="flex flex-wrap items-center gap-2">
+                {/* --- Cột 2: Ảnh hưởng điểm chấm --- */}
+                <div className="flex flex-col gap-2 p-3 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/15 w-full">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                        <Target className="w-3 h-3" /> Ảnh hưởng điểm chấm
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
                                 {/* Role */}
                                 <div className="relative" ref={roleDropRef}>
                                     <button type="button" onClick={() => setRoleDropOpen(v => !v)}
@@ -573,72 +561,21 @@ export default function CVPicker({ userId, onLinked, onEmpty }: Props) {
                                 </div>
 
                             </div>
-                        </div>
+                </div>
 
-                        {/* ── BLOCK B: Lọc gợi ý việc làm (không ảnh hưởng điểm) ── */}
-                        <div className="flex flex-col gap-2 p-3 rounded-2xl bg-white/[0.02] border border-white/5 min-w-0">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted/80 flex items-center gap-1.5">
-                                <MapPin className="w-3 h-3" /> Lọc gợi ý việc làm
-                                <span className="ml-1 normal-case font-normal tracking-normal text-text-muted/60 text-[10px]">(không ảnh hưởng điểm)</span>
-                            </span>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <div className="flex items-center gap-1 bg-black/20 p-1 rounded-full border border-white/5">
-                                    {WORK_MODES.map(m => (
-                                        <button key={m.id} type="button" onClick={() => toggleWorkMode(m.id)}
-                                            className={`h-7 px-3 rounded-full text-[12px] font-bold transition-all ${
-                                                workModes.includes(m.id)
-                                                    ? 'bg-indigo-500/25 text-indigo-200 shadow-inner'
-                                                    : 'text-text-muted hover:text-text-primary hover:bg-white/10'
-                                            }`}>
-                                            {m.label}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="relative" ref={locDropRef}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setLocDropOpen(v => !v)}
-                                        className="flex items-center gap-2 h-9 px-4 rounded-full bg-black/20 border border-white/5 hover:bg-white/5 transition-all"
-                                    >
-                                        <div className="flex items-baseline gap-1.5">
-                                            <span className="text-[11px] text-text-muted font-bold">Tại</span>
-                                            <span className="text-[13px] text-text-primary font-bold">
-                                                {LOCATIONS.find(l => l.id === location)?.label ?? location}
-                                            </span>
-                                        </div>
-                                        <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-150 ${locDropOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    {locDropOpen && (
-                                        <div className="absolute top-full left-0 mt-2 z-50 w-36 bg-surface border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                            {LOCATIONS.map(l => (
-                                                <button key={l.id} type="button"
-                                                    onClick={() => { setLocation(l.id); setLocDropOpen(false); }}
-                                                    className={`w-full px-3 py-2 text-left text-sm transition-colors ${location === l.id ? 'bg-accent-primary/12 text-accent-primary font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'}`}>
-                                                    {l.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Spacer & Hành động */}
-                        <div className="flex-1 min-w-[20px]"></div>
-                        <div className="flex items-center gap-2 ml-auto">
-                            <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
-                                disabled={!selectedId}
-                                className="h-9 px-3 rounded-xl text-[12px] font-bold border border-white/10 bg-transparent hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-text-muted hover:text-text-primary transition-all flex items-center justify-center gap-1.5"
-                                title="Chỉnh sửa nhanh CV">
-                                <Eye className="w-4 h-4" />
-                            </button>
-                            <button type="button" onClick={handleUseCv}
-                                disabled={!selectedId || linking}
-                                className="h-9 px-5 rounded-xl text-sm font-black bg-gradient-to-r from-accent-primary to-indigo-600 hover:from-accent-primary/90 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 md:hover:scale-105 active:scale-95">
-                                {linking ? <><Loader2 className="w-4 h-4 animate-spin" />Đang tính…</> : <><Activity className="w-4 h-4"/> Tính điểm</>}
-                            </button>
-                        </div>
-                    </div>
+                {/* --- Cột 3: Hành động --- */}
+                <div className="flex items-center justify-end gap-2 w-full mt-auto md:mt-0 pt-4 md:pt-0">
+                    <button type="button" onClick={() => navigate(`/cv-upload?docId=${selectedId}`)}
+                        disabled={!selectedId}
+                        className="h-9 px-3 rounded-xl text-[12px] font-bold border border-white/10 bg-transparent hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-text-muted hover:text-text-primary transition-all flex items-center justify-center gap-1.5"
+                        title="Chỉnh sửa nhanh CV">
+                        <Eye className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={handleUseCv}
+                        disabled={!selectedId || linking}
+                        className="h-10 px-6 rounded-xl text-sm font-black bg-gradient-to-r from-accent-primary to-indigo-600 hover:from-accent-primary/90 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 md:hover:scale-105 active:scale-95">
+                        {linking ? <><Loader2 className="w-4 h-4 animate-spin" />Đang tính…</> : <><Activity className="w-4 h-4"/> Tính điểm</>}
+                    </button>
                 </div>
             </div>
 

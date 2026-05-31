@@ -95,3 +95,18 @@ class ProgressDB(Base):
     course_id = Column(String, index=True)
     user_id = Column(String, index=True)
     completion_rate = Column(Float, default=0.0)
+
+
+class UserJdStatusDB(Base):
+    """Track per-user application status for each JD shown in Opportunity Window.
+
+    Status flow: new (default, not persisted) → saved → applied → interview → rejected.
+    Frontend allows free transitions. Unique per (user_id, jd_key).
+    """
+    __tablename__ = "skill_user_jd_status"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, index=True, nullable=False)
+    jd_key = Column(String, index=True, nullable=False)
+    status = Column(String, nullable=False)  # saved|applied|interview|rejected
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (Index("ix_user_jd_status_uniq", "user_id", "jd_key", unique=True),)

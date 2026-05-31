@@ -1,22 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AxiosError } from 'axios';
-import { RefreshCw, Activity, AlertCircle, Plus } from 'lucide-react';
+import { RefreshCw, Activity, AlertCircle, Plus, Target, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import {
     cvHealthApi,
     skillApi,
     type HealthScoreResponse,
-    type FreshnessHistoryResponse,
-    type SkillAlertsResponse,
-    type OpportunityWindowResponse,
 } from '../../../services/api';
 import FreshnessGauge from './FreshnessGauge';
-import FreshnessTimeSeriesChart from './FreshnessTimeSeriesChart';
-import SkillAlertsCard from './SkillAlertsCard';
-import OpportunityWindow from './OpportunityWindow';
 import CVPicker from './CVPicker';
-import WhatIfSimulation from './WhatIfSimulation';
 
 interface Props {
     userId: string;
@@ -36,19 +29,10 @@ function formatRelativeTime(date: Date | null): string {
 export default function CVHealthDashboard({ userId, isAuthenticated, onRequireAuth }: Props) {
     const navigate = useNavigate();
     const [healthScore, setHealthScore] = useState<HealthScoreResponse | null>(null);
-    const [history, setHistory] = useState<FreshnessHistoryResponse | null>(null);
-    const [alerts, setAlerts] = useState<SkillAlertsResponse | null>(null);
-    const [opportunities, setOpportunities] = useState<OpportunityWindowResponse | null>(null);
 
     const [loadingScore, setLoadingScore] = useState(false);
-    const [loadingHistory, setLoadingHistory] = useState(false);
-    const [loadingAlerts, setLoadingAlerts] = useState(false);
-    const [loadingOpps, setLoadingOpps] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [initialCheckComplete, setInitialCheckComplete] = useState(false);
-
-    // Keep a copy of original data before simulation
-    const [originalHealthScore, setOriginalHealthScore] = useState<HealthScoreResponse | null>(null);
 
     const [hasUploadedCvs, setHasUploadedCvs] = useState<boolean | null>(null);
     const [noCvYet, setNoCvYet] = useState(false);
@@ -58,67 +42,38 @@ export default function CVHealthDashboard({ userId, isAuthenticated, onRequireAu
     const [marketKpis, setMarketKpis] = useState<{ total_jds: number; total_companies: number } | null>(null);
 
     // Track whether data has been loaded at least once — avoids stale closure in useCallback
-    const hasData = useRef({ score: false, history: false, alerts: false, opps: false });
+    const hasData = useRef({ score: false });
 
     const fetchAll = useCallback(async () => {
         if (!isAuthenticated) return;
         setNoCvYet(false);
         setGlobalError(null);
         setRefreshing(true);
-        // Show skeleton only on first load; re-fetches update silently (no flash)
         if (!hasData.current.score) setLoadingScore(true);
-        if (!hasData.current.history) setLoadingHistory(true);
-        if (!hasData.current.alerts) setLoadingAlerts(true);
-        if (!hasData.current.opps) setLoadingOpps(true);
 
-        const results = await Promise.allSettled([
-            cvHealthApi.getHealthScore(userId, true),
-            cvHealthApi.getFreshnessHistory(userId),
-            cvHealthApi.getSkillAlerts(userId),
-            cvHealthApi.getOpportunities(userId, { days: 7, limit: 10, minMatch: 0.5 }),
-        ]);
-
-        const [scoreRes, histRes, alertsRes, oppsRes] = results;
         let foundNoCv = false;
         let networkErrorCount = 0;
-
-        const isNotFound = (r: PromiseSettledResult<unknown>) =>
-            r.status === 'rejected' &&
-            r.reason instanceof AxiosError &&
-            r.reason.response?.status === 404;
-
-        const isNetworkError = (r: PromiseSettledResult<unknown>) =>
-            r.status === 'rejected' &&
-            r.reason instanceof AxiosError &&
-            (!r.reason.response || r.reason.response.status >= 500);
-
-        if (scoreRes.status === 'fulfilled') { setHealthScore(scoreRes.value.data); setOriginalHealthScore(scoreRes.value.data); hasData.current.score = true; }
-        else if (isNotFound(scoreRes)) { foundNoCv = true; setHealthScore(null); setOriginalHealthScore(null); }
-        else if (isNetworkError(scoreRes)) networkErrorCount++;
-
-        if (histRes.status === 'fulfilled') { setHistory(histRes.value.data); hasData.current.history = true; }
-        else if (isNetworkError(histRes)) networkErrorCount++;
-
-        if (alertsRes.status === 'fulfilled') { setAlerts(alertsRes.value.data); hasData.current.alerts = true; }
-        else if (isNetworkError(alertsRes)) networkErrorCount++;
-
-        if (oppsRes.status === 'fulfilled') { setOpportunities(oppsRes.value.data); hasData.current.opps = true; }
-        else if (isNotFound(oppsRes)) { foundNoCv = true; setOpportunities(null); }
-        else if (isNetworkError(oppsRes)) networkErrorCount++;
+        try {
+            const res = await cvHealthApi.getHealthScore(userId);
+            setHealthScore(res.data);
+            hasData.current.score = true;
+        } catch (e) {
+            if (e instanceof AxiosError) {
+                if (e.response?.status === 404) { foundNoCv = true; setHealthScore(null); }
+                else if (!e.response || e.response.status >= 500) networkErrorCount++;
+            }
+        }
 
         setNoCvYet(foundNoCv);
-        if (networkErrorCount >= 2 && !foundNoCv) {
+        if (networkErrorCount >= 1 && !foundNoCv) {
             setGlobalError('Không kết nối được server. Hãy thử lại.');
         }
 
         setLoadingScore(false);
-        setLoadingHistory(false);
-        setLoadingAlerts(false);
-        setLoadingOpps(false);
         setRefreshing(false);
         setInitialCheckComplete(true);
         setLastUpdated(new Date());
-    }, [userId]);
+    }, [userId, isAuthenticated]);
 
     useEffect(() => {
         if (isAuthenticated && userId) fetchAll();
@@ -266,23 +221,34 @@ export default function CVHealthDashboard({ userId, isAuthenticated, onRequireAu
                 </div>
             ) : (
                 <div className={`space-y-6 transition-opacity duration-300 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
-                    <FreshnessGauge data={healthScore} originalData={originalHealthScore} loading={loadingScore} />
-                    <WhatIfSimulation 
-                        userId={userId} 
-                        originalData={originalHealthScore} 
-                        onSimulate={(simulatedData) => {
-                            if (simulatedData) {
-                                setHealthScore(simulatedData);
-                            } else {
-                                setHealthScore(originalHealthScore);
-                            }
-                        }} 
-                    />
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <FreshnessTimeSeriesChart data={history} loading={loadingHistory} />
-                        <SkillAlertsCard data={alerts} loading={loadingAlerts} />
+                    <FreshnessGauge data={healthScore} loading={loadingScore} />
+
+                    {/* Điều hướng qua lại */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/opportunities')}
+                            className="flex flex-col text-left p-5 rounded-2xl bg-surface/80 border border-white/5 hover:bg-white/[0.04] hover:border-accent-primary/30 transition-all group"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                <Target className="w-5 h-5 text-indigo-400" />
+                            </div>
+                            <h3 className="text-sm font-bold text-text-primary mb-1">Opportunity Window</h3>
+                            <p className="text-xs text-text-secondary">Xem các cơ hội việc làm phù hợp nhất với CV hiện tại</p>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => navigate('/market-intel')}
+                            className="flex flex-col text-left p-5 rounded-2xl bg-surface/80 border border-white/5 hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all group"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                <TrendingUp className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <h3 className="text-sm font-bold text-text-primary mb-1">Market Intel</h3>
+                            <p className="text-xs text-text-secondary">Khám phá xu hướng kỹ năng và mức lương trên thị trường</p>
+                        </button>
                     </div>
-                    <OpportunityWindow data={opportunities} loading={loadingOpps} />
                 </div>
             )}
         </div>

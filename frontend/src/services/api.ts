@@ -773,11 +773,10 @@ export interface MarketIntelDashboard {
 
 // ─── Tuần 15: CV Health Intelligence dashboard ────────────────────────────────
 //
-// Maps to 5 backend endpoints:
+// Maps to backend endpoints:
 //   POST /cv/me                    upsertCv()
+//   GET  /cv/me                    getSavedConfig()
 //   GET  /health-score             getHealthScore()
-//   GET  /freshness/history        getFreshnessHistory()
-//   GET  /skill-alerts             getSkillAlerts()
 //   GET  /opportunity-window       getOpportunities()
 
 export interface CvHealthSkill {
@@ -832,38 +831,9 @@ export interface HealthScoreResponse {
     ideal_skills: string[];
     missing_ideal: string[];
     cold_start: boolean;
-    history_recorded: boolean;
     // Multi-criteria Freshness 8-dim breakdown (chuong3/3.2)
     dimensions?: DimensionScore[];
     seniority?: string | null;
-}
-
-export interface FreshnessHistoryPoint {
-    snapshot_date: string;
-    score: number;
-    cold_start: boolean;
-}
-
-export interface FreshnessHistoryResponse {
-    user_id: string;
-    role?: string | null;
-    points: FreshnessHistoryPoint[];
-}
-
-export interface SkillAlert {
-    id: number;
-    user_id: string;
-    role: string;
-    fired_at: string;
-    prev_score: number;
-    new_score: number;
-    delta: number;
-    reason: string;
-}
-
-export interface SkillAlertsResponse {
-    user_id: string;
-    alerts: SkillAlert[];
 }
 
 export interface OpportunityJD {
@@ -893,6 +863,22 @@ export interface OpportunityJD {
     missing_required: string[];
     missing_preferred: string[];
     blockers: string[];
+    // Per-user application tracking (default 'new')
+    status: JdStatus;
+}
+
+export type JdStatus = "new" | "saved" | "applied" | "interview" | "rejected";
+
+export interface AggregateMissingSkill {
+    skill: string;
+    count: number;
+    pct: number;
+}
+
+export interface OpportunityAggregate {
+    total_scanned: number;
+    total_passed: number;
+    top_missing_skills: AggregateMissingSkill[];
 }
 
 export interface OpportunityWindowResponse {
@@ -900,6 +886,11 @@ export interface OpportunityWindowResponse {
     role?: string | null;
     days: number;
     items: OpportunityJD[];
+    aggregate?: OpportunityAggregate | null;
+}
+
+export interface JdStatusStats {
+    counts: Partial<Record<JdStatus, number>>;
 }
 
 export interface SavedCvConfig {
@@ -964,79 +955,46 @@ export const cvHealthApi = {
             has_projects: opts?.hasProjects ?? null,
         }),
 
-    simulateCv: (
-        userId: string,
-        targetRole: string,
-        skills: CvHealthSkill[],
-        opts?: {
-            yearsExperience?: number | null;
-            preferredLocation?: string | null;
-            preferredWorkModes?: string[] | null;
-            seniority?: string | null;
-            pastJobTitles?: string[] | null;
-            numProjects?: number | null;
-            projectSkillCounts?: number[] | null;
-            degree?: string | null;
-            major?: string | null;
-            achievementText?: string | null;
-            languageText?: string | null;
-            hasContact?: boolean | null;
-            hasSummary?: boolean | null;
-            hasEducation?: boolean | null;
-            hasExperience?: boolean | null;
-            hasSkills?: boolean | null;
-            hasProjects?: boolean | null;
-        },
-    ) =>
-        api.post<HealthScoreResponse>(`${SKILL_BASE}/cv/simulate`, {
-            user_id: userId,
-            target_role: targetRole,
-            skills,
-            years_experience: opts?.yearsExperience ?? null,
-            preferred_location: opts?.preferredLocation ?? null,
-            preferred_work_modes: opts?.preferredWorkModes ?? null,
-            seniority: opts?.seniority ?? null,
-            past_job_titles: opts?.pastJobTitles ?? null,
-            num_projects: opts?.numProjects ?? null,
-            project_skill_counts: opts?.projectSkillCounts ?? null,
-            degree: opts?.degree ?? null,
-            major: opts?.major ?? null,
-            achievement_text: opts?.achievementText ?? null,
-            language_text: opts?.languageText ?? null,
-            has_contact: opts?.hasContact ?? null,
-            has_summary: opts?.hasSummary ?? null,
-            has_education: opts?.hasEducation ?? null,
-            has_experience: opts?.hasExperience ?? null,
-            has_skills: opts?.hasSkills ?? null,
-            has_projects: opts?.hasProjects ?? null,
-        }),
-
-    getHealthScore: (userId: string, persist: boolean = true) =>
+    getHealthScore: (userId: string) =>
         api.get<HealthScoreResponse>(`${SKILL_BASE}/health-score`, {
-            params: { user_id: userId, persist },
-        }),
-
-    getFreshnessHistory: (userId: string, opts?: { role?: string; limit?: number }) =>
-        api.get<FreshnessHistoryResponse>(`${SKILL_BASE}/freshness/history`, {
-            params: { user_id: userId, role: opts?.role, limit: opts?.limit ?? 60 },
-        }),
-
-    getSkillAlerts: (userId: string, limit: number = 20) =>
-        api.get<SkillAlertsResponse>(`${SKILL_BASE}/skill-alerts`, {
-            params: { user_id: userId, limit },
+            params: { user_id: userId },
         }),
 
     getOpportunities: (
         userId: string,
-        opts?: { days?: number; limit?: number; minMatch?: number },
-    ) =>
-        api.get<OpportunityWindowResponse>(`${SKILL_BASE}/opportunity-window`, {
-            params: {
-                user_id: userId,
-                days: opts?.days ?? 7,
-                limit: opts?.limit ?? 10,
-                min_match: opts?.minMatch ?? 0.5,
-            },
+        opts?: {
+            days?: number;
+            limit?: number;
+            minMatch?: number;
+            sort?: "match" | "newest" | "salary";
+            workModes?: string[];
+            locations?: string[];
+        },
+    ) => {
+        // axios paramsSerializer mặc định không repeat ?work_modes=a&work_modes=b
+        const params = new URLSearchParams();
+        params.set("user_id", userId);
+        params.set("days", String(opts?.days ?? 30));
+        params.set("limit", String(opts?.limit ?? 20));
+        params.set("min_match", String(opts?.minMatch ?? 0.4));
+        params.set("sort", opts?.sort ?? "match");
+        (opts?.workModes ?? []).forEach((m) => params.append("work_modes", m));
+        (opts?.locations ?? []).forEach((loc) => params.append("locations", loc));
+        return api.get<OpportunityWindowResponse>(
+            `${SKILL_BASE}/opportunity-window?${params.toString()}`,
+        );
+    },
+
+    updateJdStatus: (userId: string, jdKey: string, status: JdStatus) =>
+        api.put<{ status: JdStatus; jd_key: string }>(
+            `${SKILL_BASE}/jd-status`,
+            null,
+            { params: { user_id: userId, jd_key: jdKey, status } },
+        ),
+
+    getJdStatusStats: (userId: string) =>
+        api.get<JdStatusStats>(`${SKILL_BASE}/jd-status/stats`, {
+            params: { user_id: userId },
         }),
 };
 

@@ -68,6 +68,7 @@ def _cleanup(db):
                {"p": "__t14_%"})
     db.execute(text("DELETE FROM jd_raw WHERE jd_key LIKE :p"),
                {"p": f"{JD_PREFIX}%"})
+    # Backward-compat: clean up old test-source rows from previous runs.
     db.execute(text("DELETE FROM jd_raw WHERE source = 'test'"))
     db.commit()
 
@@ -122,7 +123,7 @@ def _seed_jds(db, role: str):
         db.execute(text("""
             INSERT INTO jd_raw (jd_key, source, title, company, role, location,
                                 skills_canonical, posted_date, first_seen, last_seen)
-            VALUES (:k, 'test', :t, :c, :r, :l, CAST(:s AS JSONB), :d, :now, :now)
+            VALUES (:k, 'itviec', :t, :c, :r, :l, CAST(:s AS JSONB), :d, :now, :now)
         """), {"k": r[0], "t": r[1], "c": r[2], "r": r[3], "l": r[4],
                "s": _json(r[5]), "d": r[6], "now": now})
     db.commit()
@@ -218,7 +219,7 @@ def test_opportunity_window_filters_by_date_and_match():
     db = SessionLocal()
     try:
         _seed_jds(db, role="backend")
-        opps = find_opportunities(
+        opps, _agg = find_opportunities(
             db, ["Python", "FastAPI", "PostgreSQL"],
             target_role=None, days=7, limit=10, min_match=0.5,
         )
@@ -236,7 +237,7 @@ def test_opportunity_window_min_match_threshold():
     db = SessionLocal()
     try:
         _seed_jds(db, role="backend")
-        opps = find_opportunities(
+        opps, _agg = find_opportunities(
             db, ["Rust", "Elixir"],  # no overlap
             target_role=None, days=7, min_match=0.5,
         )

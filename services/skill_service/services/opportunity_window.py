@@ -15,12 +15,20 @@ can see *why* the score is what it is — much more useful than a single number.
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+# Role aliases reused from freshness_engine — JD `role` column often
+# uses 'backend-developer' instead of short 'backend'.
+from services.skill_service.services.freshness_engine import (
+    ROLE_ALIASES_FOR_TRENDS, _role_alias_list,
+)
+from services.skill_service.services.ontology import SkillOntology
 
 
 # ─── Weights (sum = 1.0 for the composite score) ──────────────────────────────
@@ -63,27 +71,41 @@ class OpportunityJD:
     blockers: list[str] = field(default_factory=list)  # human-readable reasons user can't apply
 
 
+def _canon(skill: str, ontology: Optional[SkillOntology]) -> str:
+    """Lowercase + ontology canonical form (e.g. '.NET Core' -> '.net core' -> 'dotnet')."""
+    low = skill.lower().strip()
+    if ontology is None:
+        return low
+    return (ontology.canonical.get(low) or low).lower()
+
+
 def find_opportunities(
     db: Session,
     cv_skills: list[str],
     target_role: Optional[str] = None,
     cv_years: Optional[float] = None,
     cv_location: Optional[str] = None,
-    cv_work_modes: Optional[list[str]] = None,  # e.g. ["remote", "hybrid"]
-    days: int = 7,
+    cv_work_modes: Optional[list[str]] = None,
+    days: int = 30,                                # nới mặc định 7 → 30 (VN thưa)
     limit: int = 10,
     min_match: float = 0.4,
-) -> list[OpportunityJD]:
-    """Return top-N JDs posted in the last `days` days, ranked by composite match.
+    ontology: Optional[SkillOntology] = None,      # cho phép pass ontology để canonicalize
+) -> tuple[list[OpportunityJD], dict]:
+    """Return (top-N JDs, aggregate_insights).
 
-    Unlike v1, we use `skills_required` (NER-parsed) as the blocker set when
-    available, falling back to `skills_canonical` for unparsed rows. JDs whose
-    composite `match_score < min_match` are excluded.
+    Improvements vs v2:
+    - Canonicalize cả CV và JD skills qua ontology trước khi match (handle '.NET Core' = '.NET').
+    - Role filter dùng alias list thay vì strict substring (backend → backend-developer/...).
+    - Trả thêm aggregate dict: top missing skills across JDs, total scanned, count passed.
     """
-    cv_set = {s.lower() for s in cv_skills}
+    cv_set = {_canon(s, ontology) for s in cv_skills}
     cv_work_set = {m.lower() for m in (cv_work_modes or [])}
     start = date.today() - timedelta(days=days)
 
+    # Pull broader candidate pool — sort theo posted_date DESC nhưng tăng cap để
+    # không miss JD match cao bị đẩy sau LIMIT.
+    # Chỉ lấy data từ source thật (itviec/topcv) — loại 'test' seed của unit tests
+    # và bất kỳ source không xác định nào.
     sql = """
         SELECT jd_key, title, company, role, location,
                posted_date, url, salary_min, salary_max, salary_currency,
@@ -91,18 +113,25 @@ def find_opportunities(
                seniority, min_exp, max_exp, work_mode, description_summary
         FROM jd_raw
         WHERE posted_date >= :start
+          AND source IN ('itviec', 'topcv')
         ORDER BY posted_date DESC
-        LIMIT 300
+        LIMIT 800
     """
     rows = db.execute(text(sql), {"start": start}).fetchall()
 
-    results: list[OpportunityJD] = []
-    for r in rows:
-        required_raw = r[11] or []     # skills_required (parsed); may be empty
-        preferred_raw = r[12] or []    # skills_preferred (parsed)
-        canonical = r[10] or []        # skills_canonical (basic crawler list)
+    # Role alias matching — JD role có thể là 'backend-developer' khi user chọn 'backend'
+    role_aliases = set(_role_alias_list(target_role)) if target_role else set()
 
-        # Use parsed `required` if present; otherwise treat all canonical as required.
+    results: list[OpportunityJD] = []
+    total_scanned = 0
+    missing_skill_counter: Counter[str] = Counter()  # đếm missing skill xuất hiện qua bao nhiêu JD
+
+    for r in rows:
+        total_scanned += 1
+        required_raw = r[11] or []
+        preferred_raw = r[12] or []
+        canonical = r[10] or []
+
         if required_raw:
             required = [s for s in required_raw if isinstance(s, str) and s.strip()]
         else:
@@ -111,13 +140,14 @@ def find_opportunities(
             continue
         preferred = [s for s in (preferred_raw or []) if isinstance(s, str) and s.strip()]
 
-        req_lower = {s.lower(): s for s in required}
-        pref_lower = {s.lower(): s for s in preferred if s.lower() not in req_lower}
+        # Canonicalize maps: canon_form -> original (giữ original để hiển thị)
+        req_canon = {_canon(s, ontology): s for s in required}
+        pref_canon = {_canon(s, ontology): s for s in preferred if _canon(s, ontology) not in req_canon}
 
-        matched = [orig for low, orig in req_lower.items() if low in cv_set]
-        missing_req = [orig for low, orig in req_lower.items() if low not in cv_set]
-        matched_pref = [orig for low, orig in pref_lower.items() if low in cv_set]
-        missing_pref = [orig for low, orig in pref_lower.items() if low not in cv_set]
+        matched = [orig for c, orig in req_canon.items() if c in cv_set]
+        missing_req = [orig for c, orig in req_canon.items() if c not in cv_set]
+        matched_pref = [orig for c, orig in pref_canon.items() if c in cv_set]
+        missing_pref = [orig for c, orig in pref_canon.items() if c not in cv_set]
 
         required_coverage = len(matched) / max(len(required), 1)
         preferred_coverage = (
@@ -135,8 +165,13 @@ def find_opportunities(
         work_mode = r[16]
         work_mode_match = _work_mode_match(cv_work_set, work_mode)
 
-        if target_role and r[3] and target_role.lower() not in r[3].lower():
-            continue
+        # Role filter: nếu user chọn role → JD.role phải match 1 trong các alias
+        # Nếu JD.role NULL → giữ lại (don't penalize crawler missing role)
+        if role_aliases and r[3]:
+            jd_role_low = r[3].lower()
+            # match nếu JD role chứa hoặc bằng bất kỳ alias nào
+            if not any(a in jd_role_low for a in role_aliases):
+                continue
 
         score = (
             W_REQUIRED * required_coverage
@@ -148,6 +183,10 @@ def find_opportunities(
 
         if score < min_match:
             continue
+
+        # Track missing skills across passing JDs để aggregate insight
+        for skill in missing_req:
+            missing_skill_counter[skill] += 1
 
         blockers = _build_blockers(
             missing_req=missing_req, cv_years=cv_years, min_exp=min_exp,
@@ -174,7 +213,18 @@ def find_opportunities(
         ))
 
     results.sort(key=lambda o: (o.match_score, o.posted_date), reverse=True)
-    return results[:limit]
+
+    # Build aggregate insights (trên FULL results, không chỉ top-N)
+    top_missing = [
+        {"skill": skill, "count": cnt, "pct": round(cnt / max(len(results), 1) * 100, 1)}
+        for skill, cnt in missing_skill_counter.most_common(8)
+    ]
+    aggregate = {
+        "total_scanned": total_scanned,
+        "total_passed": len(results),
+        "top_missing_skills": top_missing,
+    }
+    return results[:limit], aggregate
 
 
 # ─── Per-dimension fit functions ─────────────────────────────────────────────

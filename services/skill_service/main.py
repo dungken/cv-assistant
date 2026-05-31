@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Optional
 import uvicorn
 from sentence_transformers import SentenceTransformer
 
@@ -25,14 +25,13 @@ from services.skill_service.models.schemas import (
     ATSScoreRequest, ATSScoreResponse, MarketOverviewResponse,
     FreshnessRequest, FreshnessResponse, SkillContributionItem,
     CVUpsertRequest, CVUpsertResponse,
-    HealthScoreResponse, SkillAlertsResponse, AlertItem,
+    HealthScoreResponse,
     OpportunityWindowResponse, OpportunityJDItem,
-    FreshnessHistoryResponse, FreshnessHistoryPoint,
     MultiCriteriaResponse, DimensionScoreItem,
 )
 from dataclasses import asdict as _dataclass_asdict
 from services.skill_service.services.freshness_engine import (
-    CVSkillInput, record_history_and_alert,
+    CVSkillInput,
     MultiCriteriaFreshnessEngine, CVProfileInput,
 )
 
@@ -75,7 +74,6 @@ def _apply_llm_tips(user_id: str, profile: "CVProfileInput", result) -> None:
         logger.warning("LLM tips enrich failed (keeping rule-based): %s", e)
 from services.skill_service.services import cv_store
 from services.skill_service.services.opportunity_window import find_opportunities
-from services.skill_service.models.database import FreshnessAlertDB, FreshnessHistoryDB
 from services.skill_service.services.db_session import SessionLocal
 from services.skill_service.services.matcher import SkillMatcher
 from services.skill_service.services.explainer import SkillGapExplainer
@@ -398,9 +396,6 @@ def _recompute_freshness_bg(user_id: str) -> None:
             return
         profile = _build_profile_from_cv(cv)
         multi_result = get_multi_engine().compute(db=db, profile=profile)
-        # Persist Skill-dimension history (existing time-series + alerts pipeline).
-        if multi_result.skill_result is not None:
-            record_history_and_alert(db=db, user_id=user_id, result=multi_result.skill_result)
         logger.info(
             "BG recompute done user=%s role=%s total=%.2f cold_start=%s dims=%s",
             user_id, cv.target_role, multi_result.score, multi_result.cold_start,
@@ -475,12 +470,10 @@ def upsert_cv(
 @app.get("/health-score", response_model=HealthScoreResponse)
 def health_score(
     user_id: str = Query(...),
-    persist: bool = Query(True, description="Insert into history + fire alerts"),
     db = Depends(get_db),
 ):
     """Compute Multi-criteria Freshness Score (8 dim) for `user_id` using
-    their stored CV. Returns total + per-dimension breakdown for the radar
-    chart. Persists Skill-dim history & fires alerts when score drops."""
+    their stored CV. Returns total + per-dimension breakdown for the radar chart."""
     cv = cv_store.get_cv(db, user_id)
     if cv is None:
         raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
@@ -492,14 +485,6 @@ def health_score(
         logger.error("health-score failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-    history_recorded = False
-    if persist and result.skill_result is not None:
-        try:
-            record_history_and_alert(db=db, user_id=user_id, result=result.skill_result)
-            history_recorded = True
-        except Exception as e:
-            logger.error("history record failed: %s", e, exc_info=True)
-
     skill_res = result.skill_result
     return HealthScoreResponse(
         user_id=user_id,
@@ -510,7 +495,6 @@ def health_score(
         ideal_skills=skill_res.ideal_skills if skill_res else [],
         missing_ideal=skill_res.missing_ideal if skill_res else [],
         cold_start=result.cold_start,
-        history_recorded=history_recorded,
         dimensions=[_dim_to_item(d) for d in result.dimensions],
         seniority=result.seniority,
     )
@@ -550,143 +534,112 @@ def cv_freshness_multi(
     )
 
 
-@app.post("/cv/simulate", response_model=HealthScoreResponse)
-def simulate_freshness(
-    request: CVUpsertRequest,
-    db = Depends(get_db),
-):
-    """Tuần 16 — What-if Simulation endpoint.
-    Computes 8-dim freshness using the provided hypothetical profile without saving it."""
-    skills = [s.dict() for s in request.skills]
-    
-    cv = cv_store.get_cv(db, request.user_id)
-    if cv is not None:
-        profile = _build_profile_from_cv(cv)
-        # Override skills with the simulated ones
-        profile.skills = [CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year")) for s in skills]
-        # Allow overriding seniority if passed
-        if request.seniority:
-            profile.seniority = request.seniority
-    else:
-        profile = CVProfileInput(
-            skills=[CVSkillInput(name=s["name"], last_used_year=s.get("last_used_year")) for s in skills],
-            role=request.target_role,
-            seniority=request.seniority or "junior",
-            years_experience=request.years_experience,
-            past_job_titles=request.past_job_titles or [],
-            num_projects=request.num_projects or 0,
-            project_skill_counts=request.project_skill_counts or [],
-            degree=request.degree,
-            major=request.major,
-            achievement_text=request.achievement_text or "",
-            language_text=request.language_text or "",
-            has_contact=request.has_contact if request.has_contact is not None else True,
-            has_summary=request.has_summary if request.has_summary is not None else False,
-            has_education=request.has_education if request.has_education is not None else False,
-            has_experience=request.has_experience if request.has_experience is not None else False,
-            has_skills=request.has_skills if request.has_skills is not None else True,
-            has_projects=request.has_projects if request.has_projects is not None else False,
-        )
-    try:
-        result = get_multi_engine().compute(db=db, profile=profile)
-    except Exception as e:
-        logger.error("simulate_freshness failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    skill_res = result.skill_result
-    return HealthScoreResponse(
-        user_id=request.user_id,
-        role=result.role,
-        score=result.score,
-        snapshot_date=result.snapshot_date.isoformat(),
-        contributions=[SkillContributionItem(**c.__dict__) for c in (skill_res.contributions if skill_res else [])],
-        ideal_skills=skill_res.ideal_skills if skill_res else [],
-        missing_ideal=skill_res.missing_ideal if skill_res else [],
-        cold_start=result.cold_start,
-        history_recorded=False,
-        dimensions=[_dim_to_item(d) for d in result.dimensions],
-        seniority=result.seniority,
-    )
-
-
-
-@app.get("/freshness/history", response_model=FreshnessHistoryResponse)
-def freshness_history(
-    user_id: str = Query(...),
-    role: str = Query(None),
-    limit: int = Query(60, ge=1, le=365),
-    db = Depends(get_db),
-):
-    """Return Freshness Score time-series for the user (most-recent N points
-    by `snapshot_date`). Used by the dashboard time-series chart (§3.5)."""
-    q = db.query(FreshnessHistoryDB).filter(FreshnessHistoryDB.user_id == user_id)
-    if role:
-        q = q.filter(FreshnessHistoryDB.role == role)
-    rows = q.order_by(FreshnessHistoryDB.snapshot_date.desc()).limit(limit).all()
-    rows.reverse()  # send chronological asc to the chart
-    return FreshnessHistoryResponse(
-        user_id=user_id, role=role,
-        points=[
-            FreshnessHistoryPoint(
-                snapshot_date=r.snapshot_date.isoformat(),
-                score=r.score,
-                cold_start=bool(r.cold_start),
-            )
-            for r in rows
-        ],
-    )
-
-
-@app.get("/skill-alerts", response_model=SkillAlertsResponse)
-def skill_alerts(
-    user_id: str = Query(...),
-    limit: int = Query(20, ge=1, le=100),
-    db = Depends(get_db),
-):
-    """Return the most recent score-drop alerts for the user (§3.2.5)."""
-    rows = (
-        db.query(FreshnessAlertDB)
-        .filter(FreshnessAlertDB.user_id == user_id)
-        .order_by(FreshnessAlertDB.fired_at.desc())
-        .limit(limit)
-        .all()
-    )
-    items = [
-        AlertItem(
-            id=r.id, user_id=r.user_id, role=r.role,
-            fired_at=r.fired_at.isoformat(),
-            prev_score=r.prev_score, new_score=r.new_score,
-            delta=r.delta, reason=r.reason or "",
-        )
-        for r in rows
-    ]
-    return SkillAlertsResponse(user_id=user_id, alerts=items)
-
-
 @app.get("/opportunity-window", response_model=OpportunityWindowResponse)
 def opportunity_window(
     user_id: str = Query(...),
-    days: int = Query(7, ge=1, le=30),
-    limit: int = Query(10, ge=1, le=50),
-    min_match: float = Query(0.5, ge=0.0, le=1.0),
+    days: int = Query(30, ge=1, le=180),
+    limit: int = Query(20, ge=1, le=100),
+    min_match: float = Query(0.4, ge=0.0, le=1.0),
+    work_modes: Optional[List[str]] = Query(None,
+        description="Override CV's preferred_work_modes (csv-style query: ?work_modes=remote&work_modes=hybrid)"),
+    sort: str = Query("match", regex="^(match|newest|salary)$"),
     db = Depends(get_db),
 ):
-    """Return recent JDs that match the user's CV well (§FR-D1)."""
+    """Return recent JDs that match the user's CV well (§FR-D1) + aggregate insights + per-JD status."""
     cv = cv_store.get_cv(db, user_id)
     if cv is None:
         raise HTTPException(status_code=404, detail=f"No CV stored for user_id={user_id}")
     skill_names = [s["name"] for s in cv.skills_with_recency]
-    opps = find_opportunities(
+    effective_modes = work_modes if work_modes is not None else (cv.preferred_work_modes or None)
+    opps, aggregate = find_opportunities(
         db=db, cv_skills=skill_names, target_role=cv.target_role,
         cv_years=cv.years_experience,
         cv_location=cv.preferred_location,
-        cv_work_modes=cv.preferred_work_modes or None,
+        cv_work_modes=effective_modes,
         days=days, limit=limit, min_match=min_match,
+        ontology=get_ontology(),
     )
+
+    # Override sort if user picks newest/salary (default 'match' đã được handle bên engine)
+    if sort == "newest":
+        opps.sort(key=lambda o: o.posted_date, reverse=True)
+    elif sort == "salary":
+        opps.sort(key=lambda o: (o.salary_max or o.salary_min or 0), reverse=True)
+
+    # Attach user JD statuses (saved/applied/...) — bulk fetch để O(1)
+    jd_keys = [o.jd_key for o in opps]
+    status_map = _bulk_get_jd_statuses(db, user_id, jd_keys) if jd_keys else {}
+
+    items = []
+    for o in opps:
+        d = dict(o.__dict__)
+        d["status"] = status_map.get(o.jd_key, "new")
+        items.append(OpportunityJDItem(**d))
+
     return OpportunityWindowResponse(
         user_id=user_id, role=cv.target_role, days=days,
-        items=[OpportunityJDItem(**o.__dict__) for o in opps],
+        items=items,
+        aggregate=aggregate,
     )
+
+
+# ─── JD Status tracking (saved/applied/interview/rejected) ────────────────────
+
+def _bulk_get_jd_statuses(db, user_id: str, jd_keys: list[str]) -> dict[str, str]:
+    """Fetch JD status for all jd_keys at once. Returns {jd_key: status}."""
+    if not jd_keys:
+        return {}
+    from services.skill_service.models.database import UserJdStatusDB
+    rows = (
+        db.query(UserJdStatusDB)
+        .filter(UserJdStatusDB.user_id == user_id, UserJdStatusDB.jd_key.in_(jd_keys))
+        .all()
+    )
+    return {r.jd_key: r.status for r in rows}
+
+
+@app.put("/jd-status")
+def upsert_jd_status(
+    user_id: str = Query(...),
+    jd_key: str = Query(...),
+    status: str = Query(..., regex="^(new|saved|applied|interview|rejected)$"),
+    db = Depends(get_db),
+):
+    """Set per-user JD status. status='new' will delete the row (treat as default)."""
+    from services.skill_service.models.database import UserJdStatusDB
+    from datetime import datetime as _dt
+    row = (
+        db.query(UserJdStatusDB)
+        .filter(UserJdStatusDB.user_id == user_id, UserJdStatusDB.jd_key == jd_key)
+        .one_or_none()
+    )
+    if status == "new":
+        if row:
+            db.delete(row)
+            db.commit()
+        return {"status": "new", "jd_key": jd_key}
+    if row:
+        row.status = status
+        row.updated_at = _dt.utcnow()
+    else:
+        row = UserJdStatusDB(user_id=user_id, jd_key=jd_key, status=status, updated_at=_dt.utcnow())
+        db.add(row)
+    db.commit()
+    return {"status": status, "jd_key": jd_key}
+
+
+@app.get("/jd-status/stats")
+def jd_status_stats(user_id: str = Query(...), db = Depends(get_db)):
+    """Counts per status — used for filter tabs."""
+    from services.skill_service.models.database import UserJdStatusDB
+    from sqlalchemy import func
+    rows = (
+        db.query(UserJdStatusDB.status, func.count(UserJdStatusDB.id))
+        .filter(UserJdStatusDB.user_id == user_id)
+        .group_by(UserJdStatusDB.status)
+        .all()
+    )
+    return {"counts": {status: cnt for status, cnt in rows}}
 
 
 if __name__ == "__main__":

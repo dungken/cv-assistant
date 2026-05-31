@@ -1,4 +1,4 @@
-import { Activity, TrendingUp, Settings, LogOut, Shield, ChevronDown } from 'lucide-react';
+import { Activity, TrendingUp, Settings, LogOut, Shield, ChevronDown, Target } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
@@ -31,6 +31,7 @@ export default function TopNav({
 
     const navLinks = [
         { path: '/cv-health', label: 'CV Health', icon: Activity },
+        { path: '/opportunities', label: 'Opportunities', icon: Target },
         { path: '/market-intel', label: 'Market Intel', icon: TrendingUp },
         ...(isAuthenticated && userRole === 'Admin' && onOpenAdmin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
     ];
